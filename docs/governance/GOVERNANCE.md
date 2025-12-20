@@ -28,3 +28,8 @@ OpenTrusty is under the MIT License. It will always remain free and open-source.
 ## 6. Release Gate: API Documentation Trustworthiness
 - A release of OpenTrusty MUST NOT be published if its public API documentation is incomplete, semantically inaccurate, or out of sync with the released code.
 - API documentation is considered a security-critical artifact and is subject to the same rigor as production code.
+
+### Policy
+1.  **Code-Driven**: All API specifications must be generated directly from source code annotations. Manual edits to `swagger.json` are prohibited.
+2.  **Freshness Guarantee**: The generated specification in the repository must byte-for-byte match the specification generated from the current HEAD commit.
+3.  **No Exceptions**: The release pipeline must enforcing this check. If the check fails, the release is blocked.

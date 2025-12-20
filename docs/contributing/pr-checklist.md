@@ -39,3 +39,4 @@ Use this checklist to review Pull Requests. If any answer is "NO", the PR should
 ## 7. Development Practices
 - [ ] **7.1** Is business logic isolated in the Domain layer (not in HTTP handlers)?
 - [ ] **7.2** Are external dependencies justified and minimal?
+- [ ] **7.3** Did you run `make docs-gen` and commit the updated `swagger.json` (if APIs changed)?
