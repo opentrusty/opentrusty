@@ -1,0 +1,547 @@
+package postgres
+
+import (
+	"context"
+	"database/sql"
+	"encoding/json"
+	"fmt"
+	"time"
+
+	"github.com/opentrusty/opentrusty/internal/authz"
+)
+
+// ProjectRepository implements authz.ProjectRepository
+type ProjectRepository struct {
+	db *DB
+}
+
+// NewProjectRepository creates a new project repository
+func NewProjectRepository(db *DB) *ProjectRepository {
+	return &ProjectRepository{db: db}
+}
+
+// Create creates a new project
+func (r *ProjectRepository) Create(project *authz.Project) error {
+	ctx := context.Background()
+
+	_, err := r.db.pool.Exec(ctx, `
+		INSERT INTO projects (
+			id, name, description, owner_id, created_at, updated_at
+		) VALUES ($1, $2, $3, $4, $5, $6)
+	`,
+		project.ID, project.Name, project.Description, project.OwnerID,
+		project.CreatedAt, project.UpdatedAt,
+	)
+
+	if err != nil {
+		return fmt.Errorf("failed to create project: %w", err)
+	}
+
+	return nil
+}
+
+// GetByID retrieves a project by ID
+func (r *ProjectRepository) GetByID(id string) (*authz.Project, error) {
+	ctx := context.Background()
+
+	var project authz.Project
+	var deletedAt sql.NullTime
+
+	err := r.db.pool.QueryRow(ctx, `
+		SELECT id, name, description, owner_id, created_at, updated_at, deleted_at
+		FROM projects
+		WHERE id = $1 AND deleted_at IS NULL
+	`, id).Scan(
+		&project.ID, &project.Name, &project.Description, &project.OwnerID,
+		&project.CreatedAt, &project.UpdatedAt, &deletedAt,
+	)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, authz.ErrProjectNotFound
+		}
+		return nil, fmt.Errorf("failed to get project: %w", err)
+	}
+
+	if deletedAt.Valid {
+		project.DeletedAt = &deletedAt.Time
+	}
+
+	return &project, nil
+}
+
+// GetByName retrieves a project by name
+func (r *ProjectRepository) GetByName(name string) (*authz.Project, error) {
+	ctx := context.Background()
+
+	var project authz.Project
+	var deletedAt sql.NullTime
+
+	err := r.db.pool.QueryRow(ctx, `
+		SELECT id, name, description, owner_id, created_at, updated_at, deleted_at
+		FROM projects
+		WHERE name = $1 AND deleted_at IS NULL
+	`, name).Scan(
+		&project.ID, &project.Name, &project.Description, &project.OwnerID,
+		&project.CreatedAt, &project.UpdatedAt, &deletedAt,
+	)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, authz.ErrProjectNotFound
+		}
+		return nil, fmt.Errorf("failed to get project: %w", err)
+	}
+
+	if deletedAt.Valid {
+		project.DeletedAt = &deletedAt.Time
+	}
+
+	return &project, nil
+}
+
+// Update updates project information
+func (r *ProjectRepository) Update(project *authz.Project) error {
+	ctx := context.Background()
+
+	result, err := r.db.pool.Exec(ctx, `
+		UPDATE projects SET
+			name = $2,
+			description = $3
+		WHERE id = $1 AND deleted_at IS NULL
+	`,
+		project.ID, project.Name, project.Description,
+	)
+
+	if err != nil {
+		return fmt.Errorf("failed to update project: %w", err)
+	}
+
+	if result.RowsAffected() == 0 {
+		return authz.ErrProjectNotFound
+	}
+
+	return nil
+}
+
+// Delete soft-deletes a project
+func (r *ProjectRepository) Delete(id string) error {
+	ctx := context.Background()
+
+	result, err := r.db.pool.Exec(ctx, `
+		UPDATE projects SET deleted_at = $2
+		WHERE id = $1 AND deleted_at IS NULL
+	`, id, time.Now())
+
+	if err != nil {
+		return fmt.Errorf("failed to delete project: %w", err)
+	}
+
+	if result.RowsAffected() == 0 {
+		return authz.ErrProjectNotFound
+	}
+
+	return nil
+}
+
+// ListByOwner retrieves all projects owned by a user
+func (r *ProjectRepository) ListByOwner(ownerID string) ([]*authz.Project, error) {
+	ctx := context.Background()
+
+	rows, err := r.db.pool.Query(ctx, `
+		SELECT id, name, description, owner_id, created_at, updated_at, deleted_at
+		FROM projects
+		WHERE owner_id = $1 AND deleted_at IS NULL
+	`, ownerID)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to list projects: %w", err)
+	}
+	defer rows.Close()
+
+	var projects []*authz.Project
+
+	for rows.Next() {
+		var project authz.Project
+		var deletedAt sql.NullTime
+
+		if err := rows.Scan(
+			&project.ID, &project.Name, &project.Description, &project.OwnerID,
+			&project.CreatedAt, &project.UpdatedAt, &deletedAt,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan project: %w", err)
+		}
+
+		if deletedAt.Valid {
+			project.DeletedAt = &deletedAt.Time
+		}
+
+		projects = append(projects, &project)
+	}
+
+	return projects, nil
+}
+
+// ListByUser retrieves all projects a user has access to
+func (r *ProjectRepository) ListByUser(userID string) ([]*authz.Project, error) {
+	ctx := context.Background()
+
+	rows, err := r.db.pool.Query(ctx, `
+		SELECT DISTINCT p.id, p.name, p.description, p.owner_id, p.created_at, p.updated_at, p.deleted_at
+		FROM projects p
+		INNER JOIN user_project_roles upr ON p.id = upr.project_id
+		WHERE upr.user_id = $1 AND p.deleted_at IS NULL
+	`, userID)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to list user projects: %w", err)
+	}
+	defer rows.Close()
+
+	var projects []*authz.Project
+
+	for rows.Next() {
+		var project authz.Project
+		var deletedAt sql.NullTime
+
+		if err := rows.Scan(
+			&project.ID, &project.Name, &project.Description, &project.OwnerID,
+			&project.CreatedAt, &project.UpdatedAt, &deletedAt,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan project: %w", err)
+		}
+
+		if deletedAt.Valid {
+			project.DeletedAt = &deletedAt.Time
+		}
+
+		projects = append(projects, &project)
+	}
+
+	return projects, nil
+}
+
+// RoleRepository implements authz.RoleRepository
+type RoleRepository struct {
+	db *DB
+}
+
+// NewRoleRepository creates a new role repository
+func NewRoleRepository(db *DB) *RoleRepository {
+	return &RoleRepository{db: db}
+}
+
+// Create creates a new role
+func (r *RoleRepository) Create(role *authz.Role) error {
+	ctx := context.Background()
+
+	permissions, err := json.Marshal(role.Permissions)
+	if err != nil {
+		return fmt.Errorf("failed to marshal permissions: %w", err)
+	}
+
+	_, err = r.db.pool.Exec(ctx, `
+		INSERT INTO roles (
+			id, name, description, permissions, created_at, updated_at
+		) VALUES ($1, $2, $3, $4, $5, $6)
+	`,
+		role.ID, role.Name, role.Description, permissions,
+		role.CreatedAt, role.UpdatedAt,
+	)
+
+	if err != nil {
+		return fmt.Errorf("failed to create role: %w", err)
+	}
+
+	return nil
+}
+
+// GetByID retrieves a role by ID
+func (r *RoleRepository) GetByID(id string) (*authz.Role, error) {
+	ctx := context.Background()
+
+	var role authz.Role
+	var permissionsJSON []byte
+
+	err := r.db.pool.QueryRow(ctx, `
+		SELECT id, name, description, permissions, created_at, updated_at
+		FROM roles
+		WHERE id = $1
+	`, id).Scan(
+		&role.ID, &role.Name, &role.Description, &permissionsJSON,
+		&role.CreatedAt, &role.UpdatedAt,
+	)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, authz.ErrRoleNotFound
+		}
+		return nil, fmt.Errorf("failed to get role: %w", err)
+	}
+
+	if err := json.Unmarshal(permissionsJSON, &role.Permissions); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal permissions: %w", err)
+	}
+
+	return &role, nil
+}
+
+// GetByName retrieves a role by name
+func (r *RoleRepository) GetByName(name string) (*authz.Role, error) {
+	ctx := context.Background()
+
+	var role authz.Role
+	var permissionsJSON []byte
+
+	err := r.db.pool.QueryRow(ctx, `
+		SELECT id, name, description, permissions, created_at, updated_at
+		FROM roles
+		WHERE name = $1
+	`, name).Scan(
+		&role.ID, &role.Name, &role.Description, &permissionsJSON,
+		&role.CreatedAt, &role.UpdatedAt,
+	)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, authz.ErrRoleNotFound
+		}
+		return nil, fmt.Errorf("failed to get role: %w", err)
+	}
+
+	if err := json.Unmarshal(permissionsJSON, &role.Permissions); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal permissions: %w", err)
+	}
+
+	return &role, nil
+}
+
+// Update updates role information
+func (r *RoleRepository) Update(role *authz.Role) error {
+	ctx := context.Background()
+
+	permissions, err := json.Marshal(role.Permissions)
+	if err != nil {
+		return fmt.Errorf("failed to marshal permissions: %w", err)
+	}
+
+	result, err := r.db.pool.Exec(ctx, `
+		UPDATE roles SET
+			description = $2,
+			permissions = $3,
+			updated_at = $4
+		WHERE id = $1
+	`,
+		role.ID, role.Description, permissions, time.Now(),
+	)
+
+	if err != nil {
+		return fmt.Errorf("failed to update role: %w", err)
+	}
+
+	if result.RowsAffected() == 0 {
+		return authz.ErrRoleNotFound
+	}
+
+	return nil
+}
+
+// Delete deletes a role
+func (r *RoleRepository) Delete(id string) error {
+	ctx := context.Background()
+
+	result, err := r.db.pool.Exec(ctx, `
+		DELETE FROM roles WHERE id = $1
+	`, id)
+
+	if err != nil {
+		return fmt.Errorf("failed to delete role: %w", err)
+	}
+
+	if result.RowsAffected() == 0 {
+		return authz.ErrRoleNotFound
+	}
+
+	return nil
+}
+
+// List retrieves all roles
+func (r *RoleRepository) List() ([]*authz.Role, error) {
+	ctx := context.Background()
+
+	rows, err := r.db.pool.Query(ctx, `
+		SELECT id, name, description, permissions, created_at, updated_at
+		FROM roles
+	`)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to list roles: %w", err)
+	}
+	defer rows.Close()
+
+	var roles []*authz.Role
+
+	for rows.Next() {
+		var role authz.Role
+		var permissionsJSON []byte
+
+		if err := rows.Scan(
+			&role.ID, &role.Name, &role.Description, &permissionsJSON,
+			&role.CreatedAt, &role.UpdatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan role: %w", err)
+		}
+
+		if err := json.Unmarshal(permissionsJSON, &role.Permissions); err != nil {
+			continue
+		}
+
+		roles = append(roles, &role)
+	}
+
+	return roles, nil
+}
+
+// UserProjectRoleRepository implements authz.UserProjectRoleRepository
+type UserProjectRoleRepository struct {
+	db *DB
+}
+
+// NewUserProjectRoleRepository creates a new user-project-role repository
+func NewUserProjectRoleRepository(db *DB) *UserProjectRoleRepository {
+	return &UserProjectRoleRepository{db: db}
+}
+
+// Grant assigns a role to a user in a project
+func (r *UserProjectRoleRepository) Grant(upr *authz.UserProjectRole) error {
+	ctx := context.Background()
+
+	var grantedBy sql.NullString
+	if upr.GrantedBy != "" {
+		grantedBy = sql.NullString{String: upr.GrantedBy, Valid: true}
+	}
+
+	_, err := r.db.pool.Exec(ctx, `
+		INSERT INTO user_project_roles (
+			id, user_id, project_id, role_id, granted_at, granted_by
+		) VALUES ($1, $2, $3, $4, $5, $6)
+		ON CONFLICT (user_id, project_id, role_id) DO NOTHING
+	`,
+		upr.ID, upr.UserID, upr.ProjectID, upr.RoleID, upr.GrantedAt, grantedBy,
+	)
+
+	if err != nil {
+		return fmt.Errorf("failed to grant role: %w", err)
+	}
+
+	return nil
+}
+
+// Revoke removes a role from a user in a project
+func (r *UserProjectRoleRepository) Revoke(userID, projectID, roleID string) error {
+	ctx := context.Background()
+
+	_, err := r.db.pool.Exec(ctx, `
+		DELETE FROM user_project_roles
+		WHERE user_id = $1 AND project_id = $2 AND role_id = $3
+	`, userID, projectID, roleID)
+
+	if err != nil {
+		return fmt.Errorf("failed to revoke role: %w", err)
+	}
+
+	return nil
+}
+
+// GetUserRolesInProject retrieves all roles a user has in a project
+func (r *UserProjectRoleRepository) GetUserRolesInProject(userID, projectID string) ([]*authz.Role, error) {
+	ctx := context.Background()
+
+	rows, err := r.db.pool.Query(ctx, `
+		SELECT r.id, r.name, r.description, r.permissions, r.created_at, r.updated_at
+		FROM roles r
+		INNER JOIN user_project_roles upr ON r.id = upr.role_id
+		WHERE upr.user_id = $1 AND upr.project_id = $2
+	`, userID, projectID)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user roles: %w", err)
+	}
+	defer rows.Close()
+
+	var roles []*authz.Role
+
+	for rows.Next() {
+		var role authz.Role
+		var permissionsJSON []byte
+
+		if err := rows.Scan(
+			&role.ID, &role.Name, &role.Description, &permissionsJSON,
+			&role.CreatedAt, &role.UpdatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan role: %w", err)
+		}
+
+		if err := json.Unmarshal(permissionsJSON, &role.Permissions); err != nil {
+			continue
+		}
+
+		roles = append(roles, &role)
+	}
+
+	return roles, nil
+}
+
+// GetUserProjects retrieves all projects a user has access to
+func (r *UserProjectRoleRepository) GetUserProjects(userID string) ([]*authz.Project, error) {
+	// Reusing logic from ProjectRepository since it's the same query
+	pr := NewProjectRepository(r.db)
+	return pr.ListByUser(userID)
+}
+
+// GetProjectUsers retrieves all users with access to a project
+func (r *UserProjectRoleRepository) GetProjectUsers(projectID string) ([]string, error) {
+	ctx := context.Background()
+
+	rows, err := r.db.pool.Query(ctx, `
+		SELECT DISTINCT user_id
+		FROM user_project_roles
+		WHERE project_id = $1
+	`, projectID)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to get project users: %w", err)
+	}
+	defer rows.Close()
+
+	var userIDs []string
+
+	for rows.Next() {
+		var userID string
+		if err := rows.Scan(&userID); err != nil {
+			return nil, fmt.Errorf("failed to scan user ID: %w", err)
+		}
+		userIDs = append(userIDs, userID)
+	}
+
+	return userIDs, nil
+}
+
+// HasAccess checks if a user has access to a project
+func (r *UserProjectRoleRepository) HasAccess(userID, projectID string) (bool, error) {
+	ctx := context.Background()
+
+	var exists bool
+	err := r.db.pool.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM user_project_roles
+			WHERE user_id = $1 AND project_id = $2
+		)
+	`, userID, projectID).Scan(&exists)
+
+	if err != nil {
+		return false, fmt.Errorf("failed to check access: %w", err)
+	}
+
+	return exists, nil
+}

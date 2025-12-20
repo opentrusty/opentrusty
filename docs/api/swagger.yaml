@@ -1,0 +1,819 @@
+basePath: /api/v1
+definitions:
+  github_com_opentrusty_opentrusty_internal_identity.Profile:
+    properties:
+      familyName:
+        type: string
+      fullName:
+        type: string
+      givenName:
+        type: string
+      locale:
+        type: string
+      nickname:
+        type: string
+      picture:
+        type: string
+      timezone:
+        type: string
+    type: object
+  github_com_opentrusty_opentrusty_internal_oauth2.Error:
+    properties:
+      error:
+        type: string
+      error_description:
+        type: string
+      error_uri:
+        type: string
+      state:
+        type: string
+    type: object
+  github_com_opentrusty_opentrusty_internal_oauth2.TokenResponse:
+    properties:
+      access_token:
+        type: string
+      expires_in:
+        type: integer
+      id_token:
+        description: Added for OIDC (Phase II.1)
+        type: string
+      refresh_token:
+        type: string
+      scope:
+        type: string
+      token_type:
+        type: string
+    type: object
+  github_com_opentrusty_opentrusty_internal_oidc.DiscoveryMetadata:
+    properties:
+      authorization_endpoint:
+        type: string
+      grant_types_supported:
+        items:
+          type: string
+        type: array
+      id_token_signing_alg_values_supported:
+        items:
+          type: string
+        type: array
+      issuer:
+        type: string
+      jwks_uri:
+        type: string
+      response_types_supported:
+        items:
+          type: string
+        type: array
+      scopes_supported:
+        items:
+          type: string
+        type: array
+      subject_types_supported:
+        items:
+          type: string
+        type: array
+      token_endpoint:
+        type: string
+    type: object
+  github_com_opentrusty_opentrusty_internal_oidc.JWK:
+    properties:
+      alg:
+        type: string
+      e:
+        type: string
+      kid:
+        type: string
+      kty:
+        type: string
+      "n":
+        type: string
+      use:
+        type: string
+    type: object
+  github_com_opentrusty_opentrusty_internal_oidc.JWKS:
+    properties:
+      keys:
+        items:
+          $ref: '#/definitions/github_com_opentrusty_opentrusty_internal_oidc.JWK'
+        type: array
+    type: object
+  github_com_opentrusty_opentrusty_internal_tenant.Tenant:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      status:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  github_com_opentrusty_opentrusty_internal_tenant.TenantUserRole:
+    properties:
+      granted_at:
+        type: string
+      granted_by:
+        type: string
+      id:
+        type: string
+      role:
+        type: string
+      tenant_id:
+        type: string
+      user_id:
+        type: string
+    type: object
+  internal_transport_http.AssignRoleRequest:
+    properties:
+      role:
+        example: member
+        type: string
+    required:
+    - role
+    type: object
+  internal_transport_http.ChangePasswordRequest:
+    properties:
+      new_password:
+        type: string
+      old_password:
+        type: string
+    required:
+    - new_password
+    - old_password
+    type: object
+  internal_transport_http.CreateTenantRequest:
+    properties:
+      id:
+        example: tenant-1
+        type: string
+      name:
+        example: My Corporation
+        type: string
+    required:
+    - id
+    - name
+    type: object
+  internal_transport_http.LoginRequest:
+    properties:
+      email:
+        example: user@example.com
+        type: string
+      password:
+        example: secret123
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  internal_transport_http.ProvisionUserRequest:
+    properties:
+      email:
+        example: user@example.com
+        type: string
+      family_name:
+        example: Doe
+        type: string
+      given_name:
+        example: John
+        type: string
+      password:
+        example: secret123
+        type: string
+      role:
+        example: admin
+        type: string
+    required:
+    - email
+    type: object
+  internal_transport_http.RegisterRequest:
+    properties:
+      email:
+        example: user@example.com
+        type: string
+      family_name:
+        example: Doe
+        type: string
+      given_name:
+        example: John
+        type: string
+      password:
+        example: secret123
+        type: string
+    required:
+    - email
+    - password
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: support@swagger.io
+    name: API Support
+    url: http://www.swagger.io/support
+  description: Production-grade Identity Provider
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  termsOfService: http://swagger.io/terms/
+  title: OpenTrusty API
+  version: 1.0.0
+paths:
+  /.well-known/openid-configuration:
+    get:
+      description: Returns OpenID Connect configuration metadata
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_opentrusty_opentrusty_internal_oidc.DiscoveryMetadata'
+      summary: OIDC Discovery
+      tags:
+      - OIDC
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticate user and create a session
+      parameters:
+      - description: Tenant ID
+        in: header
+        name: tenant_id
+        required: true
+        type: string
+      - description: Credentials
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_transport_http.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Login
+      tags:
+      - Auth
+  /auth/logout:
+    post:
+      description: Destroy the current session
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Logout
+      tags:
+      - Auth
+  /auth/me:
+    get:
+      description: Retrieve details of the currently logged-in user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Get Current User
+      tags:
+      - User
+  /auth/register:
+    post:
+      consumes:
+      - application/json
+      description: Register a new user in the current tenant
+      parameters:
+      - description: Tenant ID
+        in: header
+        name: tenant_id
+        required: true
+        type: string
+      - description: Registration Data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_transport_http.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Register a new user
+      tags:
+      - Auth
+  /health:
+    get:
+      description: Checks if the service is up and running
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Health Check
+      tags:
+      - System
+  /jwks.json:
+    get:
+      description: Returns the JSON Web Key Set for verify signing
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_opentrusty_opentrusty_internal_oidc.JWKS'
+      summary: JWKS
+      tags:
+      - OIDC
+  /oauth2/authorize:
+    get:
+      consumes:
+      - application/json
+      description: Starts the authorization flow (RFC 6749)
+      parameters:
+      - description: Client ID
+        in: query
+        name: client_id
+        required: true
+        type: string
+      - description: Redirect URI
+        in: query
+        name: redirect_uri
+        required: true
+        type: string
+      - description: Response Type (must be 'code')
+        in: query
+        name: response_type
+        required: true
+        type: string
+      - description: Scopes
+        in: query
+        name: scope
+        type: string
+      - description: Random State
+        in: query
+        name: state
+        required: true
+        type: string
+      - description: Nonce (OIDC)
+        in: query
+        name: nonce
+        type: string
+      - description: PKCE Challenge
+        in: query
+        name: code_challenge
+        type: string
+      - description: PKCE Method (S256)
+        in: query
+        name: code_challenge_method
+        type: string
+      produces:
+      - text/html
+      responses:
+        "302":
+          description: Redirects to callback or login
+          schema:
+            type: string
+      summary: OAuth2 Authorize Endpoint
+      tags:
+      - OAuth2
+  /oauth2/revoke:
+    post:
+      consumes:
+      - application/x-www-form-urlencoded
+      description: Revoke a refresh token (RFC 7009)
+      parameters:
+      - description: Token to revoke
+        in: formData
+        name: token
+        required: true
+        type: string
+      - description: Client ID
+        in: formData
+        name: client_id
+        type: string
+      - description: Client Secret
+        in: formData
+        name: client_secret
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_opentrusty_opentrusty_internal_oauth2.Error'
+      summary: Revoke Token
+      tags:
+      - OAuth2
+  /oauth2/token:
+    post:
+      consumes:
+      - application/x-www-form-urlencoded
+      description: Exchange code for access token (RFC 6749)
+      parameters:
+      - description: Grant Type (authorization_code or refresh_token)
+        in: formData
+        name: grant_type
+        required: true
+        type: string
+      - description: Authorization Code (for authorization_code grant)
+        in: formData
+        name: code
+        type: string
+      - description: Redirect URI
+        in: formData
+        name: redirect_uri
+        type: string
+      - description: Client ID (if not Basic Auth)
+        in: formData
+        name: client_id
+        type: string
+      - description: Client Secret (if not Basic Auth)
+        in: formData
+        name: client_secret
+        type: string
+      - description: PKCE Verifier
+        in: formData
+        name: code_verifier
+        type: string
+      - description: Refresh Token (for refresh_token grant)
+        in: formData
+        name: refresh_token
+        type: string
+      - description: Scope
+        in: formData
+        name: scope
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_opentrusty_opentrusty_internal_oauth2.TokenResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_opentrusty_opentrusty_internal_oauth2.Error'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_opentrusty_opentrusty_internal_oauth2.Error'
+      summary: OAuth2 Token Endpoint
+      tags:
+      - OAuth2
+  /tenants:
+    post:
+      consumes:
+      - application/json
+      description: Create a new tenant
+      parameters:
+      - description: Tenant Data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_transport_http.CreateTenantRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/github_com_opentrusty_opentrusty_internal_tenant.Tenant'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Create Tenant
+      tags:
+      - Tenant
+  /tenants/{tenantID}/users:
+    get:
+      description: List all users and their roles in a tenant
+      parameters:
+      - description: Tenant ID
+        in: path
+        name: tenantID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/github_com_opentrusty_opentrusty_internal_tenant.TenantUserRole'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: List Tenant Users
+      tags:
+      - Tenant
+    post:
+      consumes:
+      - application/json
+      description: Create a user and assign a role within a tenant
+      parameters:
+      - description: Tenant ID
+        in: path
+        name: tenantID
+        required: true
+        type: string
+      - description: User Data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_transport_http.ProvisionUserRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Provision Tenant User
+      tags:
+      - Tenant
+  /tenants/{tenantID}/users/{userID}/roles:
+    post:
+      consumes:
+      - application/json
+      description: Assign a role to a user within a tenant
+      parameters:
+      - description: Tenant ID
+        in: path
+        name: tenantID
+        required: true
+        type: string
+      - description: User ID
+        in: path
+        name: userID
+        required: true
+        type: string
+      - description: Role Data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_transport_http.AssignRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Assign Role
+      tags:
+      - Tenant
+  /tenants/{tenantID}/users/{userID}/roles/{role}:
+    delete:
+      description: Revoke a role from a user within a tenant
+      parameters:
+      - description: Tenant ID
+        in: path
+        name: tenantID
+        required: true
+        type: string
+      - description: User ID
+        in: path
+        name: userID
+        required: true
+        type: string
+      - description: Role
+        in: path
+        name: role
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Revoke Role
+      tags:
+      - Tenant
+  /user/change-password:
+    post:
+      consumes:
+      - application/json
+      description: Update the password for the current user
+      parameters:
+      - description: Password Change Data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_transport_http.ChangePasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Change Password
+      tags:
+      - User
+  /user/profile:
+    get:
+      description: Retrieve the profile of the current user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Get User Profile
+      tags:
+      - User
+    put:
+      consumes:
+      - application/json
+      description: Update the profile information
+      parameters:
+      - description: New Profile
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_opentrusty_opentrusty_internal_identity.Profile'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Update Profile
+      tags:
+      - User
+securityDefinitions:
+  CookieAuth:
+    in: cookie
+    name: session_id
+    type: apiKey
+swagger: "2.0"

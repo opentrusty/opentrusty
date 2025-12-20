@@ -1,0 +1,28 @@
+name: Publish API Docs
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+      - name: Install Swag
+        run: go install github.com/swaggo/swag/cmd/swag@latest
+      - name: Generate Docs
+        run: |
+          export PATH=$PATH:$(go env GOPATH)/bin
+          make docs-gen
+      - name: Publish Docs
+        run: |
+          VERSION=${GITHUB_REF_NAME}
+          mkdir -p public/api/$VERSION
+          cp docs/api/swagger.json public/api/$VERSION/openapi.json
+          # Simulate publishing
+          echo "Published OpenAPI spec for $VERSION"
