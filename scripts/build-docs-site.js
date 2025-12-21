@@ -22,7 +22,6 @@ const HTML_TEMPLATE = `
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/redoc/bundles/redoc.standalone.js"></script>
     <script>
-        // Adjust paths based on whether we are in a versioned directory or root
         var API_MODE = "{{is_api}}" === "true";
         var basePath = API_MODE ? ".." : "."; 
     </script>
@@ -44,7 +43,6 @@ const HTML_TEMPLATE = `
             display: flex;
             min-height: 100vh;
         }
-        /* Glassmorphism Sidebar */
         .sidebar {
             width: 300px;
             background: var(--sidebar-bg);
@@ -54,7 +52,7 @@ const HTML_TEMPLATE = `
             position: fixed;
             height: 100vh;
             overflow-y: auto;
-            z-index: 10;
+            z-index: 1000;
         }
         .logo {
             font-family: 'Montserrat', sans-serif;
@@ -91,11 +89,11 @@ const HTML_TEMPLATE = `
             flex: 1;
             padding: 4rem;
             max-width: 1000px;
+            min-height: 100vh;
         }
         .markdown-body { line-height: 1.7; }
         .markdown-body h1 { font-family: 'Montserrat', sans-serif; margin-bottom: 2rem; color: var(--primary); }
-        .markdown-body pre { background: #1e293b; padding: 1rem; border-radius: 8px; overflow-x: auto; border: 1px solid var(--border); }
-        .markdown-body code { font-family: 'ui-monospace', monospace; background: rgba(255,255,255,0.1); padding: 0.2rem 0.4rem; border-radius: 4px; }
+        .markdown-body pre { background: #1e293b; padding: 1rem; border-radius: 8px; border: 1px solid var(--border); overflow-x: auto; }
         
         .version-selector {
             margin-top: auto;
@@ -122,34 +120,23 @@ const HTML_TEMPLATE = `
             </svg>
             OpenTrusty
         </a>
-        
-        <nav>
-            {{nav}}
-        </nav>
-
+        <nav>{{nav}}</nav>
         <div class="version-selector">
             <div class="nav-title">Version</div>
-            <select id="v-select" onchange="window.location.href=this.value">
-                {{versions}}
-            </select>
+            <select id="v-select" onchange="window.location.href=this.value">{{versions}}</select>
         </div>
     </div>
-
     <main class="content-wrapper">
-        <div id="content" class="markdown-body">
-            {{content}}
-        </div>
+        <div id="content" class="markdown-body">{{content}}</div>
     </main>
-
     <script id="md-content" type="text/template">{{raw_content}}</script>
     <script>
         var raw = document.getElementById('md-content').textContent;
-        if (raw && raw.length > 0) {
+        if (raw && raw.trim().length > 0) {
             document.getElementById('content').innerHTML = marked.parse(raw);
         }
-
-        if ("{{is_api}}" === "true") {
-            var specPath = '../openapi.json';
+        if (API_MODE) {
+            var specPath = basePath + '/openapi.json';
             Redoc.init(specPath, {
                 theme: { colors: { primary: { main: '#4A90E2' } } }
             }, document.getElementById('content'));
@@ -171,7 +158,8 @@ function generateNav(currentFile) {
             var isActive = item.file === currentFile;
             var href;
             if (item.file.indexOf('.md') !== -1) {
-                href = prefix + item.file.replace('docs/', '').replace('.md', '.html').replace(/\//g, '_');
+                // Remove leading slash if any and replace slashes with underscores
+                href = prefix + item.file.replace(/\.md$/, '.html').replace(/\//g, '_');
             } else if (item.file.indexOf('api/index.html') !== -1) {
                 href = prefix + 'api/index.html';
             } else {
@@ -179,7 +167,6 @@ function generateNav(currentFile) {
             }
             return '<a href="' + href + '" class="nav-link ' + (isActive ? 'active' : '') + '">' + item.title + '</a>';
         }).join('');
-
         return '<div class="nav-section"><div class="nav-title">' + section.title + '</div>' + items + '</div>';
     }).join('');
 }
@@ -195,23 +182,21 @@ function build() {
 
     CONFIG.sections.forEach(function (section) {
         section.items.forEach(function (item) {
+            var h = HTML_TEMPLATE.replace(/{{nav}}/g, generateNav(item.file)).replace(/{{versions}}/g, options);
+
             if (item.file.indexOf('.md') !== -1) {
                 var fullPath = path.join(REPO_ROOT, item.file);
                 if (!fs.existsSync(fullPath)) {
                     console.log('Warning: File not found: ' + fullPath);
                     return;
                 }
-
                 var raw = fs.readFileSync(fullPath, 'utf8');
-                var slug = item.file.replace('.md', '.html').replace(/\//g, '_');
+                var slug = item.file.replace(/\.md$/, '.html').replace(/\//g, '_');
 
-                var h = HTML_TEMPLATE
-                    .replace('{{title}}', item.title)
-                    .replace('{{nav}}', generateNav(item.file))
-                    .replace('{{content}}', '')
-                    .replace('{{raw_content}}', raw)
-                    .replace('{{is_api}}', 'false')
-                    .replace('{{versions}}', options);
+                h = h.replace(/{{title}}/g, item.title)
+                    .replace(/{{content}}/g, '')
+                    .replace(/{{raw_content}}/g, raw)
+                    .replace(/{{is_api}}/g, 'false');
 
                 fs.writeFileSync(path.join(OUTPUT_DIR, slug), h);
                 console.log('Generated: ' + slug);
@@ -219,13 +204,10 @@ function build() {
                 var apiDir = path.join(OUTPUT_DIR, 'api');
                 if (!fs.existsSync(apiDir)) fs.mkdirSync(apiDir, { recursive: true });
 
-                var h = HTML_TEMPLATE
-                    .replace('{{title}}', item.title)
-                    .replace('{{nav}}', generateNav(item.file))
-                    .replace('{{content}}', '')
-                    .replace('{{raw_content}}', '')
-                    .replace('{{is_api}}', 'true')
-                    .replace('{{versions}}', options);
+                h = h.replace(/{{title}}/g, item.title)
+                    .replace(/{{content}}/g, '')
+                    .replace(/{{raw_content}}/g, '')
+                    .replace(/{{is_api}}/g, 'true');
 
                 fs.writeFileSync(path.join(apiDir, 'index.html'), h);
                 console.log('Generated: api/index.html');
@@ -234,7 +216,7 @@ function build() {
     });
 
     var first = CONFIG.sections[0].items[0];
-    var firstSlug = first.file.replace('.md', '.html').replace(/\//g, '_');
+    var firstSlug = first.file.replace(/\.md$/, '.html').replace(/\//g, '_');
     fs.copyFileSync(path.join(OUTPUT_DIR, firstSlug), path.join(OUTPUT_DIR, 'index.html'));
 }
 
