@@ -7,6 +7,7 @@ const CONFIG = require('../docs/docs-config');
 const REPO_ROOT = path.resolve(__dirname, '..');
 const OUTPUT_DIR = path.resolve(REPO_ROOT, 'build_docs');
 const VERSION = process.env.DOCS_VERSION || 'latest';
+const ALL_VERSIONS = (process.env.ALL_VERSIONS || VERSION).split(',');
 
 // Ensure marked is available for markdown parsing
 // We'll use a cdn-based approach in the template for simplicity OR expect it to be installed
@@ -26,6 +27,11 @@ const HTML_TEMPLATE = `
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script>
+        // Adjust paths based on whether we are in a versioned directory or root
+        const isRoot = window.location.pathname === '/' || window.location.pathname === '/index.html';
+        const basePath = isRoot ? '' : '.'; 
+    </script>
     <style>
         :root {
             --primary: #4A90E2;
@@ -155,10 +161,15 @@ function generateNav(currentFile) {
     return CONFIG.sections.map(section => {
         const items = section.items.map(item => {
             const isActive = item.file === currentFile;
-            // Handle cross-directory links correctly in the static output
-            // For now, we'll assume a flat build structure or relative paths
-            const slug = item.file.replace('.md', '.html').replace(/\//g, '_');
-            return `<a href="${slug}" class="nav-link ${isActive ? 'active' : ''}">${item.title}</a>`;
+            let href;
+            if (item.file.endsWith('.md')) {
+                href = item.file.replace('docs/', '').replace('.md', '.html').replace(/\//g, '_');
+            } else {
+                // For non-md files (like api/index.html), link directly
+                // We keep the structure relative to the deployment root of the version
+                href = item.file.replace('docs/', '');
+            }
+            return `<a href="${href}" class="nav-link ${isActive ? 'active' : ''}">${item.title}</a>`;
         }).join('');
 
         return `
@@ -192,11 +203,15 @@ function build() {
                     .replace('{{content}}', '') // Client side marked will handle it if we pass raw
                     .replace('{{raw_content}}', content.replace(/`/g, '\\`').replace(/\$/g, '\\$'));
 
-                // For now, placeholder for version list
-                html = html.replace('{{versions}}', `<option value="#">${VERSION}</option>`);
+                const versionOptions = ALL_VERSIONS.map(v => {
+                    const selected = v === VERSION ? 'selected' : '';
+                    const vPath = v === 'latest' ? '/' : `/versions/${v}/`;
+                    return `<option value="${vPath}" ${selected}>${v}</option>`;
+                }).join('');
+                html = html.replace('{{versions}}', versionOptions);
 
                 fs.writeFileSync(path.join(OUTPUT_DIR, slug), html);
-                console.log(`Generated: ${slug}`);
+                console.log(`Generated: ${slug} `);
             }
         });
     });

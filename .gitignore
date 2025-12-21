@@ -46,4 +46,7 @@ logs/
 
 # Temporary files
 tmp/
-temp/
+# Documentation build artifacts
+build_docs/
+build_output/
+public_history/

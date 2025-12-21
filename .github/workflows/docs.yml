@@ -58,6 +58,20 @@ jobs:
           fetch-depth: 0
         continue-on-error: true # Allow failure if branch doesn't exist yet
 
+      - name: Build Premium Documentation Portal
+        run: |
+          export DOCS_VERSION=${GITHUB_REF_NAME}
+          if [ -d "public_history/versions" ]; then
+            # Extract list of versions, add current one, sort and uniq
+            EXISTING=$(ls public_history/versions | paste -sd "," -)
+            export ALL_VERSIONS="${EXISTING},${GITHUB_REF_NAME}"
+          else
+            export ALL_VERSIONS="${GITHUB_REF_NAME}"
+          fi
+          node scripts/build-docs-site.js
+          # Move site artifacts to build_output
+          cp build_docs/*.html build_output/
+
       - name: Prepare Deployment Directory
         run: |
           # If public_history doesn't exist (fresh repo), create it

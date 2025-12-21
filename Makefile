@@ -48,7 +48,7 @@ bench:
 # Clean build artifacts
 clean:
 	@echo "Cleaning..."
-	@rm -rf $(BUILD_DIR)
+	@rm -rf $(BUILD_DIR) build_docs build_output
 
 # Development Setup (Docker)
 dev:
