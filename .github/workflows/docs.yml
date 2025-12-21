@@ -8,21 +8,88 @@ on:
 jobs:
   docs:
     runs-on: ubuntu-latest
+    # Permissions for Pages and Git operations
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
         with:
           go-version-file: 'go.mod'
+
       - name: Install Swag
         run: go install github.com/swaggo/swag/cmd/swag@latest
-      - name: Generate Docs
+
+      - name: Generate OpenAPI Spec
         run: |
           export PATH=$PATH:$(go env GOPATH)/bin
           make docs-gen
-      - name: Publish Docs
+
+      - name: Install ReDoc CLI
+        run: npm install -g redoc-cli
+
+      - name: Build ReDoc HTML
         run: |
           VERSION=${GITHUB_REF_NAME}
-          mkdir -p public/api/$VERSION
-          cp docs/api/swagger.json public/api/$VERSION/openapi.json
-          # Simulate publishing
-          echo "Published OpenAPI spec for $VERSION"
+          mkdir -p build_output
+          # Generate standalone HTML
+          redoc-cli bundle docs/api/swagger.json \
+            --output build_output/index.html \
+            --title "OpenTrusty API - $VERSION" \
+            --options.theme.colors.primary.main="#4A90E2"
+
+      - name: Checkout Documentation History
+        uses: actions/checkout@v5
+        with:
+          ref: gh-pages
+          path: public_history
+          fetch-depth: 0
+        continue-on-error: true # Allow failure if branch doesn't exist yet
+
+      - name: Prepare Deployment Directory
+        run: |
+          # If public_history doesn't exist (fresh repo), create it
+          if [ ! -d "public_history" ]; then
+            mkdir public_history
+            cd public_history
+            git init
+            git checkout -b gh-pages
+            cd ..
+          fi
+          
+          VERSION=${GITHUB_REF_NAME}
+          TARGET_DIR="public_history/versions/$VERSION"
+          
+          # Remove existing version if re-running tag
+          rm -rf "$TARGET_DIR"
+          mkdir -p "$TARGET_DIR"
+          
+          # Copy new build artifact
+          cp build_output/index.html "$TARGET_DIR/"
+          cp docs/api/swagger.json "$TARGET_DIR/openapi.json"
+
+      - name: Update Index and Persist History
+        run: |
+          # Rebuild the root index.html
+          ./scripts/generate-docs-index.sh "public_history"
+          
+          cd public_history
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          git add .
+          git commit -m "Deploy API Docs for ${GITHUB_REF_NAME}"
+          git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }} gh-pages
+
+      - name: Upload Pages Artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: "public_history"
+
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v4
