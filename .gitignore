@@ -50,3 +50,6 @@ tmp/
 build_docs/
 build_output/
 public_history/
+docs/api/docs.go
+docs/api/swagger.json
+docs/api/swagger.yaml

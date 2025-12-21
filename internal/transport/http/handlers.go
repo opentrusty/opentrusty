@@ -14,7 +14,7 @@
 
 // @title OpenTrusty API
 // @version DOCS_VERSION_PLACEHOLDER
-// @description Production-grade Identity Provider. [🏠 Back to Documentation Home](../../../index.html)
+// @description Production-grade Identity Provider. [🏠 Back to Documentation Home](../index.html)
 // @termsOfService https://opentrusty.org/terms/
 
 // @contact.name OpenTrusty Support

@@ -49,6 +49,7 @@ bench:
 clean:
 	@echo "Cleaning..."
 	@rm -rf $(BUILD_DIR) build_docs build_output
+	@rm -f docs/api/docs.go docs/api/swagger.json docs/api/swagger.yaml
 
 # Development Setup (Docker)
 dev:
