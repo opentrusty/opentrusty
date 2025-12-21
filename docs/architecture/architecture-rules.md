@@ -48,3 +48,22 @@ This document outlines the normative architectural rules for the OpenTrusty proj
 
 - **7.1. Clean Architecture**: Business logic MUST reside in the Domain layer (`internal/{domain}`). It MUST NOT leak into the Transport layer (HTTP Handlers).
 - **7.2. Dependencies**: The project SHOULD favor the Go Standard Library. External dependencies MUST be justified by significant complexity reduction or security necessity.
+
+## 8. Docs Governance
+
+OpenTrusty documentation is classified into three tiers to ensure clarity of commitment and professional release management:
+
+### 1. Versioned Contract Docs
+Documentation that defines the behavior, security properties, and integration contracts of a specific release. Permanent and versioned alongside the code.
+- **Location**: `docs/api/`, `docs/architecture/`, `docs/security/`, `docs/fundamentals/`, `docs/domain/`, `docs/deployment/`, `docs/audit/`, `docs/operations/`.
+- **Policy**: Must be published per release. Any change to these requires a corresponding logic verification or conscious architectural decision.
+
+### 2. Governance Docs
+Documents defining the "rules of the game" and project management.
+- **Location**: `docs/governance/`, `GOVERNANCE.md`, `CONTRIBUTING.md`.
+- **Policy**: "Latest Only" - reflects current project state and policies regardless of binary version.
+
+### 3. Internal / Historical Docs
+Working documents, internal plans, and historical context that are not part of the public product.
+- **Location**: `docs/_internal/`.
+- **Policy**: Never published to the public documentation site. Used for developer context and audit trails of decision-making.

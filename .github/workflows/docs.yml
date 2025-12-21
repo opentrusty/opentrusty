@@ -36,12 +36,19 @@ jobs:
       - name: Build ReDoc HTML
         run: |
           VERSION=${GITHUB_REF_NAME}
-          mkdir -p build_output
-          # Generate standalone HTML
+          mkdir -p build_output/api
+          # Generate standalone HTML for API
           redoc-cli bundle docs/api/swagger.json \
-            --output build_output/index.html \
+            --output build_output/api/index.html \
             --title "OpenTrusty API - $VERSION" \
             --options.theme.colors.primary.main="#4A90E2"
+
+      - name: Build Premium Documentation Portal
+        run: |
+          export DOCS_VERSION=${GITHUB_REF_NAME}
+          node scripts/build-docs-site.js
+          # Move site artifacts to build_output
+          cp build_docs/*.html build_output/
 
       - name: Checkout Documentation History
         uses: actions/checkout@v5
@@ -69,8 +76,8 @@ jobs:
           rm -rf "$TARGET_DIR"
           mkdir -p "$TARGET_DIR"
           
-          # Copy new build artifact
-          cp build_output/index.html "$TARGET_DIR/"
+          # Copy new build artifacts (HTML portal + API spec)
+          cp -r build_output/* "$TARGET_DIR/"
           cp docs/api/swagger.json "$TARGET_DIR/openapi.json"
 
       - name: Update Index and Persist History
