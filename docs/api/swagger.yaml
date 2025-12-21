@@ -259,7 +259,7 @@ info:
     name: OpenTrusty Support
     url: https://github.com/opentrusty/opentrusty
   description: "Production-grade Identity Provider. [\U0001F3E0 Back to Documentation
-    Home](../../index.html)"
+    Home](../../../index.html)"
   license:
     name: Apache 2.0
     url: http://www.apache.org/licenses/LICENSE-2.0.html

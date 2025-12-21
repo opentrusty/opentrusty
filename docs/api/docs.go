@@ -1393,7 +1393,7 @@ var SwaggerInfo = &swag.Spec{
 	BasePath:         "/api/v1",
 	Schemes:          []string{},
 	Title:            "OpenTrusty API",
-	Description:      "Production-grade Identity Provider. [🏠 Back to Documentation Home](../../index.html)",
+	Description:      "Production-grade Identity Provider. [🏠 Back to Documentation Home](../../../index.html)",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

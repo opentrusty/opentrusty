@@ -1,7 +1,7 @@
 {
     "swagger": "2.0",
     "info": {
-        "description": "Production-grade Identity Provider. [🏠 Back to Documentation Home](../../index.html)",
+        "description": "Production-grade Identity Provider. [🏠 Back to Documentation Home](../../../index.html)",
         "title": "OpenTrusty API",
         "termsOfService": "https://opentrusty.org/terms/",
         "contact": {
