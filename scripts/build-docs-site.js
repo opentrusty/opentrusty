@@ -92,19 +92,6 @@ const HTML_TEMPLATE = `
             min-height: 100vh;
         }
         .markdown-body { line-height: 1.7; }
-        /* Style adjustments for ReDoc labels and headings */
-        .redoc-mode .markdown-body label,
-        .redoc-mode .markdown-body h5,
-        .redoc-mode .markdown-body h4 {
-            color: #cbd5e1 !important;
-            opacity: 1 !important;
-        }
-        .redoc-mode .markdown-body input {
-            background: #1e293b !important;
-            color: #f8fafc !important;
-            border: 1px solid var(--border) !important;
-        }
-        
         .markdown-body h1 { font-family: 'Montserrat', sans-serif; margin-bottom: 2rem; color: var(--primary); }
         .markdown-body pre { background: #1e293b; padding: 1rem; border-radius: 8px; border: 1px solid var(--border); overflow-x: auto; }
         
@@ -151,56 +138,8 @@ const HTML_TEMPLATE = `
         if (API_MODE) {
             var specPath = basePath + '/openapi.json';
             var contentRoot = document.getElementById('content');
-            contentRoot.classList.add('redoc-mode');
-            
-            Redoc.init(specPath, {
-                theme: {
-                    colors: {
-                        primary: { main: '#4A90E2' },
-                        text: { primary: '#f8fafc', secondary: '#cbd5e1' },
-                        border: { dark: 'rgba(255,255,255,0.1)', light: 'rgba(255,255,255,0.05)' },
-                        responses: {
-                            success: { color: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)' },
-                            error: { color: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.1)' }
-                        },
-                        http: {
-                            get: '#10b981',
-                            post: '#3b82f6',
-                            put: '#f59e0b',
-                            delete: '#ef4444'
-                        }
-                    },
-                    schema: {
-                        nestedBackground: '#1e293b',
-                        typeNameColor: '#94a3b8',
-                        typeTitleColor: '#4A90E2'
-                    },
-                    sidebar: {
-                        backgroundColor: '#0f172a',
-                        textColor: '#f8fafc',
-                        activeTextColor: '#4A90E2',
-                        width: '260px'
-                    },
-                    rightPanel: {
-                        backgroundColor: '#1e293b',
-                        textColor: '#f8fafc'
-                    },
-                    typography: {
-                        fontSize: '15px',
-                        lineHeight: '1.7',
-                        fontFamily: 'Inter, sans-serif',
-                        headings: {
-                            fontFamily: 'Montserrat, sans-serif',
-                            color: '#4A90E2'
-                        },
-                        code: {
-                            fontFamily: 'ui-monospace, monospace',
-                            backgroundColor: '#0f172a',
-                            color: '#e2e8f0'
-                        }
-                    }
-                }
-            }, contentRoot);
+            // Use default ReDoc styling - no custom theme
+            Redoc.init(specPath, {}, contentRoot);
             
             var wrapper = document.querySelector('.content-wrapper');
             wrapper.style.padding = '0';
