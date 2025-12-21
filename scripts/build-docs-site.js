@@ -144,6 +144,7 @@ const HTML_TEMPLATE = `
             var wrapper = document.querySelector('.content-wrapper');
             wrapper.style.padding = '0';
             wrapper.style.maxWidth = 'none';
+            wrapper.style.backgroundColor = '#ffffff';
         }
     </script>
 </body>
