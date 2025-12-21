@@ -4,7 +4,7 @@
 
 **OpenTrusty** is a security-first, open-source Identity Provider (IdP) implementing OAuth 2.0 and OpenID Connect (OIDC), designed for auditability, correctness, and long-term maintainability.
 
-OpenTrusty is developed as a **non-profit, community-oriented project** under the MIT license, with an emphasis on clear security boundaries, explicit assumptions, and responsible open source governance.
+OpenTrusty is developed as a **non-profit, community-oriented project** under the Apache License 2.0, with an emphasis on clear security boundaries, explicit assumptions, and responsible open source governance.
 
 ---
 
@@ -115,7 +115,9 @@ Before contributing:
 
 ## License
 
-MIT
+OpenTrusty is licensed under the Apache License, Version 2.0.
+
+See the [LICENSE](./LICENSE) file for details.
 
 ---
 
