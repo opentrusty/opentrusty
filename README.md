@@ -1,5 +1,7 @@
 # OpenTrusty
 
+[![CI](https://github.com/opentrusty/opentrusty/actions/workflows/ci.yml/badge.svg)](https://github.com/opentrusty/opentrusty/actions/workflows/ci.yml) | [![Publish API Docs](https://github.com/opentrusty/opentrusty/actions/workflows/docs.yml/badge.svg)](https://github.com/opentrusty/opentrusty/actions/workflows/docs.yml) | [![Release Gate](https://github.com/opentrusty/opentrusty/actions/workflows/release.yml/badge.svg)](https://github.com/opentrusty/opentrusty/actions/workflows/release.yml)
+
 **OpenTrusty** is a security-first, open-source Identity Provider (IdP) implementing OAuth 2.0 and OpenID Connect (OIDC), designed for auditability, correctness, and long-term maintainability.
 
 OpenTrusty is developed as a **non-profit, community-oriented project** under the MIT license, with an emphasis on clear security boundaries, explicit assumptions, and responsible open source governance.
