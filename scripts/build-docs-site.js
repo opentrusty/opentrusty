@@ -109,6 +109,12 @@ const HTML_TEMPLATE = `
             width: 100%;
             cursor: pointer;
         }
+
+        /* Redoc Overrides */
+        #content.redoc-mode {
+            padding: 0;
+            margin: 0;
+        }
     </style>
 </head>
 <body>
@@ -137,9 +143,53 @@ const HTML_TEMPLATE = `
         }
         if (API_MODE) {
             var specPath = basePath + '/openapi.json';
+            var contentRoot = document.getElementById('content');
+            contentRoot.classList.add('redoc-mode');
+            
             Redoc.init(specPath, {
-                theme: { colors: { primary: { main: '#4A90E2' } } }
-            }, document.getElementById('content'));
+                theme: {
+                    colors: {
+                        primary: { main: '#4A90E2' },
+                        text: { primary: '#f8fafc', secondary: '#94a3b8' },
+                        responses: {
+                            success: { color: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)' },
+                            error: { color: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.1)' }
+                        },
+                        http: {
+                            get: '#10b981',
+                            post: '#3b82f6',
+                            put: '#f59e0b',
+                            delete: '#ef4444'
+                        }
+                    },
+                    schema: {
+                        nestedBackground: '#1e293b'
+                    },
+                    sidebar: {
+                        backgroundColor: '#0f172a',
+                        textColor: '#f8fafc',
+                        activeTextColor: '#4A90E2',
+                        width: '260px'
+                    },
+                    rightPanel: {
+                        backgroundColor: '#1e293b',
+                        textColor: '#f8fafc'
+                    },
+                    typography: {
+                        fontSize: '15px',
+                        lineHeight: '1.7',
+                        fontFamily: 'Inter, sans-serif',
+                        headings: {
+                            fontFamily: 'Montserrat, sans-serif'
+                        },
+                        code: {
+                            fontFamily: 'ui-monospace, monospace',
+                            backgroundColor: '#0f172a'
+                        }
+                    }
+                }
+            }, contentRoot);
+            
             var wrapper = document.querySelector('.content-wrapper');
             wrapper.style.padding = '0';
             wrapper.style.maxWidth = 'none';
@@ -158,7 +208,6 @@ function generateNav(currentFile) {
             var isActive = item.file === currentFile;
             var href;
             if (item.file.indexOf('.md') !== -1) {
-                // Remove leading slash if any and replace slashes with underscores
                 href = prefix + item.file.replace(/\.md$/, '.html').replace(/\//g, '_');
             } else if (item.file.indexOf('api/index.html') !== -1) {
                 href = prefix + 'api/index.html';
