@@ -70,4 +70,5 @@ docs-gen:
 		echo "Installing swag..."; \
 		go install github.com/swaggo/swag/cmd/swag@latest; \
 	fi
+	@export PATH=$${PATH}:$$(go env GOPATH)/bin; \
 	swag init -g internal/transport/http/handlers.go --parseDependency --parseInternal --output docs/api

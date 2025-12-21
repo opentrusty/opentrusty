@@ -187,6 +187,53 @@ definitions:
     required:
     - email
     type: object
+  internal_transport_http.RegisterClientRequest:
+    properties:
+      allowed_scopes:
+        example:
+        - '["openid"'
+        - ' "profile"]'
+        items:
+          type: string
+        type: array
+      client_name:
+        example: My Application
+        type: string
+      grant_types:
+        example:
+        - '["authorization_code"'
+        - ' "refresh_token"]'
+        items:
+          type: string
+        type: array
+      redirect_uris:
+        example:
+        - '["http://localhost:3000/callback"]'
+        items:
+          type: string
+        type: array
+      response_types:
+        example:
+        - '["code"]'
+        items:
+          type: string
+        type: array
+      token_endpoint_auth_method:
+        example: client_secret_basic
+        type: string
+    required:
+    - client_name
+    - redirect_uris
+    type: object
+  internal_transport_http.RegisterClientResponse:
+    properties:
+      client_id:
+        type: string
+      client_name:
+        type: string
+      client_secret:
+        type: string
+    type: object
   internal_transport_http.RegisterRequest:
     properties:
       email:
@@ -205,19 +252,20 @@ definitions:
     - email
     - password
     type: object
-host: localhost:8080
+host: api.opentrusty.org
 info:
   contact:
-    email: support@swagger.io
-    name: API Support
-    url: http://www.swagger.io/support
-  description: Production-grade Identity Provider
+    email: support@opentrusty.org
+    name: OpenTrusty Support
+    url: https://github.com/opentrusty/opentrusty
+  description: "Production-grade Identity Provider. [\U0001F3E0 Back to Documentation
+    Home](../../index.html)"
   license:
-    name: MIT
-    url: https://opensource.org/licenses/MIT
-  termsOfService: http://swagger.io/terms/
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: https://opentrusty.org/terms/
   title: OpenTrusty API
-  version: 1.0.0
+  version: DOCS_VERSION_PLACEHOLDER
 paths:
   /.well-known/openid-configuration:
     get:
@@ -563,6 +611,47 @@ paths:
       summary: Create Tenant
       tags:
       - Tenant
+  /tenants/{tenantID}/oauth2/clients:
+    post:
+      consumes:
+      - application/json
+      description: Register a new OAuth2 client for the tenant
+      parameters:
+      - description: Tenant ID
+        in: path
+        name: tenantID
+        required: true
+        type: string
+      - description: Client Data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_transport_http.RegisterClientRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/internal_transport_http.RegisterClientResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Register Client
+      tags:
+      - OAuth2
   /tenants/{tenantID}/users:
     get:
       description: List all users and their roles in a tenant

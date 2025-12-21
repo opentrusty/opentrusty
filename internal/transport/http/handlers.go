@@ -13,18 +13,18 @@
 // limitations under the License.
 
 // @title OpenTrusty API
-// @version 1.0.0
-// @description Production-grade Identity Provider
-// @termsOfService http://swagger.io/terms/
+// @version DOCS_VERSION_PLACEHOLDER
+// @description Production-grade Identity Provider. [🏠 Back to Documentation Home](../../index.html)
+// @termsOfService https://opentrusty.org/terms/
 
-// @contact.name API Support
-// @contact.url http://www.swagger.io/support
-// @contact.email support@swagger.io
+// @contact.name OpenTrusty Support
+// @contact.url https://github.com/opentrusty/opentrusty
+// @contact.email support@opentrusty.org
 
-// @license.name MIT
-// @license.url https://opensource.org/licenses/MIT
+// @license.name Apache 2.0
+// @license.url http://www.apache.org/licenses/LICENSE-2.0.html
 
-// @host localhost:8080
+// @host api.opentrusty.org
 // @BasePath /api/v1
 
 // @securityDefinitions.apikey CookieAuth

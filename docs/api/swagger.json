@@ -1,21 +1,21 @@
 {
     "swagger": "2.0",
     "info": {
-        "description": "Production-grade Identity Provider",
+        "description": "Production-grade Identity Provider. [🏠 Back to Documentation Home](../../index.html)",
         "title": "OpenTrusty API",
-        "termsOfService": "http://swagger.io/terms/",
+        "termsOfService": "https://opentrusty.org/terms/",
         "contact": {
-            "name": "API Support",
-            "url": "http://www.swagger.io/support",
-            "email": "support@swagger.io"
+            "name": "OpenTrusty Support",
+            "url": "https://github.com/opentrusty/opentrusty",
+            "email": "support@opentrusty.org"
         },
         "license": {
-            "name": "MIT",
-            "url": "https://opensource.org/licenses/MIT"
+            "name": "Apache 2.0",
+            "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
         },
-        "version": "1.0.0"
+        "version": "DOCS_VERSION_PLACEHOLDER"
     },
-    "host": "localhost:8080",
+    "host": "api.opentrusty.org",
     "basePath": "/api/v1",
     "paths": {
         "/.well-known/openid-configuration": {
@@ -520,6 +520,70 @@
                         "description": "Created",
                         "schema": {
                             "$ref": "#/definitions/github_com_opentrusty_opentrusty_internal_tenant.Tenant"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/tenants/{tenantID}/oauth2/clients": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "Register a new OAuth2 client for the tenant",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "OAuth2"
+                ],
+                "summary": "Register Client",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Tenant ID",
+                        "name": "tenantID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Client Data",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_transport_http.RegisterClientRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/internal_transport_http.RegisterClientResponse"
                         }
                     },
                     "400": {
@@ -1209,6 +1273,75 @@
                 "role": {
                     "type": "string",
                     "example": "admin"
+                }
+            }
+        },
+        "internal_transport_http.RegisterClientRequest": {
+            "type": "object",
+            "required": [
+                "client_name",
+                "redirect_uris"
+            ],
+            "properties": {
+                "allowed_scopes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "[\"openid\"",
+                        " \"profile\"]"
+                    ]
+                },
+                "client_name": {
+                    "type": "string",
+                    "example": "My Application"
+                },
+                "grant_types": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "[\"authorization_code\"",
+                        " \"refresh_token\"]"
+                    ]
+                },
+                "redirect_uris": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "[\"http://localhost:3000/callback\"]"
+                    ]
+                },
+                "response_types": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "[\"code\"]"
+                    ]
+                },
+                "token_endpoint_auth_method": {
+                    "type": "string",
+                    "example": "client_secret_basic"
+                }
+            }
+        },
+        "internal_transport_http.RegisterClientResponse": {
+            "type": "object",
+            "properties": {
+                "client_id": {
+                    "type": "string"
+                },
+                "client_name": {
+                    "type": "string"
+                },
+                "client_secret": {
+                    "type": "string"
                 }
             }
         },
