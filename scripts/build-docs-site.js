@@ -92,6 +92,19 @@ const HTML_TEMPLATE = `
             min-height: 100vh;
         }
         .markdown-body { line-height: 1.7; }
+        /* Style adjustments for ReDoc labels and headings */
+        .redoc-mode .markdown-body label,
+        .redoc-mode .markdown-body h5,
+        .redoc-mode .markdown-body h4 {
+            color: #cbd5e1 !important;
+            opacity: 1 !important;
+        }
+        .redoc-mode .markdown-body input {
+            background: #1e293b !important;
+            color: #f8fafc !important;
+            border: 1px solid var(--border) !important;
+        }
+        
         .markdown-body h1 { font-family: 'Montserrat', sans-serif; margin-bottom: 2rem; color: var(--primary); }
         .markdown-body pre { background: #1e293b; padding: 1rem; border-radius: 8px; border: 1px solid var(--border); overflow-x: auto; }
         
@@ -108,12 +121,6 @@ const HTML_TEMPLATE = `
             border-radius: 4px;
             width: 100%;
             cursor: pointer;
-        }
-
-        /* Redoc Overrides */
-        #content.redoc-mode {
-            padding: 0;
-            margin: 0;
         }
     </style>
 </head>
@@ -150,7 +157,8 @@ const HTML_TEMPLATE = `
                 theme: {
                     colors: {
                         primary: { main: '#4A90E2' },
-                        text: { primary: '#f8fafc', secondary: '#94a3b8' },
+                        text: { primary: '#f8fafc', secondary: '#cbd5e1' },
+                        border: { dark: 'rgba(255,255,255,0.1)', light: 'rgba(255,255,255,0.05)' },
                         responses: {
                             success: { color: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)' },
                             error: { color: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.1)' }
@@ -163,7 +171,9 @@ const HTML_TEMPLATE = `
                         }
                     },
                     schema: {
-                        nestedBackground: '#1e293b'
+                        nestedBackground: '#1e293b',
+                        typeNameColor: '#94a3b8',
+                        typeTitleColor: '#4A90E2'
                     },
                     sidebar: {
                         backgroundColor: '#0f172a',
@@ -180,11 +190,13 @@ const HTML_TEMPLATE = `
                         lineHeight: '1.7',
                         fontFamily: 'Inter, sans-serif',
                         headings: {
-                            fontFamily: 'Montserrat, sans-serif'
+                            fontFamily: 'Montserrat, sans-serif',
+                            color: '#4A90E2'
                         },
                         code: {
                             fontFamily: 'ui-monospace, monospace',
-                            backgroundColor: '#0f172a'
+                            backgroundColor: '#0f172a',
+                            color: '#e2e8f0'
                         }
                     }
                 }
@@ -216,6 +228,7 @@ function generateNav(currentFile) {
             }
             return '<a href="' + href + '" class="nav-link ' + (isActive ? 'active' : '') + '">' + item.title + '</a>';
         }).join('');
+
         return '<div class="nav-section"><div class="nav-title">' + section.title + '</div>' + items + '</div>';
     }).join('');
 }
@@ -239,33 +252,34 @@ function build() {
                     console.log('Warning: File not found: ' + fullPath);
                     return;
                 }
-                var raw = fs.readFileSync(fullPath, 'utf8');
-                var slug = item.file.replace(/\.md$/, '.html').replace(/\//g, '_');
 
-                h = h.replace(/{{title}}/g, item.title)
+                var raw = fs.readFileSync(fullPath, 'utf8');
+                var slug = item.file.replace('.md', '.html').replace(/\//g, '_');
+
+                var h2 = h.replace(/{{title}}/g, item.title)
                     .replace(/{{content}}/g, '')
                     .replace(/{{raw_content}}/g, raw)
                     .replace(/{{is_api}}/g, 'false');
 
-                fs.writeFileSync(path.join(OUTPUT_DIR, slug), h);
+                fs.writeFileSync(path.join(OUTPUT_DIR, slug), h2);
                 console.log('Generated: ' + slug);
             } else if (item.file.indexOf('api/index.html') !== -1) {
                 var apiDir = path.join(OUTPUT_DIR, 'api');
                 if (!fs.existsSync(apiDir)) fs.mkdirSync(apiDir, { recursive: true });
 
-                h = h.replace(/{{title}}/g, item.title)
+                var h2 = h.replace(/{{title}}/g, item.title)
                     .replace(/{{content}}/g, '')
                     .replace(/{{raw_content}}/g, '')
                     .replace(/{{is_api}}/g, 'true');
 
-                fs.writeFileSync(path.join(apiDir, 'index.html'), h);
+                fs.writeFileSync(path.join(apiDir, 'index.html'), h2);
                 console.log('Generated: api/index.html');
             }
         });
     });
 
     var first = CONFIG.sections[0].items[0];
-    var firstSlug = first.file.replace(/\.md$/, '.html').replace(/\//g, '_');
+    var firstSlug = first.file.replace('.md', '.html').replace(/\//g, '_');
     fs.copyFileSync(path.join(OUTPUT_DIR, firstSlug), path.join(OUTPUT_DIR, 'index.html'));
 }
 
