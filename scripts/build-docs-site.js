@@ -9,13 +9,6 @@ const OUTPUT_DIR = path.resolve(REPO_ROOT, 'build_docs');
 const VERSION = process.env.DOCS_VERSION || 'latest';
 const ALL_VERSIONS = (process.env.ALL_VERSIONS || VERSION).split(',');
 
-// Ensure marked is available for markdown parsing
-// We'll use a cdn-based approach in the template for simplicity OR expect it to be installed
-// For a standalone script, we might need a minimal internal parser or a common dependency.
-// Given common runner environments, let's assume we can npm install it if needed, 
-// but for the most stable "premium" look, we'll use a template that renders markdown via a client library (marked.js)
-// to keep the generator script dependency-free and lightweight.
-
 const HTML_TEMPLATE = `
 <!DOCTYPE html>
 <html lang="en">
@@ -27,10 +20,11 @@ const HTML_TEMPLATE = `
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/redoc/bundles/redoc.standalone.js"></script>
     <script>
         // Adjust paths based on whether we are in a versioned directory or root
-        const isRoot = window.location.pathname === '/' || window.location.pathname === '/index.html';
-        const basePath = isRoot ? '' : '.'; 
+        var API_MODE = "{{is_api}}" === "true";
+        var basePath = API_MODE ? ".." : "."; 
     </script>
     <style>
         :root {
@@ -60,6 +54,7 @@ const HTML_TEMPLATE = `
             position: fixed;
             height: 100vh;
             overflow-y: auto;
+            z-index: 10;
         }
         .logo {
             font-family: 'Montserrat', sans-serif;
@@ -120,7 +115,7 @@ const HTML_TEMPLATE = `
 </head>
 <body>
     <div class="sidebar">
-        <a href="/" class="logo">
+        <a href="/" class="logo" onclick="event.preventDefault(); window.location.href=basePath + '/index.html'">
             <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <circle cx="16" cy="16" r="14" stroke="currentColor" stroke-width="3"/>
                 <path d="M16 8V24M8 16H24" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
@@ -146,11 +141,21 @@ const HTML_TEMPLATE = `
         </div>
     </main>
 
+    <script id="md-content" type="text/template">{{raw_content}}</script>
     <script>
-        // Simple markdown injection if content is raw
-        const rawContent = \`{{raw_content}}\`;
-        if (rawContent && rawContent.length > 0) {
-            document.getElementById('content').innerHTML = marked.parse(rawContent);
+        var raw = document.getElementById('md-content').textContent;
+        if (raw && raw.length > 0) {
+            document.getElementById('content').innerHTML = marked.parse(raw);
+        }
+
+        if ("{{is_api}}" === "true") {
+            var specPath = '../openapi.json';
+            Redoc.init(specPath, {
+                theme: { colors: { primary: { main: '#4A90E2' } } }
+            }, document.getElementById('content'));
+            var wrapper = document.querySelector('.content-wrapper');
+            wrapper.style.padding = '0';
+            wrapper.style.maxWidth = 'none';
         }
     </script>
 </body>
@@ -158,68 +163,79 @@ const HTML_TEMPLATE = `
 `;
 
 function generateNav(currentFile) {
-    return CONFIG.sections.map(section => {
-        const items = section.items.map(item => {
-            const isActive = item.file === currentFile;
-            let href;
-            if (item.file.endsWith('.md')) {
-                href = item.file.replace('docs/', '').replace('.md', '.html').replace(/\//g, '_');
+    var isApi = currentFile.indexOf('api/index.html') !== -1;
+    var prefix = isApi ? '../' : '';
+
+    return CONFIG.sections.map(function (section) {
+        var items = section.items.map(function (item) {
+            var isActive = item.file === currentFile;
+            var href;
+            if (item.file.indexOf('.md') !== -1) {
+                href = prefix + item.file.replace('docs/', '').replace('.md', '.html').replace(/\//g, '_');
+            } else if (item.file.indexOf('api/index.html') !== -1) {
+                href = prefix + 'api/index.html';
             } else {
-                // For non-md files (like api/index.html), link directly
-                // We keep the structure relative to the deployment root of the version
-                href = item.file.replace('docs/', '');
+                href = prefix + item.file.replace('docs/', '');
             }
-            return `<a href="${href}" class="nav-link ${isActive ? 'active' : ''}">${item.title}</a>`;
+            return '<a href="' + href + '" class="nav-link ' + (isActive ? 'active' : '') + '">' + item.title + '</a>';
         }).join('');
 
-        return `
-            <div class="nav-section">
-                <div class="nav-title">${section.title}</div>
-                ${items}
-            </div>
-        `;
+        return '<div class="nav-section"><div class="nav-title">' + section.title + '</div>' + items + '</div>';
     }).join('');
 }
 
 function build() {
     if (!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 
-    // 1. Process all markdown files from config
-    CONFIG.sections.forEach(section => {
-        section.items.forEach(item => {
-            if (item.file.endsWith('.md')) {
-                const fullPath = path.join(REPO_ROOT, item.file);
+    var options = ALL_VERSIONS.map(function (v) {
+        var selected = v === VERSION ? 'selected' : '';
+        var vPath = v === 'latest' ? '/' : '/versions/' + v + '/';
+        return '<option value="' + vPath + '" ' + selected + '>' + v + '</option>';
+    }).join('');
+
+    CONFIG.sections.forEach(function (section) {
+        section.items.forEach(function (item) {
+            if (item.file.indexOf('.md') !== -1) {
+                var fullPath = path.join(REPO_ROOT, item.file);
                 if (!fs.existsSync(fullPath)) {
-                    console.warn(`Warning: File not found: ${fullPath}`);
+                    console.log('Warning: File not found: ' + fullPath);
                     return;
                 }
 
-                const content = fs.readFileSync(fullPath, 'utf8');
-                const slug = item.file.replace('.md', '.html').replace(/\//g, '_');
+                var raw = fs.readFileSync(fullPath, 'utf8');
+                var slug = item.file.replace('.md', '.html').replace(/\//g, '_');
 
-                let html = HTML_TEMPLATE
+                var h = HTML_TEMPLATE
                     .replace('{{title}}', item.title)
                     .replace('{{nav}}', generateNav(item.file))
-                    .replace('{{content}}', '') // Client side marked will handle it if we pass raw
-                    .replace('{{raw_content}}', content.replace(/`/g, '\\`').replace(/\$/g, '\\$'));
+                    .replace('{{content}}', '')
+                    .replace('{{raw_content}}', raw)
+                    .replace('{{is_api}}', 'false')
+                    .replace('{{versions}}', options);
 
-                const versionOptions = ALL_VERSIONS.map(v => {
-                    const selected = v === VERSION ? 'selected' : '';
-                    const vPath = v === 'latest' ? '/' : `/versions/${v}/`;
-                    return `<option value="${vPath}" ${selected}>${v}</option>`;
-                }).join('');
-                html = html.replace('{{versions}}', versionOptions);
+                fs.writeFileSync(path.join(OUTPUT_DIR, slug), h);
+                console.log('Generated: ' + slug);
+            } else if (item.file.indexOf('api/index.html') !== -1) {
+                var apiDir = path.join(OUTPUT_DIR, 'api');
+                if (!fs.existsSync(apiDir)) fs.mkdirSync(apiDir, { recursive: true });
 
-                fs.writeFileSync(path.join(OUTPUT_DIR, slug), html);
-                console.log(`Generated: ${slug} `);
+                var h = HTML_TEMPLATE
+                    .replace('{{title}}', item.title)
+                    .replace('{{nav}}', generateNav(item.file))
+                    .replace('{{content}}', '')
+                    .replace('{{raw_content}}', '')
+                    .replace('{{is_api}}', 'true')
+                    .replace('{{versions}}', options);
+
+                fs.writeFileSync(path.join(apiDir, 'index.html'), h);
+                console.log('Generated: api/index.html');
             }
         });
     });
 
-    // 2. Create index redirecting to the first architecture page
-    const firstItem = CONFIG.sections[0].items[0];
-    const indexSlug = firstItem.file.replace('.md', '.html').replace(/\//g, '_');
-    fs.copyFileSync(path.join(OUTPUT_DIR, indexSlug), path.join(OUTPUT_DIR, 'index.html'));
+    var first = CONFIG.sections[0].items[0];
+    var firstSlug = first.file.replace('.md', '.html').replace(/\//g, '_');
+    fs.copyFileSync(path.join(OUTPUT_DIR, firstSlug), path.join(OUTPUT_DIR, 'index.html'));
 }
 
 build();

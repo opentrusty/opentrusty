@@ -34,26 +34,6 @@ jobs:
           sed -i "s/DOCS_VERSION_PLACEHOLDER/${VERSION}/g" docs/api/swagger.json
           sed -i 's/"host": "api.opentrusty.org"/"host": "docs.opentrusty.org"/g' docs/api/swagger.json
 
-      - name: Install ReDoc CLI
-        run: npm install -g redoc-cli
-
-      - name: Build ReDoc HTML
-        run: |
-          VERSION=${GITHUB_REF_NAME}
-          mkdir -p build_output/api
-          # Generate standalone HTML for API
-          redoc-cli bundle docs/api/swagger.json \
-            --output build_output/api/index.html \
-            --title "OpenTrusty API - $VERSION" \
-            --options.theme.colors.primary.main="#4A90E2"
-
-      - name: Build Premium Documentation Portal
-        run: |
-          export DOCS_VERSION=${GITHUB_REF_NAME}
-          node scripts/build-docs-site.js
-          # Move site artifacts to build_output
-          cp build_docs/*.html build_output/
-
       - name: Checkout Documentation History
         uses: actions/checkout@v5
         with:
@@ -65,6 +45,7 @@ jobs:
       - name: Build Premium Documentation Portal
         run: |
           export DOCS_VERSION=${GITHUB_REF_NAME}
+          mkdir -p build_output
           if [ -d "public_history/versions" ]; then
             # Extract list of versions, add current one, sort and uniq
             EXISTING=$(ls public_history/versions | paste -sd "," -)
@@ -74,7 +55,7 @@ jobs:
           fi
           node scripts/build-docs-site.js
           # Move site artifacts to build_output
-          cp build_docs/*.html build_output/
+          cp -r build_docs/* build_output/
 
       - name: Prepare Deployment Directory
         run: |
@@ -96,6 +77,7 @@ jobs:
           
           # Copy new build artifacts (HTML portal + API spec)
           cp -r build_output/* "$TARGET_DIR/"
+          # Copy openapi.json to the root of the version so Redoc can find it
           cp docs/api/swagger.json "$TARGET_DIR/openapi.json"
 
       - name: Update Index and Persist History
