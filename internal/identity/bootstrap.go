@@ -107,7 +107,6 @@ func (s *BootstrapService) Bootstrap(ctx context.Context) error {
 		},
 	})
 
-	fmt.Printf("Successfully bootstrapped initial Platform Admin: %s (Tenant: %s)
-", email, tenantID)
+	fmt.Printf("Successfully bootstrapped initial Platform Admin: %s (Tenant: %s)", email, tenantID)
 	return nil
 }
