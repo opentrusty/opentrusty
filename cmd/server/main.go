@@ -44,8 +44,7 @@ func main() {
 	// Load configuration
 	cfg, err := config.Load()
 	if err != nil {
-		fmt.Printf("Failed to load configuration: %v
-", err)
+		fmt.Printf("Failed to load configuration: %v", err)
 		os.Exit(1)
 	}
 
@@ -60,8 +59,7 @@ func main() {
 	// Phase: CLI Commands
 	if len(os.Args) > 1 && os.Args[1] == "bootstrap" {
 		if err := runBootstrap(cfg); err != nil {
-			fmt.Printf("Bootstrap failed: %v
-", err)
+			fmt.Printf("Bootstrap failed: %v", err)
 			os.Exit(1)
 		}
 		os.Exit(0)
@@ -69,8 +67,7 @@ func main() {
 
 	if len(os.Args) > 1 && os.Args[1] == "migrate" {
 		if err := runMigrate(cfg); err != nil {
-			fmt.Printf("Migration failed: %v
-", err)
+			fmt.Printf("Migration failed: %v", err)
 			os.Exit(1)
 		}
 		os.Exit(0)
