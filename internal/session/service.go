@@ -25,9 +25,10 @@ func NewService(repo Repository, lifetime, idleTimeout time.Duration) *Service {
 }
 
 // Create creates a new session for a user
-func (s *Service) Create(ctx context.Context, userID, ipAddress, userAgent string) (*Session, error) {
+func (s *Service) Create(ctx context.Context, tenantID, userID, ipAddress, userAgent string) (*Session, error) {
 	session := &Session{
 		ID:         generateSessionID(),
+		TenantID:   tenantID,
 		UserID:     userID,
 		IPAddress:  ipAddress,
 		UserAgent:  userAgent,

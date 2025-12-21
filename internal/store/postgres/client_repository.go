@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/opentrusty/opentrusty/internal/oauth2"
 )
 
@@ -95,7 +96,7 @@ func (r *ClientRepository) GetByClientID(clientID string) (*oauth2.Client, error
 	)
 
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if err == pgx.ErrNoRows {
 			return nil, oauth2.ErrClientNotFound
 		}
 		return nil, fmt.Errorf("failed to get client: %w", err)
@@ -156,7 +157,7 @@ func (r *ClientRepository) GetByID(id string) (*oauth2.Client, error) {
 	)
 
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if err == pgx.ErrNoRows {
 			return nil, oauth2.ErrClientNotFound
 		}
 		return nil, fmt.Errorf("failed to get client: %w", err)

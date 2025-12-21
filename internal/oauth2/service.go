@@ -101,6 +101,23 @@ type TokenResponse struct {
 	Scope        string `json:"scope,omitempty"`
 }
 
+// CreateClient registers a new OAuth2 client
+func (s *Service) CreateClient(ctx context.Context, client *Client) error {
+	if client.ID == "" {
+		client.ID = generateID()
+	}
+	if client.ClientID == "" {
+		client.ClientID = generateID()
+	}
+
+	if client.CreatedAt.IsZero() {
+		client.CreatedAt = time.Now()
+	}
+	client.UpdatedAt = time.Now()
+
+	return s.clientRepo.Create(client)
+}
+
 // ValidateAuthorizeRequest validates an authorization request (RFC 6749 Section 4.1.1)
 func (s *Service) ValidateAuthorizeRequest(ctx context.Context, req *AuthorizeRequest) (*Client, error) {
 	// 1. Validate Client (RFC 6749 Section 4.1.1)

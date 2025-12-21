@@ -20,6 +20,7 @@
 package http
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
@@ -112,6 +113,7 @@ func NewRouter(h *Handler, rateLimiter *RateLimiter) *chi.Mux {
 	// OAuth2 routes (Tenant-Scoped)
 	r.Route("/oauth2", func(r chi.Router) {
 		r.Use(TenantMiddleware)
+		r.Use(RequireTenant)
 
 		// Authorize endpoint requires user authentication (session)
 		// RFC 6749 Section 4.1.1
@@ -134,7 +136,8 @@ func NewRouter(h *Handler, rateLimiter *RateLimiter) *chi.Mux {
 		r.Group(func(r chi.Router) {
 			r.Use(TenantMiddleware)
 
-			// Authentication
+			// Authentication (Tenant-Scoped)
+			r.Use(RequireTenant)
 			r.Post("/auth/register", h.Register)
 			r.Post("/auth/login", h.Login)
 			r.Post("/auth/logout", h.Logout)
@@ -151,16 +154,28 @@ func NewRouter(h *Handler, rateLimiter *RateLimiter) *chi.Mux {
 				r.Put("/user/profile", h.UpdateProfile)
 				r.Post("/user/change-password", h.ChangePassword)
 
-				// Tenant management
+				// Tenant management (Platform & Tenant assignments)
 				r.Route("/tenants", func(r chi.Router) {
+					// List/Create tenants are Platform-level actions (Contextual tenant optional)
 					r.Post("/", h.CreateTenant)
+
+					// Specific tenant operations require identification
 					r.Route("/{tenantID}", func(r chi.Router) {
+						r.Use(func(next http.Handler) http.Handler {
+							return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+								tid := chi.URLParam(r, "tenantID")
+								ctx := context.WithValue(r.Context(), "tenant_id", tid)
+								next.ServeHTTP(w, r.WithContext(ctx))
+							})
+						})
 						r.Post("/users", h.ProvisionTenantUser)
 						r.Get("/users", h.ListTenantUsers)
 						r.Route("/users/{userID}/roles", func(r chi.Router) {
 							r.Post("/", h.AssignTenantRole)
 							r.Delete("/{role}", h.RevokeTenantRole)
 						})
+						// OAuth2 Client Management
+						r.Post("/oauth2/clients", h.RegisterClient)
 					})
 				})
 			})
@@ -308,6 +323,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	// Create session
 	sess, err := h.sessionService.Create(
 		r.Context(),
+		user.TenantID,
 		user.ID,
 		getIPAddress(r),
 		r.UserAgent(),

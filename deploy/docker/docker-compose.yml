@@ -1,0 +1,46 @@
+# docker-compose.yml
+# This configuration is intended ONLY for local development and E2E testing.
+# NOT FOR PRODUCTION USE.
+
+services:
+  opentrusty:
+    build:
+      context: ../../
+      dockerfile: deploy/docker/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - DB_URL=postgres://opentrusty:opentrusty@postgres:5432/opentrusty?sslmode=disable
+      - ISSUER=http://localhost:8080
+      - LOG_LEVEL=debug
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - opentrusty-net
+
+  postgres:
+    # Official multi-arch image (amd64/arm64)
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=opentrusty
+      - POSTGRES_PASSWORD=opentrusty
+      - POSTGRES_DB=opentrusty
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U opentrusty" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - opentrusty-net
+
+networks:
+  opentrusty-net:
+    driver: bridge
+
+volumes:
+  postgres_data:

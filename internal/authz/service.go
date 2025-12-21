@@ -7,61 +7,51 @@ import (
 
 // Service provides authorization business logic
 type Service struct {
-	projectRepo         ProjectRepository
-	roleRepo            RoleRepository
-	userProjectRoleRepo UserProjectRoleRepository
+	projectRepo    ProjectRepository
+	roleRepo       RoleRepository
+	assignmentRepo AssignmentRepository
 }
 
 // NewService creates a new authorization service
 func NewService(
 	projectRepo ProjectRepository,
 	roleRepo RoleRepository,
-	userProjectRoleRepo UserProjectRoleRepository,
+	assignmentRepo AssignmentRepository,
 ) *Service {
 	return &Service{
-		projectRepo:         projectRepo,
-		roleRepo:            roleRepo,
-		userProjectRoleRepo: userProjectRoleRepo,
+		projectRepo:    projectRepo,
+		roleRepo:       roleRepo,
+		assignmentRepo: assignmentRepo,
 	}
 }
 
-// GetUserRoles retrieves all unique role names for a user across all projects
+// GetUserRoles retrieves all unique role names for a user across all scopes
 func (s *Service) GetUserRoles(ctx context.Context, userID string) ([]string, error) {
-	// Get all projects the user has access to
-	projects, err := s.userProjectRoleRepo.GetUserProjects(userID)
+	assignments, err := s.assignmentRepo.ListForUser(userID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get user projects: %w", err)
+		return nil, fmt.Errorf("failed to get user assignments: %w", err)
 	}
 
-	// Collect unique role names across all projects
 	roleMap := make(map[string]bool)
-	for _, project := range projects {
-		roles, err := s.userProjectRoleRepo.GetUserRolesInProject(userID, project.ID)
+	for _, a := range assignments {
+		role, err := s.roleRepo.GetByID(a.RoleID)
 		if err != nil {
-			// Log error but continue with other projects
 			continue
 		}
-		for _, role := range roles {
-			roleMap[role.Name] = true
-		}
+		roleMap[role.Name] = true
 	}
 
-	// Convert map to slice
 	roleNames := make([]string, 0, len(roleMap))
-	for roleName := range roleMap {
-		roleNames = append(roleNames, roleName)
+	for name := range roleMap {
+		roleNames = append(roleNames, name)
 	}
 
 	return roleNames, nil
 }
 
-// GetUserProjects retrieves all projects a user has access to
+// GetUserProjects retrieves all projects a user has access to (deprecated/legacy support)
 func (s *Service) GetUserProjects(ctx context.Context, userID string) ([]*Project, error) {
-	projects, err := s.userProjectRoleRepo.GetUserProjects(userID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get user projects: %w", err)
-	}
-	return projects, nil
+	return s.projectRepo.ListByUser(userID)
 }
 
 // ProjectInfo represents simplified project information for external systems
@@ -107,25 +97,39 @@ func (s *Service) BuildUserInfoClaims(ctx context.Context, userID string) (*User
 	}, nil
 }
 
-// HasPermission checks if a user has a specific permission in a project
-func (s *Service) HasPermission(ctx context.Context, userID, projectID, permission string) (bool, error) {
-	// Check if user has access to the project
-	hasAccess, err := s.userProjectRoleRepo.HasAccess(userID, projectID)
+// HasPermission checks if a user has a specific permission at a scope
+func (s *Service) HasPermission(ctx context.Context, userID string, scope Scope, scopeContextID *string, permission string) (bool, error) {
+	assignments, err := s.assignmentRepo.ListForUser(userID)
 	if err != nil {
-		return false, fmt.Errorf("failed to check access: %w", err)
-	}
-	if !hasAccess {
-		return false, nil
+		return false, fmt.Errorf("failed to get user assignments: %w", err)
 	}
 
-	// Get user's roles in the project
-	roles, err := s.userProjectRoleRepo.GetUserRolesInProject(userID, projectID)
-	if err != nil {
-		return false, fmt.Errorf("failed to get user roles: %w", err)
-	}
+	for _, a := range assignments {
+		// Scope check: assignment scope must be same as requested, OR assignment is platform scope
+		// (Platform admin has all permissions at all scopes? Or explicit?
+		// Requirement: "Use scoped authorization (platform scope)".
+		// Let's stick to explicit match or platform-to-any if that's the model.
+		// For now: exact match or platform scope.
+		match := false
+		if a.Scope == ScopePlatform {
+			match = true
+		} else if a.Scope == scope {
+			if a.ScopeContextID != nil && scopeContextID != nil && *a.ScopeContextID == *scopeContextID {
+				match = true
+			} else if a.ScopeContextID == nil && scopeContextID == nil {
+				match = true
+			}
+		}
 
-	// Check if any role has the permission
-	for _, role := range roles {
+		if !match {
+			continue
+		}
+
+		role, err := s.roleRepo.GetByID(a.RoleID)
+		if err != nil {
+			continue
+		}
+
 		if role.HasPermission(permission) {
 			return true, nil
 		}

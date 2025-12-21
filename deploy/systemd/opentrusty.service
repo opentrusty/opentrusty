@@ -1,0 +1,32 @@
+[Unit]
+Description=OpenTrusty - Trustworthy OpenID Connect Identity Provider
+After=network.target
+Documentation=https://github.com/opentrusty/opentrusty/
+
+[Service]
+Type=simple
+User=opentrusty
+Group=opentrusty
+
+# Load environment variables from a file
+EnvironmentFile=/etc/opentrusty/opentrusty.env
+
+# Assuming binary is at /usr/local/bin/opentrusty
+ExecStart=/usr/local/bin/opentrusty
+
+# Restart policy for production reliability
+Restart=on-failure
+RestartSec=5s
+
+# basic hardening
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=true
+PrivateTmp=true
+
+# Standard logging via journald
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

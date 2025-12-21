@@ -1,0 +1,20 @@
+# Dockerfile for systemd smoke testing compat
+FROM ubuntu:latest
+
+# Install basic dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    python3 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install docker-systemctl-replacement to mock systemd on environments like Mac
+RUN curl -L https://raw.githubusercontent.com/gdraheim/docker-systemctl-replacement/master/files/docker/systemctl3.py -o /usr/local/bin/systemctl \
+    && chmod +x /usr/local/bin/systemctl
+
+# Create opentrusty user
+RUN useradd -r -s /bin/false opentrusty
+
+# Create configuration directory
+RUN mkdir -p /etc/opentrusty && chown opentrusty:opentrusty /etc/opentrusty
+
+WORKDIR /app

@@ -3,10 +3,10 @@ package postgres
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/opentrusty/opentrusty/internal/authz"
 )
 
@@ -57,7 +57,7 @@ func (r *ProjectRepository) GetByID(id string) (*authz.Project, error) {
 	)
 
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if err == pgx.ErrNoRows {
 			return nil, authz.ErrProjectNotFound
 		}
 		return nil, fmt.Errorf("failed to get project: %w", err)
@@ -87,7 +87,7 @@ func (r *ProjectRepository) GetByName(name string) (*authz.Project, error) {
 	)
 
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if err == pgx.ErrNoRows {
 			return nil, authz.ErrProjectNotFound
 		}
 		return nil, fmt.Errorf("failed to get project: %w", err)
@@ -235,17 +235,12 @@ func NewRoleRepository(db *DB) *RoleRepository {
 func (r *RoleRepository) Create(role *authz.Role) error {
 	ctx := context.Background()
 
-	permissions, err := json.Marshal(role.Permissions)
-	if err != nil {
-		return fmt.Errorf("failed to marshal permissions: %w", err)
-	}
-
-	_, err = r.db.pool.Exec(ctx, `
-		INSERT INTO roles (
-			id, name, description, permissions, created_at, updated_at
+	_, err := r.db.pool.Exec(ctx, `
+		INSERT INTO rbac_roles (
+			id, name, scope, description, created_at, updated_at
 		) VALUES ($1, $2, $3, $4, $5, $6)
 	`,
-		role.ID, role.Name, role.Description, permissions,
+		role.ID, role.Name, string(role.Scope), role.Description,
 		role.CreatedAt, role.UpdatedAt,
 	)
 
@@ -261,45 +256,50 @@ func (r *RoleRepository) GetByID(id string) (*authz.Role, error) {
 	ctx := context.Background()
 
 	var role authz.Role
-	var permissionsJSON []byte
+	var scopeStr string
 
 	err := r.db.pool.QueryRow(ctx, `
-		SELECT id, name, description, permissions, created_at, updated_at
-		FROM roles
-		WHERE id = $1
+		SELECT r.id, r.name, r.scope, r.description, r.created_at, r.updated_at,
+		       COALESCE(array_agg(p.name) FILTER (WHERE p.name IS NOT NULL), '{}')
+		FROM rbac_roles r
+		LEFT JOIN rbac_role_permissions rp ON r.id = rp.role_id
+		LEFT JOIN rbac_permissions p ON rp.permission_id = p.id
+		WHERE r.id = $1
+		GROUP BY r.id, r.name, r.scope, r.description, r.created_at, r.updated_at
 	`, id).Scan(
-		&role.ID, &role.Name, &role.Description, &permissionsJSON,
-		&role.CreatedAt, &role.UpdatedAt,
+		&role.ID, &role.Name, &scopeStr, &role.Description,
+		&role.CreatedAt, &role.UpdatedAt, &role.Permissions,
 	)
 
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if err == pgx.ErrNoRows {
 			return nil, authz.ErrRoleNotFound
 		}
 		return nil, fmt.Errorf("failed to get role: %w", err)
 	}
 
-	if err := json.Unmarshal(permissionsJSON, &role.Permissions); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal permissions: %w", err)
-	}
-
+	role.Scope = authz.Scope(scopeStr)
 	return &role, nil
 }
 
-// GetByName retrieves a role by name
-func (r *RoleRepository) GetByName(name string) (*authz.Role, error) {
+// GetByName retrieves a role by name and scope
+func (r *RoleRepository) GetByName(name string, scope authz.Scope) (*authz.Role, error) {
 	ctx := context.Background()
 
 	var role authz.Role
-	var permissionsJSON []byte
+	var scopeStr string
 
 	err := r.db.pool.QueryRow(ctx, `
-		SELECT id, name, description, permissions, created_at, updated_at
-		FROM roles
-		WHERE name = $1
-	`, name).Scan(
-		&role.ID, &role.Name, &role.Description, &permissionsJSON,
-		&role.CreatedAt, &role.UpdatedAt,
+		SELECT r.id, r.name, r.scope, r.description, r.created_at, r.updated_at,
+		       COALESCE(array_agg(p.name) FILTER (WHERE p.name IS NOT NULL), '{}')
+		FROM rbac_roles r
+		LEFT JOIN rbac_role_permissions rp ON r.id = rp.role_id
+		LEFT JOIN rbac_permissions p ON rp.permission_id = p.id
+		WHERE r.name = $1 AND r.scope = $2
+		GROUP BY r.id, r.name, r.scope, r.description, r.created_at, r.updated_at
+	`, name, string(scope)).Scan(
+		&role.ID, &role.Name, &scopeStr, &role.Description,
+		&role.CreatedAt, &role.UpdatedAt, &role.Permissions,
 	)
 
 	if err != nil {
@@ -309,10 +309,7 @@ func (r *RoleRepository) GetByName(name string) (*authz.Role, error) {
 		return nil, fmt.Errorf("failed to get role: %w", err)
 	}
 
-	if err := json.Unmarshal(permissionsJSON, &role.Permissions); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal permissions: %w", err)
-	}
-
+	role.Scope = authz.Scope(scopeStr)
 	return &role, nil
 }
 
@@ -320,19 +317,13 @@ func (r *RoleRepository) GetByName(name string) (*authz.Role, error) {
 func (r *RoleRepository) Update(role *authz.Role) error {
 	ctx := context.Background()
 
-	permissions, err := json.Marshal(role.Permissions)
-	if err != nil {
-		return fmt.Errorf("failed to marshal permissions: %w", err)
-	}
-
 	result, err := r.db.pool.Exec(ctx, `
-		UPDATE roles SET
+		UPDATE rbac_roles SET
 			description = $2,
-			permissions = $3,
-			updated_at = $4
+			updated_at = $3
 		WHERE id = $1
 	`,
-		role.ID, role.Description, permissions, time.Now(),
+		role.ID, role.Description, time.Now(),
 	)
 
 	if err != nil {
@@ -351,7 +342,7 @@ func (r *RoleRepository) Delete(id string) error {
 	ctx := context.Background()
 
 	result, err := r.db.pool.Exec(ctx, `
-		DELETE FROM roles WHERE id = $1
+		DELETE FROM rbac_roles WHERE id = $1
 	`, id)
 
 	if err != nil {
@@ -365,15 +356,25 @@ func (r *RoleRepository) Delete(id string) error {
 	return nil
 }
 
-// List retrieves all roles
-func (r *RoleRepository) List() ([]*authz.Role, error) {
+// List retrieves all roles, optionally filtered by scope
+func (r *RoleRepository) List(scope *authz.Scope) ([]*authz.Role, error) {
 	ctx := context.Background()
 
-	rows, err := r.db.pool.Query(ctx, `
-		SELECT id, name, description, permissions, created_at, updated_at
-		FROM roles
-	`)
+	query := `
+		SELECT r.id, r.name, r.scope, r.description, r.created_at, r.updated_at,
+		       COALESCE(array_agg(p.name) FILTER (WHERE p.name IS NOT NULL), '{}')
+		FROM rbac_roles r
+		LEFT JOIN rbac_role_permissions rp ON r.id = rp.role_id
+		LEFT JOIN rbac_permissions p ON rp.permission_id = p.id
+	`
+	var args []interface{}
+	if scope != nil {
+		query += " WHERE r.scope = $1"
+		args = append(args, string(*scope))
+	}
+	query += " GROUP BY r.id, r.name, r.scope, r.description, r.created_at, r.updated_at"
 
+	rows, err := r.db.pool.Query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list roles: %w", err)
 	}
@@ -383,51 +384,50 @@ func (r *RoleRepository) List() ([]*authz.Role, error) {
 
 	for rows.Next() {
 		var role authz.Role
-		var permissionsJSON []byte
+		var scopeStr string
 
 		if err := rows.Scan(
-			&role.ID, &role.Name, &role.Description, &permissionsJSON,
-			&role.CreatedAt, &role.UpdatedAt,
+			&role.ID, &role.Name, &scopeStr, &role.Description,
+			&role.CreatedAt, &role.UpdatedAt, &role.Permissions,
 		); err != nil {
 			return nil, fmt.Errorf("failed to scan role: %w", err)
 		}
 
-		if err := json.Unmarshal(permissionsJSON, &role.Permissions); err != nil {
-			continue
-		}
-
+		role.Scope = authz.Scope(scopeStr)
 		roles = append(roles, &role)
 	}
 
 	return roles, nil
 }
 
-// UserProjectRoleRepository implements authz.UserProjectRoleRepository
-type UserProjectRoleRepository struct {
+// AssignmentRepository implements authz.AssignmentRepository
+type AssignmentRepository struct {
 	db *DB
 }
 
-// NewUserProjectRoleRepository creates a new user-project-role repository
-func NewUserProjectRoleRepository(db *DB) *UserProjectRoleRepository {
-	return &UserProjectRoleRepository{db: db}
+// NewAssignmentRepository creates a new assignment repository
+func NewAssignmentRepository(db *DB) *AssignmentRepository {
+	return &AssignmentRepository{db: db}
 }
 
-// Grant assigns a role to a user in a project
-func (r *UserProjectRoleRepository) Grant(upr *authz.UserProjectRole) error {
+// Grant assigns a role to a user
+func (r *AssignmentRepository) Grant(assignment *authz.Assignment) error {
 	ctx := context.Background()
 
 	var grantedBy sql.NullString
-	if upr.GrantedBy != "" {
-		grantedBy = sql.NullString{String: upr.GrantedBy, Valid: true}
+	if assignment.GrantedBy != "" {
+		grantedBy = sql.NullString{String: assignment.GrantedBy, Valid: true}
 	}
 
 	_, err := r.db.pool.Exec(ctx, `
-		INSERT INTO user_project_roles (
-			id, user_id, project_id, role_id, granted_at, granted_by
-		) VALUES ($1, $2, $3, $4, $5, $6)
-		ON CONFLICT (user_id, project_id, role_id) DO NOTHING
+		INSERT INTO rbac_assignments (
+			id, user_id, role_id, scope, scope_context_id, granted_at, granted_by
+		) VALUES ($1, $2, $3, $4, $5, $6, $7)
+		ON CONFLICT (user_id, role_id, scope, scope_context_id) DO NOTHING
 	`,
-		upr.ID, upr.UserID, upr.ProjectID, upr.RoleID, upr.GrantedAt, grantedBy,
+		assignment.ID, assignment.UserID, assignment.RoleID,
+		string(assignment.Scope), assignment.ScopeContextID,
+		assignment.GrantedAt, grantedBy,
 	)
 
 	if err != nil {
@@ -437,15 +437,28 @@ func (r *UserProjectRoleRepository) Grant(upr *authz.UserProjectRole) error {
 	return nil
 }
 
-// Revoke removes a role from a user in a project
-func (r *UserProjectRoleRepository) Revoke(userID, projectID, roleID string) error {
+// Revoke removes a role assignment
+func (r *AssignmentRepository) Revoke(userID, roleID string, scope authz.Scope, scopeContextID *string) error {
 	ctx := context.Background()
 
-	_, err := r.db.pool.Exec(ctx, `
-		DELETE FROM user_project_roles
-		WHERE user_id = $1 AND project_id = $2 AND role_id = $3
-	`, userID, projectID, roleID)
+	var query string
+	var args []interface{}
 
+	if scopeContextID == nil {
+		query = `
+			DELETE FROM rbac_assignments
+			WHERE user_id = $1 AND role_id = $2 AND scope = $3 AND scope_context_id IS NULL
+		`
+		args = []interface{}{userID, roleID, string(scope)}
+	} else {
+		query = `
+			DELETE FROM rbac_assignments
+			WHERE user_id = $1 AND role_id = $2 AND scope = $3 AND scope_context_id = $4
+		`
+		args = []interface{}{userID, roleID, string(scope), *scopeContextID}
+	}
+
+	_, err := r.db.pool.Exec(ctx, query, args...)
 	if err != nil {
 		return fmt.Errorf("failed to revoke role: %w", err)
 	}
@@ -453,69 +466,71 @@ func (r *UserProjectRoleRepository) Revoke(userID, projectID, roleID string) err
 	return nil
 }
 
-// GetUserRolesInProject retrieves all roles a user has in a project
-func (r *UserProjectRoleRepository) GetUserRolesInProject(userID, projectID string) ([]*authz.Role, error) {
+// ListForUser retrieves all assignments for a user
+func (r *AssignmentRepository) ListForUser(userID string) ([]*authz.Assignment, error) {
 	ctx := context.Background()
 
 	rows, err := r.db.pool.Query(ctx, `
-		SELECT r.id, r.name, r.description, r.permissions, r.created_at, r.updated_at
-		FROM roles r
-		INNER JOIN user_project_roles upr ON r.id = upr.role_id
-		WHERE upr.user_id = $1 AND upr.project_id = $2
-	`, userID, projectID)
+		SELECT id, user_id, role_id, scope, scope_context_id, granted_at, COALESCE(granted_by, '')
+		FROM rbac_assignments
+		WHERE user_id = $1
+	`, userID)
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to get user roles: %w", err)
+		return nil, fmt.Errorf("failed to list user assignments: %w", err)
 	}
 	defer rows.Close()
 
-	var roles []*authz.Role
+	var assignments []*authz.Assignment
 
 	for rows.Next() {
-		var role authz.Role
-		var permissionsJSON []byte
+		var a authz.Assignment
+		var scopeStr string
+		var grantedBy string
 
 		if err := rows.Scan(
-			&role.ID, &role.Name, &role.Description, &permissionsJSON,
-			&role.CreatedAt, &role.UpdatedAt,
+			&a.ID, &a.UserID, &a.RoleID, &scopeStr, &a.ScopeContextID,
+			&a.GrantedAt, &grantedBy,
 		); err != nil {
-			return nil, fmt.Errorf("failed to scan role: %w", err)
+			return nil, fmt.Errorf("failed to scan assignment: %w", err)
 		}
 
-		if err := json.Unmarshal(permissionsJSON, &role.Permissions); err != nil {
-			continue
-		}
-
-		roles = append(roles, &role)
+		a.Scope = authz.Scope(scopeStr)
+		a.GrantedBy = grantedBy
+		assignments = append(assignments, &a)
 	}
 
-	return roles, nil
+	return assignments, nil
 }
 
-// GetUserProjects retrieves all projects a user has access to
-func (r *UserProjectRoleRepository) GetUserProjects(userID string) ([]*authz.Project, error) {
-	// Reusing logic from ProjectRepository since it's the same query
-	pr := NewProjectRepository(r.db)
-	return pr.ListByUser(userID)
-}
-
-// GetProjectUsers retrieves all users with access to a project
-func (r *UserProjectRoleRepository) GetProjectUsers(projectID string) ([]string, error) {
+// ListByRole retrieves all users assigned a specific role at a scope
+func (r *AssignmentRepository) ListByRole(roleID string, scope authz.Scope, scopeContextID *string) ([]string, error) {
 	ctx := context.Background()
 
-	rows, err := r.db.pool.Query(ctx, `
-		SELECT DISTINCT user_id
-		FROM user_project_roles
-		WHERE project_id = $1
-	`, projectID)
+	var query string
+	var args []interface{}
 
+	if scopeContextID == nil {
+		query = `
+			SELECT user_id FROM rbac_assignments
+			WHERE role_id = $1 AND scope = $2 AND scope_context_id IS NULL
+		`
+		args = []interface{}{roleID, string(scope)}
+	} else {
+		query = `
+			SELECT user_id FROM rbac_assignments
+			WHERE role_id = $1 AND scope = $2 AND scope_context_id = $3
+		`
+		args = []interface{}{roleID, string(scope), *scopeContextID}
+	}
+
+	rows, err := r.db.pool.Query(ctx, query, args...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get project users: %w", err)
+		return nil, fmt.Errorf("failed to list users by role: %w", err)
 	}
 	defer rows.Close()
 
 	var userIDs []string
-
 	for rows.Next() {
 		var userID string
 		if err := rows.Scan(&userID); err != nil {
@@ -527,20 +542,35 @@ func (r *UserProjectRoleRepository) GetProjectUsers(projectID string) ([]string,
 	return userIDs, nil
 }
 
-// HasAccess checks if a user has access to a project
-func (r *UserProjectRoleRepository) HasAccess(userID, projectID string) (bool, error) {
+// CheckExists checks if a specific assignment exists
+func (r *AssignmentRepository) CheckExists(roleID string, scope authz.Scope, scopeContextID *string) (bool, error) {
 	ctx := context.Background()
 
-	var exists bool
-	err := r.db.pool.QueryRow(ctx, `
-		SELECT EXISTS (
-			SELECT 1 FROM user_project_roles
-			WHERE user_id = $1 AND project_id = $2
-		)
-	`, userID, projectID).Scan(&exists)
+	var query string
+	var args []interface{}
 
+	if scopeContextID == nil {
+		query = `
+			SELECT EXISTS (
+				SELECT 1 FROM rbac_assignments
+				WHERE role_id = $1 AND scope = $2 AND scope_context_id IS NULL
+			)
+		`
+		args = []interface{}{roleID, string(scope)}
+	} else {
+		query = `
+			SELECT EXISTS (
+				SELECT 1 FROM rbac_assignments
+				WHERE role_id = $1 AND scope = $2 AND scope_context_id = $3
+			)
+		`
+		args = []interface{}{roleID, string(scope), *scopeContextID}
+	}
+
+	var exists bool
+	err := r.db.pool.QueryRow(ctx, query, args...).Scan(&exists)
 	if err != nil {
-		return false, fmt.Errorf("failed to check access: %w", err)
+		return false, fmt.Errorf("failed to check assignment existence: %w", err)
 	}
 
 	return exists, nil

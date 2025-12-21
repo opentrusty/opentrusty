@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/opentrusty/opentrusty/internal/oauth2"
 )
 
@@ -64,7 +65,7 @@ func (r *AccessTokenRepository) GetByTokenHash(tokenHash string) (*oauth2.Access
 	)
 
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if err == pgx.ErrNoRows {
 			return nil, oauth2.ErrTokenNotFound
 		}
 		return nil, fmt.Errorf("failed to get access token: %w", err)
@@ -173,7 +174,7 @@ func (r *RefreshTokenRepository) GetByTokenHash(tokenHash string) (*oauth2.Refre
 	)
 
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if err == pgx.ErrNoRows {
 			return nil, oauth2.ErrTokenNotFound
 		}
 		return nil, fmt.Errorf("failed to get refresh token: %w", err)

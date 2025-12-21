@@ -2,10 +2,14 @@ package postgres
 
 import (
 	"context"
+	_ "embed"
 	"fmt"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+//go:embed migrations/001_initial_schema.up.sql
+var InitialSchema string
 
 // DB wraps the PostgreSQL connection pool
 type DB struct {
@@ -64,4 +68,10 @@ func (db *DB) Close() {
 // Pool returns the underlying connection pool
 func (db *DB) Pool() *pgxpool.Pool {
 	return db.pool
+}
+
+// Migrate runs a SQL script
+func (db *DB) Migrate(ctx context.Context, script string) error {
+	_, err := db.pool.Exec(ctx, script)
+	return err
 }

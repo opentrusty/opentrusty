@@ -260,11 +260,7 @@ func TestProtocol_CrossTenant_Negative(t *testing.T) {
 
 	// Create Session for Tenant A
 	ctx := context.Background()
-	sess, _ := sessSvc.Create(ctx, "user-A", "127.0.0.1", "test-agent")
-	sess.TenantID = "tenant-A" // Hack: force tenant ID for test if Create doesn't set it (Create takes user ID, usually user has tenant)
-	// Wait, session.Create doesn't take TenantID. It gets user?
-	// Let's check session.Service.Create. Maybe it sets it or we need to update session manually.
-	// Assuming for now manual update works or we mocking Get.
+	sess, _ := sessSvc.Create(ctx, "tenant-A", "user-A", "127.0.0.1", "test-agent")
 	sessRepo.sessions[sess.ID].TenantID = "tenant-A"
 
 	h := NewHandler(nil, sessSvc, nil, nil, nil, nil, audit.NewSlogLogger(), SessionConfig{CookieName: "session_id"})

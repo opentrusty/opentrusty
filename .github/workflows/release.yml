@@ -1,0 +1,80 @@
+name: Release Gate
+
+on:
+  push:
+    tags:
+      - 'v*'
+  release:
+    types: [published]
+
+jobs:
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install dependencies
+        run: go mod download
+
+      - name: Run unit tests
+        run: make test-unit
+
+  docker-e2e:
+    name: Docker E2E Tests
+    needs: unit-tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Run E2E tests
+        run: make test-e2e
+
+  systemd-smoke:
+    name: Systemd Smoke Test
+    needs: docker-e2e
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Run systemd smoke test
+        run: make test-systemd
+        # Note: Github Actions runners support privileged mode for Docker by default.
+        # However, jrei/systemd-ubuntu needs specific flags which are handled inside smoke_test.sh
+        # but we must ensure the runner has enough permissions.
+        # The smoke_test.sh already uses 'docker run --privileged'.
+
+      - name: Capture systemd logs on failure
+        if: failure()
+        run: |
+          mkdir -p logs
+          docker exec opentrusty-systemd journalctl -u opentrusty --no-pager > logs/systemd-journal.log || true
+        continue-on-error: true
+
+      - name: Upload logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: systemd-smoke-logs
+          path: logs/

@@ -4,7 +4,7 @@
 .PHONY: all build run test clean dev docs-gen
 
 APP_NAME := opentrusty
-CMD_PATH := ./cmd/opentrusty
+CMD_PATH := ./cmd/server
 BUILD_DIR := ./bin
 
 all: build
@@ -20,9 +20,25 @@ run: build
 	@$(BUILD_DIR)/$(APP_NAME)
 
 # Test
-test:
-	@echo "Running tests..."
+test: test-unit
+
+test-unit:
+	@echo "Running unit tests..."
 	@go test -v ./...
+
+test-e2e:
+	@echo "Running Docker-based E2E tests..."
+	@./tests/e2e/docker/run-e2e.sh
+
+test-integration:
+	@echo "Running integration tests..."
+	@go test -v ./internal/store/postgres/ --tags=integration
+
+test-systemd:
+	@echo "Running systemd smoke tests..."
+	@./tests/e2e/systemd/smoke_test.sh
+
+test-all: test-unit test-integration test-e2e test-systemd
 
 # Benchmark
 bench:

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/opentrusty/opentrusty/internal/identity"
 )
 
@@ -84,7 +85,7 @@ func (r *UserRepository) GetByID(id string) (*identity.User, error) {
 	)
 
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if err == pgx.ErrNoRows {
 			return nil, identity.ErrUserNotFound
 		}
 		return nil, fmt.Errorf("failed to get user: %w", err)
@@ -118,7 +119,7 @@ func (r *UserRepository) GetByEmail(tenantID, email string) (*identity.User, err
 	)
 
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if err == pgx.ErrNoRows {
 			return nil, identity.ErrUserNotFound
 		}
 		return nil, fmt.Errorf("failed to get user: %w", err)
@@ -211,7 +212,7 @@ func (r *UserRepository) GetCredentials(userID string) (*identity.Credentials, e
 	`, userID).Scan(&creds.UserID, &creds.PasswordHash, &creds.UpdatedAt)
 
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if err == pgx.ErrNoRows {
 			return nil, identity.ErrUserNotFound
 		}
 		return nil, fmt.Errorf("failed to get credentials: %w", err)

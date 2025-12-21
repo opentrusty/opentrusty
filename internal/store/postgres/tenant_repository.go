@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/opentrusty/opentrusty/internal/tenant"
 )
 
@@ -46,7 +47,7 @@ func (r *TenantRepository) GetByID(ctx context.Context, id string) (*tenant.Tena
 	)
 
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if err == pgx.ErrNoRows {
 			return nil, tenant.ErrTenantNotFound
 		}
 		return nil, fmt.Errorf("failed to get tenant: %w", err)
@@ -69,7 +70,7 @@ func (r *TenantRepository) GetByName(ctx context.Context, name string) (*tenant.
 	)
 
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if err == pgx.ErrNoRows {
 			return nil, tenant.ErrTenantNotFound
 		}
 		return nil, fmt.Errorf("failed to get tenant: %w", err)

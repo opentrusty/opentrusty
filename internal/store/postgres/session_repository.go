@@ -2,10 +2,10 @@ package postgres
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/opentrusty/opentrusty/internal/session"
 )
 
@@ -54,7 +54,7 @@ func (r *SessionRepository) Get(sessionID string) (*session.Session, error) {
 	)
 
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if err == pgx.ErrNoRows {
 			return nil, session.ErrSessionNotFound
 		}
 		return nil, fmt.Errorf("failed to get session: %w", err)

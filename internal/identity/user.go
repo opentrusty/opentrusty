@@ -15,10 +15,19 @@ var (
 	ErrAccountLocked      = errors.New("account is locked")
 )
 
+// Platform Authorization Principles:
+// 1. No tenant represents the platform
+// 2. Platform authorization is expressed only via scoped roles
+// 3. Tenant context must never be elevated to platform context
+//
+// Anti-Patterns (FORBIDDEN):
+// - Magic tenant IDs
+// - Empty tenantID implying platform privileges
+
 // User represents a user identity in the system
 type User struct {
 	ID                  string
-	TenantID            string
+	TenantID            string // Always required. Platform Admin is a role assignment, not a tenant property.
 	Email               string
 	EmailVerified       bool
 	Profile             Profile

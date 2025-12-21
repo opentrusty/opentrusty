@@ -10,6 +10,16 @@ import (
 	"github.com/opentrusty/opentrusty/internal/observability/logger"
 )
 
+// Platform Authorization Principles:
+// 1. No tenant represents the platform
+// 2. Platform authorization is expressed only via scoped roles
+// 3. Tenant context must never be elevated to platform context
+//
+// Anti-Patterns (FORBIDDEN):
+// - Magic tenant IDs (e.g., "default", "system", "platform")
+// - Empty/NULL tenant_id implying platform privileges
+// - Hardcoded role checks (use permission checks)
+
 // LoggingMiddleware logs HTTP requests
 func LoggingMiddleware() func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
@@ -43,9 +53,9 @@ func LoggingMiddleware() func(next http.Handler) http.Handler {
 	}
 }
 
-// TenantMiddleware enforces explicit tenant resolution from request.
-// Rejects with 400 Bad Request if missing.
-// Fix for B-TENANT-01 (Rule 2.1 - Isolation at entry point)
+// TenantMiddleware resolves tenant identification from the request.
+// It is optional at this layer; downstream handlers or RequireTenant middleware
+// will enforce existence if the resource is tenant-scoped.
 func TenantMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var tenantID string
@@ -62,15 +72,25 @@ func TenantMiddleware(next http.Handler) http.Handler {
 			}
 		}
 
-		// 3. Fail-Closed behavior
+		// Inject into context if found
+		if tenantID != "" {
+			ctx := context.WithValue(r.Context(), "tenant_id", tenantID)
+			r = r.WithContext(ctx)
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+// RequireTenant enforces that a tenant context is present.
+func RequireTenant(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		tenantID, _ := r.Context().Value("tenant_id").(string)
 		if tenantID == "" {
 			respondError(w, http.StatusBadRequest, "tenant_id or X-Tenant-ID header is required")
 			return
 		}
-
-		// Inject into context
-		ctx := context.WithValue(r.Context(), "tenant_id", tenantID)
-		next.ServeHTTP(w, r.WithContext(ctx))
+		next.ServeHTTP(w, r)
 	})
 }
 
@@ -99,10 +119,15 @@ func (h *Handler) AuthMiddleware(next http.Handler) http.Handler {
 		ctx := context.WithValue(r.Context(), "user_id", sess.UserID)
 		ctx = context.WithValue(ctx, "session_id", sess.ID)
 
-		// Fix for B-TENANT-01 (Rule 2.3 - No Cross-Talk)
-		// Verify that the session tenant matches the request tenant
-		requestTenant, ok := r.Context().Value("tenant_id").(string)
-		if ok && requestTenant != sess.TenantID {
+		// Authorization principles:
+		// - All sessions have a tenant_id (NOT NULL in schema)
+		// - Platform admin privileges are derived from rbac_assignments, NOT from tenant_id
+		// - Empty tenantID DOES NOT imply platform privileges
+
+		requestTenant, _ := r.Context().Value("tenant_id").(string)
+
+		// Tenant isolation: session tenant must match request tenant if specified
+		if requestTenant != "" && sess.TenantID != requestTenant {
 			slog.WarnContext(r.Context(), "cross-tenant access attempt detected",
 				"actor_id", sess.UserID,
 				"session_tenant", sess.TenantID,
@@ -112,8 +137,7 @@ func (h *Handler) AuthMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		// If quest didn't have a tenant_id settled yet (rare for protected routes but possible in flow),
-		// we use the session tenant as truth but usually TenantMiddleware should have run first.
+		// Use session tenant as the authoritative tenant context
 		ctx = context.WithValue(ctx, "tenant_id", sess.TenantID)
 
 		next.ServeHTTP(w, r.WithContext(ctx))

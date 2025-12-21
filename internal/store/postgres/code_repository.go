@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/opentrusty/opentrusty/internal/oauth2"
 )
 
@@ -72,7 +73,7 @@ func (r *AuthorizationCodeRepository) GetByCode(codeStr string) (*oauth2.Authori
 	)
 
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if err == pgx.ErrNoRows {
 			return nil, oauth2.ErrCodeNotFound
 		}
 		return nil, fmt.Errorf("failed to get authorization code: %w", err)

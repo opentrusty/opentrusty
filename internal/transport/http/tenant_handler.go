@@ -2,6 +2,7 @@ package http
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -111,9 +112,12 @@ func (h *Handler) ProvisionTenantUser(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else {
+		slog.ErrorContext(r.Context(), "failed to check user", "error", err, "tenant_id", tenantID, "email", req.Email)
 		respondError(w, http.StatusInternalServerError, "failed to check user: "+err.Error())
 		return
 	}
+
+	slog.DebugContext(r.Context(), "user checked/provisioned", "user_id", user.ID, "tenant_id", tenantID)
 
 	// 2. Assign role
 	// Identify who is granting the role (current user)
@@ -124,6 +128,7 @@ func (h *Handler) ProvisionTenantUser(w http.ResponseWriter, r *http.Request) {
 
 	err = h.tenantService.AssignRole(r.Context(), tenantID, user.ID, req.Role, granterID)
 	if err != nil {
+		slog.ErrorContext(r.Context(), "failed to assign role", "error", err, "tenant_id", tenantID, "user_id", user.ID, "role", req.Role)
 		if err == tenant.ErrRoleAlreadyExists {
 			respondError(w, http.StatusConflict, "role already assigned")
 			return

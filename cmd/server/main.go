@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	_ "embed"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -40,6 +41,23 @@ func main() {
 		ServiceName: cfg.Observability.ServiceName,
 	})
 	slog.Info("starting opentrusty identity provider")
+
+	// Phase: CLI Commands
+	if len(os.Args) > 1 && os.Args[1] == "bootstrap" {
+		if err := runBootstrap(cfg); err != nil {
+			fmt.Printf("Bootstrap failed: %v\n", err)
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}
+
+	if len(os.Args) > 1 && os.Args[1] == "migrate" {
+		if err := runMigrate(cfg); err != nil {
+			fmt.Printf("Migration failed: %v\n", err)
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}
 
 	// Initialize context
 	ctx := context.Background()
@@ -87,7 +105,7 @@ func main() {
 	storeSessionRepo := postgres.NewSessionRepository(db)
 	projectRepo := postgres.NewProjectRepository(db)
 	roleRepo := postgres.NewRoleRepository(db)
-	userProjectRoleRepo := postgres.NewUserProjectRoleRepository(db)
+	assignmentRepo := postgres.NewAssignmentRepository(db)
 	clientRepo := postgres.NewClientRepository(db)
 	codeRepo := postgres.NewAuthorizationCodeRepository(db)
 	accessRepo := postgres.NewAccessTokenRepository(db)
@@ -130,8 +148,23 @@ func main() {
 		auditLogger,
 		oidcService,
 	)
-	authzService := authz.NewService(projectRepo, roleRepo, userProjectRoleRepo)
+	authzService := authz.NewService(projectRepo, roleRepo, assignmentRepo)
 	tenantService := tenant.NewService(tenantRepo, tenantRoleRepo, auditLogger)
+
+	// Initialize Bootstrap Service
+	bootstrapService := identity.NewBootstrapService(
+		identityService,
+		assignmentRepo,
+		roleRepo,
+		auditLogger,
+	)
+
+	// Run Bootstrap (ENV driven)
+	if err := bootstrapService.Bootstrap(ctx); err != nil {
+		slog.Error("bootstrap failed", logger.Error(err))
+		// We don't necessarily exit(1) here if bootstrap fails due to user not found,
+		// but for the first run it might be desired.
+	}
 
 	// Rate Limiter
 	rateLimiter := transportHTTP.NewRateLimiter(cfg.RateLimit.RequestsPerSecond, cfg.RateLimit.Burst)
@@ -214,4 +247,75 @@ func main() {
 	}
 
 	slog.Info("server stopped")
+}
+
+func runBootstrap(cfg *config.Config) error {
+	ctx := context.Background()
+	db, err := postgres.New(ctx, postgres.Config{
+		Host:         cfg.Database.Host,
+		Port:         cfg.Database.Port,
+		User:         cfg.Database.User,
+		Password:     cfg.Database.Password,
+		Database:     cfg.Database.Database,
+		SSLMode:      cfg.Database.SSLMode,
+		MaxOpenConns: cfg.Database.MaxOpenConns,
+		MaxIdleConns: cfg.Database.MaxIdleConns,
+	})
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	userRepo := postgres.NewUserRepository(db)
+	roleRepo := postgres.NewRoleRepository(db)
+	assignmentRepo := postgres.NewAssignmentRepository(db)
+	auditLogger := audit.NewSlogLogger()
+	passwordHasher := identity.NewPasswordHasher(
+		cfg.Security.Argon2Memory,
+		cfg.Security.Argon2Iterations,
+		cfg.Security.Argon2Parallelism,
+		cfg.Security.Argon2SaltLength,
+		cfg.Security.Argon2KeyLength,
+	)
+
+	identityService := identity.NewService(
+		userRepo,
+		passwordHasher,
+		auditLogger,
+		cfg.Security.LockoutMaxAttempts,
+		cfg.Security.LockoutDuration,
+	)
+	bootstrapService := identity.NewBootstrapService(
+		identityService,
+		assignmentRepo,
+		roleRepo,
+		auditLogger,
+	)
+
+	return bootstrapService.Bootstrap(ctx)
+}
+
+func runMigrate(cfg *config.Config) error {
+	ctx := context.Background()
+	db, err := postgres.New(ctx, postgres.Config{
+		Host:         cfg.Database.Host,
+		Port:         cfg.Database.Port,
+		User:         cfg.Database.User,
+		Password:     cfg.Database.Password,
+		Database:     cfg.Database.Database,
+		SSLMode:      cfg.Database.SSLMode,
+		MaxOpenConns: cfg.Database.MaxOpenConns,
+		MaxIdleConns: cfg.Database.MaxIdleConns,
+	})
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	fmt.Println("Applying initial schema...")
+	if err := db.Migrate(ctx, postgres.InitialSchema); err != nil {
+		return err
+	}
+	fmt.Println("Migration successful.")
+	return nil
 }

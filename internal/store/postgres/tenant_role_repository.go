@@ -19,9 +19,25 @@ func NewTenantRoleRepository(db *DB) *TenantRoleRepository {
 	return &TenantRoleRepository{db: db}
 }
 
+// MapTenantRole maps internal tenant role names to seeded RBAC role IDs
+func MapTenantRole(role string) string {
+	switch role {
+	case tenant.RoleTenantOwner:
+		return "role:tenant:admin" // Map owner to admin for now or add role:tenant:owner
+	case tenant.RoleTenantAdmin:
+		return "role:tenant:admin"
+	case tenant.RoleTenantMember:
+		return "role:tenant:member"
+	default:
+		return "role:tenant:member"
+	}
+}
+
 // AssignRole assigns a role to a user in a tenant
 func (r *TenantRoleRepository) AssignRole(ctx context.Context, role *tenant.TenantUserRole) error {
 	role.GrantedAt = time.Now()
+
+	roleID := MapTenantRole(role.Role)
 
 	var grantedBy sql.NullString
 	if role.GrantedBy != "" {
@@ -29,12 +45,12 @@ func (r *TenantRoleRepository) AssignRole(ctx context.Context, role *tenant.Tena
 	}
 
 	_, err := r.db.pool.Exec(ctx, `
-		INSERT INTO tenant_user_roles (id, tenant_id, user_id, role, granted_at, granted_by)
-		VALUES ($1, $2, $3, $4, $5, $6)
-	`, role.ID, role.TenantID, role.UserID, role.Role, role.GrantedAt, grantedBy)
+		INSERT INTO rbac_assignments (id, user_id, role_id, scope, scope_context_id, granted_at, granted_by)
+		VALUES ($1, $2, $3, 'tenant', $4, $5, $6)
+		ON CONFLICT (user_id, role_id, scope, scope_context_id) DO NOTHING
+	`, role.ID, role.UserID, roleID, role.TenantID, role.GrantedAt, grantedBy)
 
 	if err != nil {
-		// TODO: Check for unique violation return ErrRoleAlreadyExists
 		return fmt.Errorf("failed to assign role: %w", err)
 	}
 
@@ -43,10 +59,11 @@ func (r *TenantRoleRepository) AssignRole(ctx context.Context, role *tenant.Tena
 
 // RevokeRole revokes a role from a user in a tenant
 func (r *TenantRoleRepository) RevokeRole(ctx context.Context, tenantID, userID, role string) error {
+	roleID := MapTenantRole(role)
 	result, err := r.db.pool.Exec(ctx, `
-		DELETE FROM tenant_user_roles
-		WHERE tenant_id = $1 AND user_id = $2 AND role = $3
-	`, tenantID, userID, role)
+		DELETE FROM rbac_assignments
+		WHERE user_id = $1 AND role_id = $2 AND scope = 'tenant' AND scope_context_id = $3
+	`, userID, roleID, tenantID)
 
 	if err != nil {
 		return fmt.Errorf("failed to revoke role: %w", err)
@@ -62,10 +79,11 @@ func (r *TenantRoleRepository) RevokeRole(ctx context.Context, tenantID, userID,
 // GetUserRoles retrieves all roles a user has in a tenant
 func (r *TenantRoleRepository) GetUserRoles(ctx context.Context, tenantID, userID string) ([]*tenant.TenantUserRole, error) {
 	rows, err := r.db.pool.Query(ctx, `
-		SELECT id, tenant_id, user_id, role, granted_at, granted_by
-		FROM tenant_user_roles
-		WHERE tenant_id = $1 AND user_id = $2
-	`, tenantID, userID)
+		SELECT a.id, a.scope_context_id, a.user_id, r.name, a.granted_at, a.granted_by
+		FROM rbac_assignments a
+		JOIN rbac_roles r ON a.role_id = r.id
+		WHERE a.user_id = $1 AND a.scope = 'tenant' AND a.scope_context_id = $2
+	`, userID, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user roles: %w", err)
 	}
@@ -90,9 +108,10 @@ func (r *TenantRoleRepository) GetUserRoles(ctx context.Context, tenantID, userI
 // GetTenantUsers retrieves all users with roles in a tenant
 func (r *TenantRoleRepository) GetTenantUsers(ctx context.Context, tenantID string) ([]*tenant.TenantUserRole, error) {
 	rows, err := r.db.pool.Query(ctx, `
-		SELECT id, tenant_id, user_id, role, granted_at, granted_by
-		FROM tenant_user_roles
-		WHERE tenant_id = $1
+		SELECT a.id, a.scope_context_id, a.user_id, r.name, a.granted_at, a.granted_by
+		FROM rbac_assignments a
+		JOIN rbac_roles r ON a.role_id = r.id
+		WHERE a.scope = 'tenant' AND a.scope_context_id = $1
 	`, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get tenant users: %w", err)
