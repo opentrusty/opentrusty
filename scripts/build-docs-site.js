@@ -114,9 +114,10 @@ const HTML_TEMPLATE = `
 <body>
     <div class="sidebar">
         <a href="/" class="logo" onclick="event.preventDefault(); window.location.href=basePath + '/index.html'">
-            <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="16" cy="16" r="14" stroke="currentColor" stroke-width="3"/>
-                <path d="M16 8V24M8 16H24" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+            <svg width="32" height="32" viewBox="0 0 90 90" xmlns="http://www.w3.org/2000/svg">
+                <rect width="90" height="90" rx="20" fill="#065F46" />
+                <path d="M15,25 H75 V40 H53 V70 H37 V40 H15 Z" fill="white" />
+                <rect x="37" y="73" width="16" height="4" rx="1" fill="white" opacity="0.6" />
             </svg>
             OpenTrusty
         </a>
