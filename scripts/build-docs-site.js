@@ -18,7 +18,7 @@ const HTML_TEMPLATE = `
     <title>{{title}} - OpenTrusty Docs</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/redoc/bundles/redoc.standalone.js"></script>
     <script>
@@ -27,12 +27,15 @@ const HTML_TEMPLATE = `
     </script>
     <style>
         :root {
-            --primary: #4A90E2;
-            --bg: #0f172a;
-            --sidebar-bg: rgba(30, 41, 59, 0.7);
-            --text: #f8fafc;
-            --text-muted: #94a3b8;
-            --border: rgba(255, 255, 255, 0.1);
+            --primary: #059669; /* Emerald 600 - Reliable Tech */
+            --primary-dark: #065F46; /* Logo Color - Steady */
+            --bg: #f8fafc; /* Content BG - Slate 50 */
+            --sidebar-bg: #041e1a; /* Very Deep Emerald - Tech/Steady */
+            --text: #0f172a; /* Slate 900 */
+            --text-muted: #64748b; /* Slate 500 */
+            --sidebar-text: #f0fdf4; /* Emerald 50 */
+            --sidebar-text-muted: #94a3b8;
+            --border: rgba(6, 95, 70, 0.1);
         }
         * { box-sizing: border-box; }
         body {
@@ -46,75 +49,136 @@ const HTML_TEMPLATE = `
         .sidebar {
             width: 300px;
             background: var(--sidebar-bg);
-            backdrop-filter: blur(12px);
-            border-right: 1px solid var(--border);
-            padding: 2rem;
+            border-right: 1px solid rgba(255,255,255,0.05);
+            padding: 2.5rem 2rem;
             position: fixed;
             height: 100vh;
             overflow-y: auto;
             z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            color: var(--sidebar-text);
         }
         .logo {
             font-family: 'Montserrat', sans-serif;
-            font-size: 1.5rem;
-            margin-bottom: 2rem;
+            font-size: 1.25rem;
+            margin-bottom: 3rem;
             display: flex;
             align-items: center;
-            gap: 0.5rem;
-            color: var(--primary);
+            gap: 0.75rem;
+            color: #fff;
             text-decoration: none;
+            font-weight: 700;
         }
-        .nav-section { margin-bottom: 1.5rem; }
+        .logo svg { flex-shrink: 0; }
+        
+        .nav-section { margin-bottom: 2rem; }
         .nav-title {
             text-transform: uppercase;
-            font-size: 0.75rem;
-            letter-spacing: 0.05em;
-            color: var(--text-muted);
-            margin-bottom: 0.75rem;
-            font-weight: 600;
+            font-size: 0.7rem;
+            letter-spacing: 0.1rem;
+            color: var(--sidebar-text-muted);
+            margin-bottom: 1rem;
+            font-weight: 700;
         }
         .nav-link {
             display: block;
-            padding: 0.5rem 0;
-            color: var(--text);
+            padding: 0.6rem 0;
+            color: var(--sidebar-text-muted);
             text-decoration: none;
-            font-size: 0.95rem;
-            transition: color 0.2s;
+            font-size: 0.9rem;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            border-left: 2px solid transparent;
+            padding-left: 0;
         }
-        .nav-link:hover { color: var(--primary); }
-        .nav-link.active { color: var(--primary); font-weight: 600; }
+        .nav-link:hover { 
+            color: #fff; 
+            padding-left: 0.5rem;
+        }
+        .nav-link.active { 
+            color: var(--primary); 
+            font-weight: 600; 
+            border-left: 2px solid var(--primary);
+            padding-left: 0.75rem;
+        }
 
         .content-wrapper {
             margin-left: 300px;
             flex: 1;
-            padding: 4rem;
-            max-width: 1000px;
+            padding: 5rem 6rem;
+            max-width: 1200px;
             min-height: 100vh;
         }
-        .markdown-body { line-height: 1.7; }
-        .markdown-body h1 { font-family: 'Montserrat', sans-serif; margin-bottom: 2rem; color: var(--primary); }
-        .markdown-body pre { background: #1e293b; padding: 1rem; border-radius: 8px; border: 1px solid var(--border); overflow-x: auto; }
+        .markdown-body { 
+            line-height: 1.8; 
+            font-size: 1.05rem;
+            color: #334155;
+        }
+        .markdown-body h1 { 
+            font-family: 'Montserrat', sans-serif; 
+            margin-bottom: 2.5rem; 
+            color: var(--primary-dark);
+            font-weight: 700;
+            font-size: 2.5rem;
+            letter-spacing: -0.02em;
+        }
+        .markdown-body h2 {
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 0.5rem;
+            margin-top: 3rem;
+            color: var(--primary-dark);
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 600;
+        }
+        .markdown-body p { margin-bottom: 1.5rem; }
+        .markdown-body pre { 
+            background: #0f172a; 
+            padding: 1.5rem; 
+            border-radius: 12px; 
+            border: 1px solid var(--border); 
+            overflow-x: auto;
+            color: #e2e8f0;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+        }
+        .markdown-body code {
+            background: rgba(5, 150, 105, 0.05);
+            color: var(--primary-dark);
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+        .markdown-body pre code {
+            background: transparent;
+            color: inherit;
+            padding: 0;
+        }
         
         .version-selector {
             margin-top: auto;
             padding-top: 2rem;
-            border-top: 1px solid var(--border);
+            border-top: 1px solid rgba(255,255,255,0.05);
         }
         select {
-            background: #1e293b;
-            color: var(--text);
-            border: 1px solid var(--border);
-            padding: 0.5rem;
-            border-radius: 4px;
+            background: rgba(255,255,255,0.05);
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.1);
+            padding: 0.6rem;
+            border-radius: 8px;
             width: 100%;
             cursor: pointer;
+            font-size: 0.85rem;
+            appearance: none;
+            outline: none;
+        }
+        select:hover {
+            background: rgba(255,255,255,0.08);
         }
     </style>
 </head>
 <body>
     <div class="sidebar">
         <a href="/" class="logo" onclick="event.preventDefault(); window.location.href=basePath + '/index.html'">
-            <svg width="32" height="32" viewBox="0 0 90 90" xmlns="http://www.w3.org/2000/svg">
+            <svg width="28" height="28" viewBox="0 0 90 90" xmlns="http://www.w3.org/2000/svg">
                 <rect width="90" height="90" rx="20" fill="#065F46" />
                 <path d="M15,25 H75 V40 H53 V70 H37 V40 H15 Z" fill="white" />
                 <rect x="37" y="73" width="16" height="4" rx="1" fill="white" opacity="0.6" />
@@ -123,7 +187,7 @@ const HTML_TEMPLATE = `
         </a>
         <nav>{{nav}}</nav>
         <div class="version-selector">
-            <div class="nav-title">Version</div>
+            <div class="nav-title">Release Version</div>
             <select id="v-select" onchange="window.location.href=this.value">{{versions}}</select>
         </div>
     </div>
@@ -139,12 +203,29 @@ const HTML_TEMPLATE = `
         if (API_MODE) {
             var specPath = basePath + '/openapi.json';
             var contentRoot = document.getElementById('content');
-            // Use default ReDoc styling - no custom theme
-            Redoc.init(specPath, {}, contentRoot);
+            
+            Redoc.init(specPath, {
+                theme: {
+                    colors: {
+                        primary: { main: '#059669' },
+                        text: { primary: '#334155' }
+                    },
+                    typography: {
+                        fontFamily: 'Inter, sans-serif',
+                        headings: {
+                            fontFamily: 'Montserrat, sans-serif'
+                        }
+                    },
+                    rightPanel: {
+                        backgroundColor: '#0f172a'
+                    }
+                }
+            }, contentRoot);
             
             var wrapper = document.querySelector('.content-wrapper');
             wrapper.style.padding = '0';
             wrapper.style.maxWidth = 'none';
+            wrapper.style.marginLeft = '300px';
             wrapper.style.backgroundColor = '#ffffff';
         }
     </script>
