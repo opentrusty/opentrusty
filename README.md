@@ -2,9 +2,9 @@
 
 <p align="center">
   <img src="docs/assets/logo-full.svg" alt="OpenTrusty - Secure • Open • Identity" width="400"/>
-  </br>
-  [![CI](https://github.com/opentrusty/opentrusty/actions/workflows/ci.yml/badge.svg)](https://github.com/opentrusty/opentrusty/actions/workflows/ci.yml) | [![Publish API Docs](https://github.com/opentrusty/opentrusty/actions/workflows/docs.yml/badge.svg)](https://github.com/opentrusty/opentrusty/actions/workflows/docs.yml) | [![Release Gate](https://github.com/opentrusty/opentrusty/actions/workflows/release.yml/badge.svg)](https://github.com/opentrusty/opentrusty/actions/workflows/release.yml)
 </p>
+
+[![CI](https://github.com/opentrusty/opentrusty/actions/workflows/ci.yml/badge.svg)](https://github.com/opentrusty/opentrusty/actions/workflows/ci.yml) | [![Publish API Docs](https://github.com/opentrusty/opentrusty/actions/workflows/docs.yml/badge.svg)](https://github.com/opentrusty/opentrusty/actions/workflows/docs.yml) | [![Release Gate](https://github.com/opentrusty/opentrusty/actions/workflows/release.yml/badge.svg)](https://github.com/opentrusty/opentrusty/actions/workflows/release.yml)
 
 **OpenTrusty** is a security-first, open-source Identity Provider (IdP) implementing OAuth 2.0 and OpenID Connect (OIDC), designed for auditability, correctness, and long-term maintainability.
 
