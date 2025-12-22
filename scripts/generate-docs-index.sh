@@ -40,8 +40,7 @@ cat > "$INDEX_FILE" <<EOF
     <ul class="version-list">
 EOF
 
-# Find versions, sort them (reverse version sort), and add to list
-if [ -d "$VERSIONS_DIR" ]; then
+    # Find versions, sort them (reverse version sort), and add to list
     # Use sort -Vr for version sort reverse
     VERSIONS=$(ls "$VERSIONS_DIR" | sort -Vr)
     
@@ -50,10 +49,10 @@ if [ -d "$VERSIONS_DIR" ]; then
         LINK="versions/$VERSION/index.html"
         
         BADGE=""
-        if [ "$FIRST" = true ]; then
+        # Only assign Latest badge to GA releases (no alpha/beta/rc)
+        if [ "$FIRST" = true ] && [[ ! "$VERSION" =~ -(alpha|beta|rc)\. ]]; then
             BADGE="<span class='latest-badge'>Latest</span>"
             FIRST=false
-            # Create/Update 'latest' symlink/redirect if needed - for now just the badge
         fi
 
         echo "        <li class=\"version-item\">" >> "$INDEX_FILE"

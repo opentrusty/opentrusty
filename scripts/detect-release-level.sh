@@ -15,20 +15,20 @@ fi
 # Strip 'refs/tags/' prefix if present
 TAG_NAME="${TAG_NAME#refs/tags/}"
 
-# Validate tag format: v{MAJOR}.{MINOR}.{PATCH}[_{MATURITY}{NUMBER}]
-if [[ ! "$TAG_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(_alpha[0-9]+|_beta[0-9]+|_rc[0-9]+)?$ ]]; then
+# Validate tag format: v{MAJOR}.{MINOR}.{PATCH}[-{MATURITY}.{NUMBER}]
+if [[ ! "$TAG_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-alpha\.[0-9]+|-beta\.[0-9]+|-rc\.[0-9]+)?$ ]]; then
     echo "Error: Invalid tag format: $TAG_NAME" >&2
-    echo "Expected: v{MAJOR}.{MINOR}.{PATCH}[_{MATURITY}{NUMBER}]" >&2
-    echo "Examples: v0.1.0_alpha1, v0.2.0_beta2, v1.0.0_rc1, v1.0.0" >&2
+    echo "Expected: v{MAJOR}.{MINOR}.{PATCH}[-{MATURITY}.{NUMBER}]" >&2
+    echo "Examples: v0.1.0-alpha.1, v0.2.0-beta.2, v1.0.0-rc.1, v1.0.0" >&2
     exit 1
 fi
 
 # Detect maturity level
-if [[ "$TAG_NAME" =~ _alpha[0-9]+$ ]]; then
+if [[ "$TAG_NAME" =~ -alpha\.[0-9]+$ ]]; then
     LEVEL="alpha"
-elif [[ "$TAG_NAME" =~ _beta[0-9]+$ ]]; then
+elif [[ "$TAG_NAME" =~ -beta\.[0-9]+$ ]]; then
     LEVEL="beta"
-elif [[ "$TAG_NAME" =~ _rc[0-9]+$ ]]; then
+elif [[ "$TAG_NAME" =~ -rc\.[0-9]+$ ]]; then
     LEVEL="rc"
 else
     LEVEL="ga"

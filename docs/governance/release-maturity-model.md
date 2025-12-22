@@ -40,7 +40,7 @@ This document defines the formal Release Maturity Model for OpenTrusty. All rele
 
 ### 1.3 Release Candidate (RC)
 
-**Purpose**: Production-ready candidates undergoing final validation before GA.
+**Purpose**: Production-ready candidates undergoing final validation before GA. RCs are **Candidate Releases** and must be explicitly promoted to GA.
 
 **Audience**: Production pilots, integration partners, and security auditors.
 
@@ -54,7 +54,7 @@ This document defines the formal Release Maturity Model for OpenTrusty. All rele
 
 ### 1.4 General Availability (GA)
 
-**Purpose**: Production-grade releases with long-term support guarantees.
+**Purpose**: Production-grade releases with long-term support guarantees. GAs are **Promoted Releases**, created only after a successful RC validation period.
 
 **Audience**: Production deployments, enterprise users, and security-conscious organizations.
 
@@ -65,6 +65,7 @@ This document defines the formal Release Maturity Model for OpenTrusty. All rele
 - **Data Compatibility**: Full backward and forward compatibility within major version
 
 **Production Use**: **RECOMMENDED**
+**Immutability**: Once a version is promoted to GA (e.g., `v1.0.0`), it is immutable. Any fixes must be released as a new patch version (e.g., `v1.0.1`).
 
 ---
 
@@ -158,46 +159,57 @@ This document defines the formal Release Maturity Model for OpenTrusty. All rele
 
 ---
 
-## 4. Tag Naming Conventions
+## 4. Promotion Process
 
-### 4.1 Format Rules
+Promotion is the explicit act of graduating a Release Candidate to a General Availability release.
 
-All release tags MUST follow this format:
+1. **Validation Period**: An RC must undergo a validation period (Beta -> RC: >2 weeks; RC -> GA: >4 weeks) as defined in Section 6.
+2. **Review**: Maintainers review the release checklist and test results.
+3. **Explicit Promotion**: The release manager triggers the **Promote Release** GitHub Action, providing the `candidate_tag` and the target `release_version`. This workflow verifies previous gates, creates the GA tag (e.g., `v1.0.0`) pointing to the exact same commit, and publishes the official release.
+4. **Final Gate**: The GA tag triggers the final production release gate, including full compliance and upgrade path validation.
+
+---
+
+## 5. Tag Naming Conventions
+
+### 5.1 Format Rules
+
+All release tags MUST follow this format, adhering to Semantic Versioning 2.0.0:
 
 ```
-v{MAJOR}.{MINOR}.{PATCH}[_{MATURITY}][{NUMBER}]
+v{MAJOR}.{MINOR}.{PATCH}[-{MATURITY}.{NUMBER}]
 ```
 
 **Examples**:
-- Alpha: `v0.1.0_alpha1`, `v0.1.0_alpha2`
-- Beta: `v0.2.0_beta1`, `v0.2.0_beta2`
-- RC: `v1.0.0_rc1`, `v1.0.0_rc2`
+- Alpha: `v0.1.0-alpha.1`, `v0.1.0-alpha.2`
+- Beta: `v0.2.0-beta.1`, `v0.2.0-beta.2`
+- RC: `v1.0.0-rc.1`, `v1.0.0-rc.2`
 - GA: `v1.0.0`, `v1.0.1`, `v1.1.0`
 
-### 4.2 Semantic Versioning
+### 5.2 Semantic Versioning
 
 - **MAJOR**: Breaking changes to public API or data model
 - **MINOR**: New features; backward-compatible additions
 - **PATCH**: Bug fixes; no new features
 
-### 4.3 Pre-Release Identifier Rules
+### 5.3 Pre-Release Identifier Rules
 
-- **Alpha**: `_alpha{N}` where N starts at 1 and increments sequentially
-- **Beta**: `_beta{N}` where N starts at 1 and increments sequentially
-- **RC**: `_rc{N}` where N starts at 1 and increments sequentially
+- **Alpha**: `-alpha.{N}` where N starts at 1 and increments sequentially
+- **Beta**: `-beta.{N}` where N starts at 1 and increments sequentially
+- **RC**: `-rc.{N}` where N starts at 1 and increments sequentially
 - **GA**: No suffix
 
 **IMPORTANT**: Version numbers MUST NOT be reused. If a tag is published and later found defective, increment the pre-release number or patch version.
 
-### 4.4 Version Progression
+### 5.4 Version Progression
 
 Valid progression examples:
-- `v0.1.0_alpha1` → `v0.1.0_alpha2` → `v0.1.0_beta1` → `v0.1.0_rc1` → `v0.1.0`
+- `v0.1.0-alpha.1` → `v0.1.0-alpha.2` → `v0.1.0-beta.1` → `v0.1.0-rc.1` → `v0.1.0`
 - `v1.0.0` → `v1.0.1` (patch) → `v1.1.0` (minor) → `v2.0.0` (major)
 
 **PROHIBITED**:
-- Skipping maturity levels for the same version (e.g., `alpha1` → `rc1` without beta)
-- Downgrading maturity (e.g., `beta1` → `alpha2`)
+- Skipping maturity levels for the same version (e.g., `alpha.1` → `rc.1` without beta)
+- Downgrading maturity (e.g., `beta.1` → `alpha.2`)
 - Reusing version identifiers
 
 ---
@@ -214,10 +226,10 @@ A release MUST be considered **FAILED** and MUST NOT be published if any of the 
 4. **Migration Failure**: Database migrations fail to apply or rollback cleanly
 5. **Security Vulnerability**: Critical CVE identified in dependencies or code
 
-### 5.2 Policy Violations (Maintainer Review Required)
+### 6.2 Policy Violations (Maintainer Review Required)
 
 6. **Governance Bypass**: Release gate bypass attempted without documented consensus
-7. **Tag Convention Violation**: Tag name does not follow Section 4 conventions
+7. **Tag Convention Violation**: Tag name does not follow Section 5 conventions
 8. **License Compliance**: Missing or incorrect license headers in new files
 9. **Breaking Change in Patch**: Non-additive changes in PATCH version increment
 10. **Documentation Gap**: Required documentation (per Section 3) missing or incomplete
@@ -277,7 +289,7 @@ This document is normative and changes require:
 
 ---
 
-## 8. References
+## 9. References
 
 - [Semantic Versioning 2.0.0](https://semver.org/)
 - [Release Gates](./release-gates.md)

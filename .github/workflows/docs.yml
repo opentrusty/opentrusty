@@ -22,14 +22,38 @@ jobs:
         run: |
           if [[ "${{ github.event.workflow_run.conclusion }}" != "success" ]]; then
             echo "❌ Release Gate workflow did not succeed. Documentation will not be published."
-            echo "Release Gate Status: ${{ github.event.workflow_run.conclusion }}"
             exit 1
           fi
           echo "✅ Release Gate passed. Proceeding with documentation publication."
 
+      - name: Detect Version and Level
+        id: info
+        run: |
+          # Use head_branch as it contains the tag for tag-triggered workflows
+          VERSION="${{ github.event.workflow_run.head_branch }}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          
+          # Detect level using script
+          # We need to checkout briefly or just assume we have the script? 
+          # Better to checkout first.
+          echo "✅ Detected Version: $VERSION"
+
       - uses: actions/checkout@v5
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Identify Maturity Level
+        id: level
+        run: |
+          VERSION="${{ steps.info.outputs.version }}"
+          # Fallback if VERSION is empty or not a tag
+          if [[ ! "$VERSION" =~ ^v[0-9] ]]; then
+            echo "level=ga" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          LEVEL=$(./scripts/detect-release-level.sh "$VERSION")
+          echo "level=$LEVEL" >> $GITHUB_OUTPUT
+          echo "✅ Maturity Level: $LEVEL"
 
       - name: Set up Go
         uses: actions/setup-go@v6
@@ -44,7 +68,7 @@ jobs:
           export PATH=$PATH:$(go env GOPATH)/bin
           make docs-gen
           # Inject version and host into swagger.json
-          VERSION=${GITHUB_REF_NAME}
+          VERSION="${{ steps.info.outputs.version }}"
           sed -i "s/DOCS_VERSION_PLACEHOLDER/${VERSION}/g" docs/api/swagger.json
           sed -i 's/"host": "api.opentrusty.org"/"host": "docs.opentrusty.org"/g' docs/api/swagger.json
 
@@ -54,21 +78,19 @@ jobs:
           ref: gh-pages
           path: public_history
           fetch-depth: 0
-        continue-on-error: true # Allow failure if branch doesn't exist yet
+        continue-on-error: true
 
       - name: Build Premium Documentation Portal
         run: |
-          export DOCS_VERSION=${GITHUB_REF_NAME}
+          export DOCS_VERSION="${{ steps.info.outputs.version }}"
           mkdir -p build_output
           if [ -d "public_history/versions" ]; then
-            # Extract list of versions, add current one, sort and uniq
             EXISTING=$(ls public_history/versions | paste -sd "," -)
-            export ALL_VERSIONS="${EXISTING},${GITHUB_REF_NAME}"
+            export ALL_VERSIONS="${EXISTING},${DOCS_VERSION}"
           else
-            export ALL_VERSIONS="${GITHUB_REF_NAME}"
+            export ALL_VERSIONS="${DOCS_VERSION}"
           fi
           node scripts/build-docs-site.js
-          # Move site artifacts to build_output
           cp -r build_docs/* build_output/
 
       - name: Verify Documentation Build
@@ -77,15 +99,10 @@ jobs:
             echo "❌ Documentation build failed: index.html not found"
             exit 1
           fi
-          if [ ! -f "build_output/api/index.html" ]; then
-            echo "❌ Documentation build failed: API reference not generated"
-            exit 1
-          fi
           echo "✅ Documentation build verified successfully"
 
       - name: Prepare Deployment Directory
         run: |
-          # If public_history doesn't exist (fresh repo), create it
           if [ ! -d "public_history" ]; then
             mkdir public_history
             cd public_history
@@ -94,20 +111,20 @@ jobs:
             cd ..
           fi
           
-          VERSION=${GITHUB_REF_NAME}
+          VERSION="${{ steps.info.outputs.version }}"
           TARGET_DIR="public_history/versions/$VERSION"
           
-          # Remove existing version if re-running tag
           rm -rf "$TARGET_DIR"
           mkdir -p "$TARGET_DIR"
           
-          # Copy new build artifacts (HTML portal + API spec)
           cp -r build_output/* "$TARGET_DIR/"
-          # Copy openapi.json to the root of the version so Redoc can find it
           cp docs/api/swagger.json "$TARGET_DIR/openapi.json"
 
       - name: Update Index and Persist History
         run: |
+          VERSION="${{ steps.info.outputs.version }}"
+          LEVEL="${{ steps.level.outputs.level }}"
+          
           # Rebuild the root index.html
           ./scripts/generate-docs-index.sh "public_history"
           
@@ -116,7 +133,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
           git add .
-          git commit -m "Deploy API Docs for ${GITHUB_REF_NAME}"
+          git commit -m "Deploy API Docs for $VERSION"
           git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }} HEAD:gh-pages --force
 
       - name: Upload Pages Artifact

@@ -78,7 +78,7 @@
 - [ ] Release proposal reviewed by maintainers
 - [ ] Breaking changes (if any) documented and justified
 - [ ] License compliance verified (all new files have headers)
-- [ ] Tag naming convention followed: `v{MAJOR}.{MINOR}.{PATCH}[_{MATURITY}{NUMBER}]`
+- [ ] Tag naming convention followed: `v{MAJOR}.{MINOR}.{PATCH}[-{MATURITY}.{NUMBER}]`
 
 ---
 

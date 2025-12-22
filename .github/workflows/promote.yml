@@ -1,0 +1,101 @@
+name: Promote Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_tag:
+        description: 'Candidate tag to promote (e.g., v1.0.0-rc.3)'
+        required: true
+        type: string
+      release_version:
+        description: 'Final GA version (e.g., v1.0.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  verify-and-promote:
+    name: Verify Candidate and Promote to GA
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Validate Candidate Tag
+        run: |
+          if ! git rev-parse "${{ github.event.inputs.candidate_tag }}" >/dev/null 2>&1; then
+            echo "❌ Candidate tag '${{ github.event.inputs.candidate_tag }}' does not exist."
+            exit 1
+          fi
+          echo "✅ Candidate tag found."
+
+      - name: Validate Release Version
+        run: |
+          VERSION="${{ github.event.inputs.release_version }}"
+          LEVEL=$(./scripts/detect-release-level.sh "$VERSION")
+          if [[ "$LEVEL" != "ga" ]]; then
+            echo "❌ Protection Error: Release version '$VERSION' is detected as '$LEVEL', not 'ga'."
+            echo "GA versions must not have maturity suffixes (e.g., v1.0.0)."
+            exit 1
+          fi
+          echo "✅ Release version '$VERSION' validated as GA."
+
+      - name: Verify Candidate Gates Passed
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          CANDIDATE_TAG="${{ github.event.inputs.candidate_tag }}"
+          echo "Checking 'Release Gate' status for $CANDIDATE_TAG..."
+          
+          # Find the latest successful Release Gate run for the candidate tag
+          RUN_STATUS=$(gh run list --workflow "Release Gate" --ref "$CANDIDATE_TAG" --limit 1 --json conclusion -q '.[0].conclusion')
+          
+          if [[ "$RUN_STATUS" != "success" ]]; then
+            echo "❌ Candidate Gates did not pass for $CANDIDATE_TAG (Status: $RUN_STATUS)."
+            echo "Promotion requires a successful 'Release Gate' run."
+            exit 1
+          fi
+          echo "✅ Candidate Gates verified successfully."
+
+      - name: Check if GA Tag Exists
+        run: |
+          if git rev-parse "${{ github.event.inputs.release_version }}" >/dev/null 2>&1; then
+            echo "❌ GA tag '${{ github.event.inputs.release_version }}' already exists."
+            echo "Final releases are immutable and cannot be overwritten."
+            exit 1
+          fi
+
+      - name: Create and Push GA Tag
+        run: |
+          CANDIDATE_TAG="${{ github.event.inputs.candidate_tag }}"
+          GA_TAG="${{ github.event.inputs.release_version }}"
+          
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          echo "Promoting $CANDIDATE_TAG to $GA_TAG..."
+          git tag -a "$GA_TAG" "$CANDIDATE_TAG" -m "Promote $CANDIDATE_TAG to $GA_TAG"
+          git push origin "$GA_TAG"
+          
+          echo "✅ GA Tag $GA_TAG created and pushed."
+          echo "🚀 This will trigger the GA release gates and documentation update."
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          GA_TAG="${{ github.event.inputs.release_version }}"
+          CANDIDATE_TAG="${{ github.event.inputs.candidate_tag }}"
+          
+          # Try to copy release notes from the candidate or generate them
+          gh release create "$GA_TAG" \
+            --title "OpenTrusty $GA_TAG" \
+            --notes "Promoted from $CANDIDATE_TAG. See [Release Maturity Model](https://docs.opentrusty.org/governance/release-maturity-model.html) for details." \
+            --target "$GA_TAG"
+
+          echo "✅ GitHub Release created: https://github.com/${{ github.repository }}/releases/tag/$GA_TAG"
