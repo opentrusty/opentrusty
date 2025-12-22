@@ -1,21 +1,35 @@
 name: Publish API Docs
 
 on:
-  push:
-    tags:
-      - 'v*'
+  workflow_run:
+    workflows: ["Release Gate"]
+    types:
+      - completed
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
 
 jobs:
   docs:
     runs-on: ubuntu-latest
-    # Permissions for Pages and Git operations
-    permissions:
-      contents: write
-      pages: write
-      id-token: write
-
+    # Only run if Release Gate succeeded
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    
     steps:
+      - name: Check Release Gate Status
+        run: |
+          if [[ "${{ github.event.workflow_run.conclusion }}" != "success" ]]; then
+            echo "❌ Release Gate workflow did not succeed. Documentation will not be published."
+            echo "Release Gate Status: ${{ github.event.workflow_run.conclusion }}"
+            exit 1
+          fi
+          echo "✅ Release Gate passed. Proceeding with documentation publication."
+
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Set up Go
         uses: actions/setup-go@v6
@@ -56,6 +70,18 @@ jobs:
           node scripts/build-docs-site.js
           # Move site artifacts to build_output
           cp -r build_docs/* build_output/
+
+      - name: Verify Documentation Build
+        run: |
+          if [ ! -f "build_output/index.html" ]; then
+            echo "❌ Documentation build failed: index.html not found"
+            exit 1
+          fi
+          if [ ! -f "build_output/api/index.html" ]; then
+            echo "❌ Documentation build failed: API reference not generated"
+            exit 1
+          fi
+          echo "✅ Documentation build verified successfully"
 
       - name: Prepare Deployment Directory
         run: |
@@ -100,3 +126,9 @@ jobs:
 
       - name: Deploy to GitHub Pages
         uses: actions/deploy-pages@v4
+
+      - name: Documentation Deployment Complete
+        run: |
+          echo "✅ Documentation successfully published to docs.opentrusty.org"
+          echo "📚 Version: ${GITHUB_REF_NAME}"
+          echo "🌐 URL: https://docs.opentrusty.org/versions/${GITHUB_REF_NAME}/"

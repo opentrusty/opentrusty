@@ -8,9 +8,112 @@ on:
     types: [published]
 
 jobs:
-  unit-tests:
-    name: Unit Tests
+  detect-level:
+    name: Detect Release Level
     runs-on: ubuntu-latest
+    outputs:
+      level: ${{ steps.detect.outputs.level }}
+      require_integration: ${{ steps.gates.outputs.require_integration }}
+      require_e2e: ${{ steps.gates.outputs.require_e2e }}
+      require_systemd: ${{ steps.gates.outputs.require_systemd }}
+      require_security: ${{ steps.gates.outputs.require_security }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Detect maturity level
+        id: detect
+        run: |
+          LEVEL=$(./scripts/detect-release-level.sh "$GITHUB_REF_NAME")
+          echo "level=$LEVEL" >> $GITHUB_OUTPUT
+          echo "✅ Detected release level: $LEVEL"
+
+      - name: Determine required gates
+        id: gates
+        run: |
+          LEVEL="${{ steps.detect.outputs.level }}"
+          
+          # Alpha: Unit (MUST), Integration (SHOULD), E2E (MAY), Systemd (MAY)
+          # Beta: Unit, Integration, E2E (MUST), Systemd (SHOULD)
+          # RC: All MUST
+          # GA: All MUST
+          
+          case "$LEVEL" in
+            alpha)
+              echo "require_integration=false" >> $GITHUB_OUTPUT
+              echo "require_e2e=false" >> $GITHUB_OUTPUT
+              echo "require_systemd=false" >> $GITHUB_OUTPUT
+              echo "require_security=false" >> $GITHUB_OUTPUT
+              echo "ℹ️  Alpha: Only unit tests and API docs are required"
+              ;;
+            beta)
+              echo "require_integration=true" >> $GITHUB_OUTPUT
+              echo "require_e2e=true" >> $GITHUB_OUTPUT
+              echo "require_systemd=false" >> $GITHUB_OUTPUT
+              echo "require_security=false" >> $GITHUB_OUTPUT
+              echo "ℹ️  Beta: Unit, Integration, E2E, and API docs are required"
+              ;;
+            rc)
+              echo "require_integration=true" >> $GITHUB_OUTPUT
+              echo "require_e2e=true" >> $GITHUB_OUTPUT
+              echo "require_systemd=true" >> $GITHUB_OUTPUT
+              echo "require_security=true" >> $GITHUB_OUTPUT
+              echo "ℹ️  RC: All tests (including systemd and security) are required"
+              ;;
+            ga)
+              echo "require_integration=true" >> $GITHUB_OUTPUT
+              echo "require_e2e=true" >> $GITHUB_OUTPUT
+              echo "require_systemd=true" >> $GITHUB_OUTPUT
+              echo "require_security=true" >> $GITHUB_OUTPUT
+              echo "ℹ️  GA: All tests (including systemd and security) are required"
+              ;;
+            *)
+              echo "❌ Unknown release level: $LEVEL"
+              exit 1
+              ;;
+          esac
+
+  checklist-validation:
+    name: Release Checklist Validation (REQUIRED)
+    runs-on: ubuntu-latest
+    needs: detect-level
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Validate release checklist
+        run: |
+          LEVEL="${{ needs.detect-level.outputs.level }}"
+          ./scripts/validate-release-checklist.sh "$GITHUB_REF_NAME" "$LEVEL"
+          echo "✅ Release checklist validated for $LEVEL release"
+
+  api-docs-freshness:
+    name: API Documentation Freshness (REQUIRED)
+    runs-on: ubuntu-latest
+    needs: detect-level
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install Swag
+        run: go install github.com/swaggo/swag/cmd/swag@latest
+
+      - name: Check API docs freshness
+        run: |
+          export PATH=$PATH:$(go env GOPATH)/bin
+          ./scripts/check-docs.sh
+          echo "✅ API documentation is fresh and in sync with code"
+
+  unit-tests:
+    name: Unit Tests (REQUIRED)
+    runs-on: ubuntu-latest
+    needs: detect-level
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -27,10 +130,29 @@ jobs:
       - name: Run unit tests
         run: make test-unit
 
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: [detect-level, unit-tests]
+    if: needs.detect-level.outputs.require_integration == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Run integration tests
+        run: make test-integration
+
   docker-e2e:
     name: Docker E2E Tests
-    needs: unit-tests
+    needs: [detect-level, unit-tests]
     runs-on: ubuntu-latest
+    if: needs.detect-level.outputs.require_e2e == 'true'
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -44,10 +166,25 @@ jobs:
       - name: Run E2E tests
         run: make test-e2e
 
+      - name: Capture Docker logs on failure
+        if: failure()
+        run: |
+          mkdir -p logs
+          docker compose -f tests/e2e/docker/docker-compose.test.yml logs > logs/docker-e2e.log
+        continue-on-error: true
+
+      - name: Upload logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-e2e-logs
+          path: logs/
+
   systemd-smoke:
     name: Systemd Smoke Test
-    needs: docker-e2e
+    needs: [detect-level, docker-e2e]
     runs-on: ubuntu-latest
+    if: needs.detect-level.outputs.require_systemd == 'true'
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -60,10 +197,6 @@ jobs:
 
       - name: Run systemd smoke test
         run: make test-systemd
-        # Note: Github Actions runners support privileged mode for Docker by default.
-        # However, jrei/systemd-ubuntu needs specific flags which are handled inside smoke_test.sh
-        # but we must ensure the runner has enough permissions.
-        # The smoke_test.sh already uses 'docker run --privileged'.
 
       - name: Capture systemd logs on failure
         if: failure()
@@ -78,3 +211,85 @@ jobs:
         with:
           name: systemd-smoke-logs
           path: logs/
+
+  security-scan:
+    name: Security Scan
+    needs: [detect-level, unit-tests]
+    runs-on: ubuntu-latest
+    if: needs.detect-level.outputs.require_security == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Run Gosec Security Scanner
+        uses: securego/gosec@master
+        with:
+          args: '-no-fail -fmt sarif -out gosec-results.sarif ./...'
+
+      - name: Upload SARIF file
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: gosec-results.sarif
+
+  release-gate-complete:
+    name: Release Gate Complete
+    runs-on: ubuntu-latest
+    needs: [detect-level, checklist-validation, api-docs-freshness, unit-tests, integration-tests, docker-e2e, systemd-smoke, security-scan]
+    if: always()
+    steps:
+      - name: Check all required gates passed
+        run: |
+          LEVEL="${{ needs.detect-level.outputs.level }}"
+          
+          # Check checklist validation (always required)
+          if [[ "${{ needs.checklist-validation.result }}" != "success" ]]; then
+            echo "❌ Release Checklist Validation failed"
+            exit 1
+          fi
+          
+          # Check API docs (always required)
+          if [[ "${{ needs.api-docs-freshness.result }}" != "success" ]]; then
+            echo "❌ API Documentation Freshness check failed"
+            exit 1
+          fi
+          
+          # Check unit tests (always required)
+          if [[ "${{ needs.unit-tests.result }}" != "success" ]]; then
+            echo "❌ Unit Tests failed"
+            exit 1
+          fi
+          
+          # Check integration tests (if required)
+          if [[ "${{ needs.detect-level.outputs.require_integration }}" == "true" ]]; then
+            if [[ "${{ needs.integration-tests.result }}" != "success" ]]; then
+              echo "❌ Integration Tests failed (required for $LEVEL)"
+              exit 1
+            fi
+          fi
+          
+          # Check E2E tests (if required)
+          if [[ "${{ needs.detect-level.outputs.require_e2e }}" == "true" ]]; then
+            if [[ "${{ needs.docker-e2e.result }}" != "success" ]]; then
+              echo "❌ Docker E2E Tests failed (required for $LEVEL)"
+              exit 1
+            fi
+          fi
+          
+          # Check systemd smoke test (if required)
+          if [[ "${{ needs.detect-level.outputs.require_systemd }}" == "true" ]]; then
+            if [[ "${{ needs.systemd-smoke.result }}" != "success" ]]; then
+              echo "❌ Systemd Smoke Test failed (required for $LEVEL)"
+              exit 1
+            fi
+          fi
+          
+          # Check security scan (if required)
+          if [[ "${{ needs.detect-level.outputs.require_security }}" == "true" ]]; then
+            if [[ "${{ needs.security-scan.result }}" != "success" ]]; then
+              echo "❌ Security Scan failed (required for $LEVEL)"
+              exit 1
+            fi
+          fi
+          
+          echo "✅ All required release gates passed for $LEVEL release"
+          echo "🎉 Release $GITHUB_REF_NAME is ready for publication"
