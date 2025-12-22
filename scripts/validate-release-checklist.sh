@@ -27,16 +27,22 @@ echo "Validating release checklist for $VERSION ($LEVEL)..."
 
 # Check if checklist exists
 if [[ ! -f "$CHECKLIST_FILE" ]]; then
-    echo "❌ Release checklist not found: $CHECKLIST_FILE" >&2
-    echo "" >&2
-    echo "REQUIRED: Create a release checklist before publishing this release." >&2
-    echo "Steps:" >&2
-    echo "  1. cp .github/RELEASE_CHECKLIST_TEMPLATE.md $CHECKLIST_FILE" >&2
-    echo "  2. Fill in the checklist with version, date, and manager info" >&2
-    echo "  3. Check off all completed items" >&2
-    echo "  4. Commit and push the checklist" >&2
-    echo "" >&2
-    exit 1
+    if [[ "$LEVEL" == "alpha" || "$LEVEL" == "beta" ]]; then
+        echo "ℹ️  Optional: Release checklist not found at $CHECKLIST_FILE"
+        echo "Alpha and Beta releases are exploratory and do not require a mandatory checklist."
+        exit 0
+    else
+        echo "❌ Release checklist not found: $CHECKLIST_FILE" >&2
+        echo "" >&2
+        echo "REQUIRED: RC and GA releases must have a completed release checklist." >&2
+        echo "Steps:" >&2
+        echo "  1. cp .github/RELEASE_CHECKLIST_TEMPLATE.md $CHECKLIST_FILE" >&2
+        echo "  2. Fill in the checklist with version, date, and manager info" >&2
+        echo "  3. Check off all completed items" >&2
+        echo "  4. Commit and push the checklist" >&2
+        echo "" >&2
+        exit 1
+    fi
 fi
 
 echo "✅ Checklist file found: $CHECKLIST_FILE"

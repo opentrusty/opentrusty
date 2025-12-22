@@ -24,6 +24,8 @@ This document defines the formal Release Maturity Model for OpenTrusty. All rele
 
 **Production Use**: **NOT RECOMMENDED**
 
+**Exploratory Status**: Alpha releases are exploratory and for development purposes only. They are not production commitments and do not require a formal release checklist.
+
 ### 1.2 Beta
 
 **Purpose**: Feature-complete releases undergoing stabilization and community validation.
@@ -37,6 +39,8 @@ This document defines the formal Release Maturity Model for OpenTrusty. All rele
 - **Data Compatibility**: Upgrade path from previous beta versions must exist
 
 **Production Use**: **USE WITH CAUTION** (Non-critical workloads only)
+
+**Exploratory Status**: Beta releases are exploratory and intended for stabilizing features. While more stable than Alpha, they are not production commitments and do not require a formal release checklist.
 
 ### 1.3 Release Candidate (RC)
 
@@ -52,6 +56,8 @@ This document defines the formal Release Maturity Model for OpenTrusty. All rele
 
 **Production Use**: **ACCEPTABLE** (With contingency planning)
 
+**Checklist Requirement**: RC releases are production candidates and **MUST** have a verified and completed release checklist validated by CI.
+
 ### 1.4 General Availability (GA)
 
 **Purpose**: Production-grade releases with long-term support guarantees. GAs are **Promoted Releases**, created only after a successful RC validation period.
@@ -65,38 +71,40 @@ This document defines the formal Release Maturity Model for OpenTrusty. All rele
 - **Data Compatibility**: Full backward and forward compatibility within major version
 
 **Production Use**: **RECOMMENDED**
+
+**Checklist Requirement**: GA releases are production-grade and **MUST** have a fully verified release checklist inherited from a successful RC promotion.
 **Immutability**: Once a version is promoted to GA (e.g., `v1.0.0`), it is immutable. Any fixes must be released as a new patch version (e.g., `v1.0.1`).
 
 ---
 
 ## 2. Required Test Gates Per Maturity Level
 
-### 2.1 Alpha Requirements
+### 2.1 Alpha Requirements (Minimal Gates)
 
 | Gate | Status | Enforcement |
 |------|--------|-------------|
 | Unit Tests | MUST pass | CI-enforced |
+| API Documentation Freshness | MUST pass | CI-enforced |
 | Integration Tests | SHOULD pass | CI-warning only |
 | E2E Tests (Docker) | MAY fail | Manual review |
-| Systemd Smoke Test | MAY fail | Manual review |
-| API Documentation Freshness | MUST pass | CI-enforced |
+| **Release Checklist** | **NOT REQUIRED** | **Skipped in CI** |
 
 **Failure Tolerance**: Alpha releases MAY be published with known test failures if documented in release notes.
 
-### 2.2 Beta Requirements
+### 2.2 Beta Requirements (Minimal Gates)
 
 | Gate | Status | Enforcement |
 |------|--------|-------------|
 | Unit Tests | MUST pass | CI-enforced |
 | Integration Tests | MUST pass | CI-enforced |
 | E2E Tests (Docker) | MUST pass | CI-enforced |
-| Systemd Smoke Test | SHOULD pass | CI-warning |
 | API Documentation Freshness | MUST pass | CI-enforced |
-| Security Scan | SHOULD pass | Manual review |
+| Systemd Smoke Test | SHOULD pass | CI-warning |
+| **Release Checklist** | **NOT REQUIRED** | **Skipped in CI** |
 
 **Failure Tolerance**: Beta releases MUST NOT be published with critical test failures. Non-critical failures require explicit acknowledgment in release notes.
 
-### 2.3 RC Requirements
+### 2.3 RC Requirements (Full Gates + Checklist)
 
 | Gate | Status | Enforcement |
 |------|--------|-------------|
@@ -107,10 +115,11 @@ This document defines the formal Release Maturity Model for OpenTrusty. All rele
 | API Documentation Freshness | MUST pass | CI-enforced |
 | Security Scan | MUST pass | Manual review required |
 | Performance Regression | SHOULD pass | Benchmark comparison |
+| **Release Checklist** | **MUST be completed** | **CI-enforced (rc.* tags)** |
 
 **Failure Tolerance**: RC releases MUST NOT be published with ANY test failures.
 
-### 2.4 GA Requirements
+### 2.4 GA Requirements (Full Gates + Checklist)
 
 | Gate | Status | Enforcement |
 |------|--------|-------------|
@@ -122,6 +131,7 @@ This document defines the formal Release Maturity Model for OpenTrusty. All rele
 | Security Scan | MUST pass | Mandatory maintainer review |
 | Performance Regression | MUST pass | Automated threshold checks |
 | Upgrade Path Validation | MUST pass | Manual verification from previous GA |
+| **Release Checklist** | **MUST be inherited** | **Verified during promotion** |
 
 **Failure Tolerance**: GA releases MUST NOT be published with ANY test failures or unresolved security findings.
 

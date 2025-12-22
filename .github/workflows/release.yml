@@ -16,23 +16,47 @@ jobs:
     outputs:
       level: ${{ steps.detect.outputs.level }}
       is_tag: ${{ steps.detect.outputs.is_tag }}
+      is_pr: ${{ steps.detect.outputs.is_pr }}
+      require_integration: ${{ steps.detect.outputs.require_integration }}
+      require_e2e: ${{ steps.detect.outputs.require_e2e }}
+      require_systemd: ${{ steps.detect.outputs.require_systemd }}
+      require_security: ${{ steps.detect.outputs.require_security }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
 
-      - name: Detect maturity level
+      - name: Detect maturity level and gates
         id: detect
         run: |
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             echo "level=ga" >> $GITHUB_OUTPUT
             echo "is_tag=false" >> $GITHUB_OUTPUT
-            echo "ℹ️  Triggered by PR: Defaulting to GA level for full gate enforcement"
+            echo "is_pr=true" >> $GITHUB_OUTPUT
+            echo "require_integration=true" >> $GITHUB_OUTPUT
+            echo "require_e2e=true" >> $GITHUB_OUTPUT
+            echo "require_systemd=true" >> $GITHUB_OUTPUT
+            echo "require_security=true" >> $GITHUB_OUTPUT
+            echo "ℹ️  Triggered by PR: Defaulting to Full Gates"
           else
-            # Try to detect from tag or ref
             LEVEL=$(./scripts/detect-release-level.sh "${{ github.ref_name }}")
             echo "level=$LEVEL" >> $GITHUB_OUTPUT
             echo "is_tag=${{ github.ref_type == 'tag' }}" >> $GITHUB_OUTPUT
-            echo "✅ Detected release level: $LEVEL (is_tag: ${{ github.ref_type == 'tag' }})"
+            echo "is_pr=false" >> $GITHUB_OUTPUT
+            
+            # Default gates
+            RI="false"; RE2E="false"; RS="false"; RSEC="false"
+            
+            case "$LEVEL" in
+              alpha) RI="false"; RE2E="false"; RS="false"; RSEC="false" ;;
+              beta)  RI="true";  RE2E="true";  RS="false"; RSEC="false" ;;
+              rc|ga) RI="true";  RE2E="true";  RS="true";  RSEC="true"  ;;
+            esac
+            
+            echo "require_integration=$RI" >> $GITHUB_OUTPUT
+            echo "require_e2e=$RE2E" >> $GITHUB_OUTPUT
+            echo "require_systemd=$RS" >> $GITHUB_OUTPUT
+            echo "require_security=$RSEC" >> $GITHUB_OUTPUT
+            echo "✅ Level: $LEVEL (Integration:$RI E2E:$RE2E Systemd:$RS Security:$RSEC)"
           fi
 
 
@@ -95,9 +119,10 @@ jobs:
         run: make test-unit
 
   integration-tests:
-    name: Integration Tests (REQUIRED)
+    name: Integration Tests
     runs-on: ubuntu-latest
     needs: [detect-level, unit-tests]
+    if: needs.detect-level.outputs.require_integration == 'true'
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -112,9 +137,10 @@ jobs:
         run: make test-integration
 
   docker-e2e:
-    name: Docker E2E Tests (REQUIRED)
+    name: Docker E2E Tests
     needs: [detect-level, unit-tests]
     runs-on: ubuntu-latest
+    if: needs.detect-level.outputs.require_e2e == 'true'
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -143,9 +169,10 @@ jobs:
           path: logs/
 
   systemd-smoke:
-    name: Systemd Smoke Test (REQUIRED)
+    name: Systemd Smoke Test
     needs: [detect-level, docker-e2e]
     runs-on: ubuntu-latest
+    if: needs.detect-level.outputs.require_systemd == 'true'
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -174,9 +201,10 @@ jobs:
           path: logs/
 
   security-scan:
-    name: Security Scan (REQUIRED)
+    name: Security Scan
     needs: [detect-level, unit-tests]
     runs-on: ubuntu-latest
+    if: needs.detect-level.outputs.require_security == 'true'
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -222,24 +250,33 @@ jobs:
             exit 1
           fi
           
-          if [[ "${{ needs.integration-tests.result }}" != "success" ]]; then
-            echo "❌ Integration Tests failed"
-            exit 1
+          # Check conditional gates
+          if [[ "${{ needs.detect-level.outputs.require_integration }}" == "true" ]]; then
+            if [[ "${{ needs.integration-tests.result }}" != "success" ]]; then
+              echo "❌ Integration Tests failed (Required for $LEVEL)"
+              exit 1
+            fi
           fi
           
-          if [[ "${{ needs.docker-e2e.result }}" != "success" ]]; then
-            echo "❌ Docker E2E Tests failed"
-            exit 1
+          if [[ "${{ needs.detect-level.outputs.require_e2e }}" == "true" ]]; then
+            if [[ "${{ needs.docker-e2e.result }}" != "success" ]]; then
+              echo "❌ Docker E2E Tests failed (Required for $LEVEL)"
+              exit 1
+            fi
           fi
           
-          if [[ "${{ needs.systemd-smoke.result }}" != "success" ]]; then
-            echo "❌ Systemd Smoke Test failed"
-            exit 1
+          if [[ "${{ needs.detect-level.outputs.require_systemd }}" == "true" ]]; then
+            if [[ "${{ needs.systemd-smoke.result }}" != "success" ]]; then
+              echo "❌ Systemd Smoke Test failed (Required for $LEVEL)"
+              exit 1
+            fi
           fi
           
-          if [[ "${{ needs.security-scan.result }}" != "success" ]]; then
-            echo "❌ Security Scan failed"
-            exit 1
+          if [[ "${{ needs.detect-level.outputs.require_security }}" == "true" ]]; then
+            if [[ "${{ needs.security-scan.result }}" != "success" ]]; then
+              echo "❌ Security Scan failed (Required for $LEVEL)"
+              exit 1
+            fi
           fi
           
           echo "✅ All required release gates passed for $LEVEL"
