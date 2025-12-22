@@ -1,0 +1,237 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Operations Guide - OpenTrusty Docs</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/redoc/bundles/redoc.standalone.js"></script>
+    <script>
+        var API_MODE = "false" === "true";
+        var basePath = API_MODE ? ".." : "."; 
+    </script>
+    <style>
+        :root {
+            --primary: #4A90E2;
+            --bg: #0f172a;
+            --sidebar-bg: rgba(30, 41, 59, 0.7);
+            --text: #f8fafc;
+            --text-muted: #94a3b8;
+            --border: rgba(255, 255, 255, 0.1);
+        }
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            display: flex;
+            min-height: 100vh;
+        }
+        .sidebar {
+            width: 300px;
+            background: var(--sidebar-bg);
+            backdrop-filter: blur(12px);
+            border-right: 1px solid var(--border);
+            padding: 2rem;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+            z-index: 1000;
+        }
+        .logo {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 1.5rem;
+            margin-bottom: 2rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--primary);
+            text-decoration: none;
+        }
+        .nav-section { margin-bottom: 1.5rem; }
+        .nav-title {
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            margin-bottom: 0.75rem;
+            font-weight: 600;
+        }
+        .nav-link {
+            display: block;
+            padding: 0.5rem 0;
+            color: var(--text);
+            text-decoration: none;
+            font-size: 0.95rem;
+            transition: color 0.2s;
+        }
+        .nav-link:hover { color: var(--primary); }
+        .nav-link.active { color: var(--primary); font-weight: 600; }
+
+        .content-wrapper {
+            margin-left: 300px;
+            flex: 1;
+            padding: 4rem;
+            max-width: 1000px;
+            min-height: 100vh;
+        }
+        .markdown-body { line-height: 1.7; }
+        .markdown-body h1 { font-family: 'Montserrat', sans-serif; margin-bottom: 2rem; color: var(--primary); }
+        .markdown-body pre { background: #1e293b; padding: 1rem; border-radius: 8px; border: 1px solid var(--border); overflow-x: auto; }
+        
+        .version-selector {
+            margin-top: auto;
+            padding-top: 2rem;
+            border-top: 1px solid var(--border);
+        }
+        select {
+            background: #1e293b;
+            color: var(--text);
+            border: 1px solid var(--border);
+            padding: 0.5rem;
+            border-radius: 4px;
+            width: 100%;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <a href="/" class="logo" onclick="event.preventDefault(); window.location.href=basePath + '/index.html'">
+            <svg width="32" height="32" viewBox="0 0 90 90" xmlns="http://www.w3.org/2000/svg">
+                <rect width="90" height="90" rx="20" fill="#065F46" />
+                <path d="M15,25 H75 V40 H53 V70 H37 V40 H15 Z" fill="white" />
+                <rect x="37" y="73" width="16" height="4" rx="1" fill="white" opacity="0.6" />
+            </svg>
+            OpenTrusty
+        </a>
+        <nav><div class="nav-section"><div class="nav-title">Architecture</div><a href="docs_architecture_architecture-rules.html" class="nav-link ">Architecture Rules</a><a href="docs_architecture_domain-model.html" class="nav-link ">Domain Model</a><a href="docs_architecture_runtime-assumptions.html" class="nav-link ">Runtime Assumptions</a><a href="docs_architecture_docs-publication.html" class="nav-link ">Docs Publication</a></div><div class="nav-section"><div class="nav-title">Protocols</div><a href="docs_domain_identity-model.html" class="nav-link ">Identity Model</a><a href="docs_architecture_protocol-boundary.html" class="nav-link ">Protocol Boundary</a><a href="docs_architecture_protocol-error-model.html" class="nav-link ">Error Model</a></div><div class="nav-section"><div class="nav-title">Security</div><a href="docs_security_threat-model.html" class="nav-link ">Threat Model</a><a href="docs_security_security-assumptions.html" class="nav-link ">Security Assumptions</a></div><div class="nav-section"><div class="nav-title">Deployment</div><a href="docs_fundamentals_deployment-philosophy.html" class="nav-link ">Deployment Philosophy</a><a href="docs_fundamentals_storage-model.html" class="nav-link ">Storage Model</a><a href="docs_deployment_OPERATIONS.html" class="nav-link active">Operations Guide</a><a href="docs_operations_bootstrap.html" class="nav-link ">Operations Manual</a><a href="deploy_systemd_README.html" class="nav-link ">Systemd Guide</a></div><div class="nav-section"><div class="nav-title">Roadmap</div><a href="docs_roadmap_evolution-roadmap.html" class="nav-link ">Evolution Roadmap</a><a href="docs_roadmap_tech-debt-strategy.html" class="nav-link ">Tech Debt Strategy</a></div><div class="nav-section"><div class="nav-title">API</div><a href="api/index.html" class="nav-link ">Interactive Reference</a></div></nav>
+        <div class="version-selector">
+            <div class="nav-title">Version</div>
+            <select id="v-select" onchange="window.location.href=this.value"><option value="/versions/v0.1.0_alpha1/" >v0.1.0_alpha1</option><option value="/versions/v0.1.0_alpha10/" >v0.1.0_alpha10</option><option value="/versions/v0.1.0_alpha11/" >v0.1.0_alpha11</option><option value="/versions/v0.1.0_alpha12/" >v0.1.0_alpha12</option><option value="/versions/v0.1.0_alpha2/" >v0.1.0_alpha2</option><option value="/versions/v0.1.0_alpha3/" >v0.1.0_alpha3</option><option value="/versions/v0.1.0_alpha4/" >v0.1.0_alpha4</option><option value="/versions/v0.1.0_alpha5/" >v0.1.0_alpha5</option><option value="/versions/v0.1.0_alpha6/" >v0.1.0_alpha6</option><option value="/versions/v0.1.0_alpha7/" >v0.1.0_alpha7</option><option value="/versions/v0.1.0_alpha8/" >v0.1.0_alpha8</option><option value="/versions/v0.1.0_alpha9/" >v0.1.0_alpha9</option><option value="/versions/v0.1.1_alpha1/" selected>v0.1.1_alpha1</option></select>
+        </div>
+    </div>
+    <main class="content-wrapper">
+        <div id="content" class="markdown-body"></div>
+    </main>
+    <script id="md-content" type="text/template"># OpenTrusty Operations Manual
+
+OpenTrusty follows a **binary-first philosophy**. The primary distribution artifact is a single, statically-linked Linux binary with minimal external dependencies besides a Postgres database.
+
+## 1. Binary Deployment (Standard)
+
+Binary deployment is the recommended way to run OpenTrusty for maximum performance and minimum overhead.
+
+### Building
+```bash
+make build
+```
+The binary will be located in `./bin/opentrusty`.
+
+### Running
+```bash
+./bin/opentrusty
+```
+OpenTrusty requires environment variables for configuration (see Section 3).
+
+## End-to-End Testing
+OpenTrusty includes a suite of E2E tests that simulate real-world identity workflows against a live environment.
+
+### Prerequisites
+- Docker and Docker Compose installed.
+- Environment is running: `make dev-up`.
+
+### Running Tests
+To run the E2E tests, execute:
+```bash
+make test-e2e
+```
+
+The tests cover:
+1. **Platform Admin**: Registration, tenant creation, and OAuth2 client registration.
+2. **Tenant Admin**: User provisioning and management.
+3. **End User OIDC Flow**: Full authorization code flow with ID Token validation.
+
+---
+
+## 2. Docker Deployment (Optional)
+
+Docker is provided for containerized environments, testing, and simplified dependency management.
+
+### Building the Image
+```bash
+docker build -t opentrusty:latest -f deploy/docker/Dockerfile .
+```
+
+### Running with Docker
+```bash
+docker run -p 8080:8080 \
+  -e DB_URL=postgres://user:pass@host:5432/db \
+  opentrusty:latest
+```
+
+### Local Development & E2E Testing (Compose)
+For developers, a Docker Compose setup is provided to spin up OpenTrusty along with a PostgreSQL instance.
+
+**Important**: This setup is intended ONLY for local development and testing.
+
+```bash
+# Start the environment
+docker compose -f deploy/docker/docker-compose.yml up -d
+
+# Stop and clean up (remove volumes)
+docker compose -f deploy/docker/docker-compose.yml down -v
+```
+
+### Systemd Deployment (Production)
+For bare-metal or VM deployments, OpenTrusty is managed via a `systemd` service.
+
+Detailed instructions for binary installation, user creation, and service management are located in the specialized guide:
+👉 **[Systemd Deployment Guide](https://github.com/opentrusty/opentrusty/blob/main/deploy/systemd/README.md)**
+
+---
+
+## 3. Configuration
+
+OpenTrusty is configured exclusively via environment variables. There are no default secrets.
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `DB_URL` | Postgres connection string | `postgres://opentrusty:password@localhost:5432/opentrusty` |
+| `PORT` | Listening port (default: 8080) | `8080` |
+| `ISSUER` | OIDC Issuer URL | `https://auth.example.com` |
+
+---
+
+## 4. Maintenance
+
+### Database Migrations
+OpenTrusty automatically applies migrations on startup if they are available in the expected directory.
+
+### Upgrading
+For binary deployments, simply replace the binary and restart the service. OpenTrusty is designed for seamless schema upgrades.
+</script>
+    <script>
+        var raw = document.getElementById('md-content').textContent;
+        if (raw && raw.trim().length > 0) {
+            document.getElementById('content').innerHTML = marked.parse(raw);
+        }
+        if (API_MODE) {
+            var specPath = basePath + '/openapi.json';
+            var contentRoot = document.getElementById('content');
+            // Use default ReDoc styling - no custom theme
+            Redoc.init(specPath, {}, contentRoot);
+            
+            var wrapper = document.querySelector('.content-wrapper');
+            wrapper.style.padding = '0';
+            wrapper.style.maxWidth = 'none';
+            wrapper.style.backgroundColor = '#ffffff';
+        }
+    </script>
+</body>
+</html>
