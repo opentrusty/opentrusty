@@ -40,7 +40,8 @@ cat > "$INDEX_FILE" <<EOF
     <ul class="version-list">
 EOF
 
-    # Find versions, sort them (reverse version sort), and add to list
+# Find versions, sort them (reverse version sort), and add to list
+if [ -d "$VERSIONS_DIR" ]; then
     # Use sort -Vr for version sort reverse
     VERSIONS=$(ls "$VERSIONS_DIR" | sort -Vr)
     
