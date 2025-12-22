@@ -1,0 +1,269 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Protocol Boundary - OpenTrusty Docs</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/redoc/bundles/redoc.standalone.js"></script>
+    <script>
+        var API_MODE = "false" === "true";
+        var basePath = API_MODE ? ".." : "."; 
+    </script>
+    <style>
+        :root {
+            --primary: #059669; /* Emerald 600 - Reliable Tech */
+            --primary-dark: #065F46; /* Logo Color - Steady */
+            --bg: #f8fafc; /* Content BG - Slate 50 */
+            --sidebar-bg: #041e1a; /* Very Deep Emerald - Tech/Steady */
+            --text: #0f172a; /* Slate 900 */
+            --text-muted: #64748b; /* Slate 500 */
+            --sidebar-text: #f0fdf4; /* Emerald 50 */
+            --sidebar-text-muted: #94a3b8;
+            --border: rgba(6, 95, 70, 0.1);
+        }
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            display: flex;
+            min-height: 100vh;
+        }
+        .sidebar {
+            width: 300px;
+            background: var(--sidebar-bg);
+            border-right: 1px solid rgba(255,255,255,0.05);
+            padding: 2.5rem 2rem;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            color: var(--sidebar-text);
+        }
+        .logo {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 1.25rem;
+            margin-bottom: 3rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            color: #fff;
+            text-decoration: none;
+            font-weight: 700;
+        }
+        .logo svg { flex-shrink: 0; }
+        
+        .nav-section { margin-bottom: 2rem; }
+        .nav-title {
+            text-transform: uppercase;
+            font-size: 0.7rem;
+            letter-spacing: 0.1rem;
+            color: var(--sidebar-text-muted);
+            margin-bottom: 1rem;
+            font-weight: 700;
+        }
+        .nav-link {
+            display: block;
+            padding: 0.6rem 0;
+            color: var(--sidebar-text-muted);
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            border-left: 2px solid transparent;
+            padding-left: 0;
+        }
+        .nav-link:hover { 
+            color: #fff; 
+            padding-left: 0.5rem;
+        }
+        .nav-link.active { 
+            color: var(--primary); 
+            font-weight: 600; 
+            border-left: 2px solid var(--primary);
+            padding-left: 0.75rem;
+        }
+
+        .content-wrapper {
+            margin-left: 300px;
+            flex: 1;
+            padding: 5rem 6rem;
+            max-width: 1200px;
+            min-height: 100vh;
+        }
+        .markdown-body { 
+            line-height: 1.8; 
+            font-size: 1.05rem;
+            color: #334155;
+        }
+        .markdown-body h1 { 
+            font-family: 'Montserrat', sans-serif; 
+            margin-bottom: 2.5rem; 
+            color: var(--primary-dark);
+            font-weight: 700;
+            font-size: 2.5rem;
+            letter-spacing: -0.02em;
+        }
+        .markdown-body h2 {
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 0.5rem;
+            margin-top: 3rem;
+            color: var(--primary-dark);
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 600;
+        }
+        .markdown-body p { margin-bottom: 1.5rem; }
+        .markdown-body pre { 
+            background: #0f172a; 
+            padding: 1.5rem; 
+            border-radius: 12px; 
+            border: 1px solid var(--border); 
+            overflow-x: auto;
+            color: #e2e8f0;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+        }
+        .markdown-body code {
+            background: rgba(5, 150, 105, 0.05);
+            color: var(--primary-dark);
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+        .markdown-body pre code {
+            background: transparent;
+            color: inherit;
+            padding: 0;
+        }
+        
+        .version-selector {
+            margin-top: auto;
+            padding-top: 2rem;
+            border-top: 1px solid rgba(255,255,255,0.05);
+        }
+        select {
+            background: rgba(255,255,255,0.05);
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.1);
+            padding: 0.6rem;
+            border-radius: 8px;
+            width: 100%;
+            cursor: pointer;
+            font-size: 0.85rem;
+            appearance: none;
+            outline: none;
+        }
+        select:hover {
+            background: rgba(255,255,255,0.08);
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <a href="/" class="logo" onclick="event.preventDefault(); window.location.href=basePath + '/index.html'">
+            <svg width="28" height="28" viewBox="0 0 90 90" xmlns="http://www.w3.org/2000/svg">
+                <rect width="90" height="90" rx="20" fill="#065F46" />
+                <path d="M15,25 H75 V40 H53 V70 H37 V40 H15 Z" fill="white" />
+                <rect x="37" y="73" width="16" height="4" rx="1" fill="white" opacity="0.6" />
+            </svg>
+            OpenTrusty
+        </a>
+        <nav><div class="nav-section"><div class="nav-title">Architecture</div><a href="docs_architecture_architecture-rules.html" class="nav-link ">Architecture Rules</a><a href="docs_architecture_domain-model.html" class="nav-link ">Domain Model</a><a href="docs_architecture_runtime-assumptions.html" class="nav-link ">Runtime Assumptions</a><a href="docs_architecture_docs-publication.html" class="nav-link ">Docs Publication</a></div><div class="nav-section"><div class="nav-title">Protocols</div><a href="docs_domain_identity-model.html" class="nav-link ">Identity Model</a><a href="docs_architecture_protocol-boundary.html" class="nav-link active">Protocol Boundary</a><a href="docs_architecture_protocol-error-model.html" class="nav-link ">Error Model</a></div><div class="nav-section"><div class="nav-title">Security</div><a href="docs_security_threat-model.html" class="nav-link ">Threat Model</a><a href="docs_security_security-assumptions.html" class="nav-link ">Security Assumptions</a></div><div class="nav-section"><div class="nav-title">Deployment</div><a href="docs_fundamentals_deployment-philosophy.html" class="nav-link ">Deployment Philosophy</a><a href="docs_fundamentals_storage-model.html" class="nav-link ">Storage Model</a><a href="docs_deployment_OPERATIONS.html" class="nav-link ">Operations Guide</a><a href="docs_operations_bootstrap.html" class="nav-link ">Operations Manual</a><a href="deploy_systemd_README.html" class="nav-link ">Systemd Guide</a></div><div class="nav-section"><div class="nav-title">Roadmap</div><a href="docs_roadmap_evolution-roadmap.html" class="nav-link ">Evolution Roadmap</a><a href="docs_roadmap_tech-debt-strategy.html" class="nav-link ">Tech Debt Strategy</a></div><div class="nav-section"><div class="nav-title">API</div><a href="api/index.html" class="nav-link ">Interactive Reference</a></div></nav>
+        <div class="version-selector">
+            <div class="nav-title">Release Version</div>
+            <select id="v-select" onchange="window.location.href=this.value"><option value="/versions/v0.1.0_alpha1/" >v0.1.0_alpha1</option><option value="/versions/v0.1.0_alpha10/" >v0.1.0_alpha10</option><option value="/versions/v0.1.0_alpha11/" >v0.1.0_alpha11</option><option value="/versions/v0.1.0_alpha12/" >v0.1.0_alpha12</option><option value="/versions/v0.1.0_alpha2/" >v0.1.0_alpha2</option><option value="/versions/v0.1.0_alpha3/" >v0.1.0_alpha3</option><option value="/versions/v0.1.0_alpha4/" >v0.1.0_alpha4</option><option value="/versions/v0.1.0_alpha5/" >v0.1.0_alpha5</option><option value="/versions/v0.1.0_alpha6/" >v0.1.0_alpha6</option><option value="/versions/v0.1.0_alpha7/" >v0.1.0_alpha7</option><option value="/versions/v0.1.0_alpha8/" >v0.1.0_alpha8</option><option value="/versions/v0.1.0_alpha9/" >v0.1.0_alpha9</option><option value="/versions/v0.1.1_alpha1/" >v0.1.1_alpha1</option><option value="/versions/v0.1.1-alpha.6/" selected>v0.1.1-alpha.6</option></select>
+        </div>
+    </div>
+    <main class="content-wrapper">
+        <div id="content" class="markdown-body"></div>
+    </main>
+    <script id="md-content" type="text/template"># Protocol Boundary: OAuth2 / OIDC
+
+This document defines the strict architectural boundaries for the OAuth2 and OpenID Connect (OIDC) protocols in OpenTrusty, addressing **B-PROTOCOL-01**.
+
+## 1. Protocol Residence
+
+- **Location**: All protocol-specific logic MUST reside exclusively within `internal/oauth2` and `internal/oidc`.
+- **Classification**: These are **Isolated Protocol Modules**. 
+- **Definition**: The protocol layer is a **Consumer** of the Platform Core. It is an optional capability that translates platform facts (Identity, Authorization) into standardized external formats (RFC 6749, OIDC Core).
+
+## 2. Forbidden Dependencies
+
+The Protocol Module represents a pure domain of "Delegated Authorization". To maintain modularity and security, it MUST NOT depend on:
+
+- **Transport Handlers**: No knowledge of `net/http`, headers, or cookies. It MUST operate on pure Data Transfer Objects (DTOs).
+- **Session Management**: No direct dependency on browser-specific session implementations. It MUST treat authentication status as an abstract input (`IdentityContext`).
+- **Platform Management**: No awareness of how tenants are created, how clients are registered via UI, or how the system is configured.
+- **External UI**: No dependency on HTML templates, CSS, or frontend routing logic.
+
+## 3. Allowed Interactions
+
+The Protocol Module interacts with the Platform Core through strictly defined interfaces:
+
+- **Identity Domain**: Allowed to call `identity.Service` to retrieve profile facts (claims) and verify user status.
+- **Tenant Context**: MUST use the platform-provided `TenantID` for all operations. All protocol entities (Clients, Tokens, Codes) are natively multi-tenant.
+- **Authentication Mechanism**: Rely on the platform to provide a "Verified Principal". The protocol layer does not perform password hashing or handle login flows.
+- **Persistence**: Allowed to define and use dedicated repositories (`ClientRepository`, `TokenRepository`, `CodeRepository`) for protocol state storage.
+
+## 4. Direction of Dependency
+
+The integrity of the system relies on a unidirectional dependency flow:
+
+### What Depends on Protocol
+- **Transport Adapters**: The HTTP layer depends on the Protocol Module to handle the logic of `authorize` and `token` exchanges.
+- **OIDC Discovery**: The discovery generator depends on the Protocol Module to provide metadata.
+
+### What Protocol Depends On
+- **Core Domain**: Protocol depends on `identity`, `tenant`, and `store` for data and invariants.
+- **Cryptography**: Protocol depends on base platform crypto utilities (e.g., for JWT signing).
+
+### Prohibited Dependencies (NEVER)
+- **Identity -> Protocol**: The `internal/identity` package MUST NEVER import `internal/oauth2`. A user's identity exists independently of any delegation protocol.
+- **Tenant -> Protocol**: Multi-tenancy must function even if OAuth2 is completely disabled.
+
+---
+**Rule Citation**: This boundary enforces **Rule 2 (Domain-Driven Architecture)** and **Rule 7 (Open Source & Non-Profit Values)** by preventing monolithic coupling and ensuring the protocol remains a clean "plug-in" capability.
+
+**Forbidden**: Protocol modules MUST NOT introduce or manage user, tenant, or credential lifecycles. They may only consume existing domain abstractions.</script>
+    <script>
+        var raw = document.getElementById('md-content').textContent;
+        if (raw && raw.trim().length > 0) {
+            document.getElementById('content').innerHTML = marked.parse(raw);
+        }
+        if (API_MODE) {
+            var specPath = basePath + '/openapi.json';
+            var contentRoot = document.getElementById('content');
+            
+            Redoc.init(specPath, {
+                theme: {
+                    colors: {
+                        primary: { main: '#059669' },
+                        text: { primary: '#334155' }
+                    },
+                    typography: {
+                        fontFamily: 'Inter, sans-serif',
+                        headings: {
+                            fontFamily: 'Montserrat, sans-serif'
+                        }
+                    },
+                    rightPanel: {
+                        backgroundColor: '#0f172a'
+                    }
+                }
+            }, contentRoot);
+            
+            var wrapper = document.querySelector('.content-wrapper');
+            wrapper.style.padding = '0';
+            wrapper.style.maxWidth = 'none';
+            wrapper.style.marginLeft = '300px';
+            wrapper.style.backgroundColor = '#ffffff';
+        }
+    </script>
+</body>
+</html>
