@@ -270,7 +270,7 @@ func TestOAuth2_AuthorizationCode_OneTimeUseEnforced(t *testing.T) {
 	client := &oauth2.Client{
 		ID:                      id.NewUUIDv7(),
 		TenantID:                testTenant.ID,
-		ClientID:                "test-client-" + id.NewUUIDv7()[:8],
+		ClientID:                id.NewUUIDv7(),
 		ClientName:              "Test Client",
 		ClientSecretHash:        oauth2.HashClientSecret("test-secret"),
 		RedirectURIs:            []string{"https://app.example.com/callback"},
@@ -361,7 +361,7 @@ func TestOAuth2_RefreshToken_RevocationPreventsUsage(t *testing.T) {
 	client := &oauth2.Client{
 		ID:                      id.NewUUIDv7(),
 		TenantID:                testTenant.ID,
-		ClientID:                "revoke-client-" + id.NewUUIDv7()[:8],
+		ClientID:                id.NewUUIDv7(),
 		ClientName:              "Revoke Test Client",
 		ClientSecretHash:        oauth2.HashClientSecret("revoke-secret"),
 		RedirectURIs:            []string{"https://app.example.com/callback"},
@@ -374,9 +374,11 @@ func TestOAuth2_RefreshToken_RevocationPreventsUsage(t *testing.T) {
 		IDTokenLifetime:         3600,
 		IsActive:                true,
 	}
-	clientRepo.Create(client)
+	err := clientRepo.Create(client)
+	require.NoError(t, err)
 
-	oidcService, _ := oidc.NewService("https://auth.example.com")
+	oidcService, err := oidc.NewService("https://auth.example.com")
+	require.NoError(t, err)
 	oauth2Service := oauth2.NewService(
 		clientRepo, codeRepo, accessRepo, refreshRepo, auditLogger, oidcService,
 		5*time.Minute, 1*time.Hour, 720*time.Hour,
@@ -390,7 +392,8 @@ func TestOAuth2_RefreshToken_RevocationPreventsUsage(t *testing.T) {
 		Scope:         "openid",
 		CodeChallenge: "revoke-challenge",
 	}
-	code, _ := oauth2Service.CreateAuthorizationCode(ctx, authReq, id.NewUUIDv7())
+	code, err := oauth2Service.CreateAuthorizationCode(ctx, authReq, id.NewUUIDv7())
+	require.NoError(t, err)
 
 	tokenResp, err := oauth2Service.ExchangeCodeForToken(ctx, &oauth2.TokenRequest{
 		GrantType:    "authorization_code",
@@ -454,7 +457,7 @@ func TestOIDC_TokenExchange_IDTokenOnlyWithOpenIDScope(t *testing.T) {
 	client := &oauth2.Client{
 		ID:                      id.NewUUIDv7(),
 		TenantID:                testTenant.ID,
-		ClientID:                "oidc-client-" + id.NewUUIDv7()[:8],
+		ClientID:                id.NewUUIDv7(),
 		ClientName:              "OIDC Test Client",
 		ClientSecretHash:        oauth2.HashClientSecret("oidc-secret"),
 		RedirectURIs:            []string{"https://app.example.com/callback"},
@@ -467,9 +470,11 @@ func TestOIDC_TokenExchange_IDTokenOnlyWithOpenIDScope(t *testing.T) {
 		IDTokenLifetime:         3600,
 		IsActive:                true,
 	}
-	clientRepo.Create(client)
+	err := clientRepo.Create(client)
+	require.NoError(t, err)
 
-	oidcService, _ := oidc.NewService("https://auth.example.com")
+	oidcService, err := oidc.NewService("https://auth.example.com")
+	require.NoError(t, err)
 	oauth2Service := oauth2.NewService(
 		clientRepo, codeRepo, accessRepo, refreshRepo, auditLogger, oidcService,
 		5*time.Minute, 1*time.Hour, 720*time.Hour,

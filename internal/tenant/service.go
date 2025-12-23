@@ -87,7 +87,7 @@ func (s *Service) AssignRole(ctx context.Context, tenantID, userID, role string,
 	}
 
 	r := &TenantUserRole{
-		ID:        fmt.Sprintf("%s-%s-%s", tenantID, userID, role), // Simple deterministic ID for now
+		ID:        id.NewUUIDv7(),
 		TenantID:  tenantID,
 		UserID:    userID,
 		Role:      role,
