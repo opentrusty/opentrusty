@@ -41,7 +41,7 @@ var (
 // User represents a user identity in the system
 type User struct {
 	ID                  string
-	TenantID            string // Always required. Platform Admin is a role assignment, not a tenant property.
+	TenantID            *string // Option for Platform Admins. Tenant Users MUST have a tenant_id.
 	Email               string
 	EmailVerified       bool
 	Profile             Profile
@@ -81,8 +81,8 @@ type UserRepository interface {
 	// GetByID retrieves a user by ID
 	GetByID(id string) (*User, error)
 
-	// GetByEmail retrieves a user by email within a tenant
-	GetByEmail(tenantID, email string) (*User, error)
+	// GetByEmail retrieves a user by email within a tenant (or no tenant for Platform Admins)
+	GetByEmail(tenantID *string, email string) (*User, error)
 
 	// Update updates user information
 	Update(user *User) error

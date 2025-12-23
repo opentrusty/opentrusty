@@ -21,7 +21,11 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-func TestService_GenerateIDToken(t *testing.T) {
+// TestPurpose: Validates the generation of OIDC ID tokens, ensuring correct claims (iss, aud, sub, at_hash, nonce) and header (kid).
+// Scope: Unit Test
+// Security: OIDC compliance and cryptographic integrity of ID tokens
+// Expected: A valid, signed JWT with all required OIDC claims.
+func TestOIDC_Service_GenerateIDToken(t *testing.T) {
 	issuer := "http://localhost:8080"
 	s, err := NewService(issuer)
 	if err != nil {
@@ -80,7 +84,11 @@ func TestService_GenerateIDToken(t *testing.T) {
 	}
 }
 
-func TestService_GetDiscoveryMetadata(t *testing.T) {
+// TestPurpose: Validates that the discovery metadata matches the service configuration and OIDC standards.
+// Scope: Unit Test
+// Security: Exposure of correct OIDC endpoints and supported algorithms
+// Expected: A Metadata struct with correct issuer, JWKS URI and supported signing algorithms.
+func TestOIDC_Service_GetDiscoveryMetadata(t *testing.T) {
 	issuer := "https://auth.opentrusty.org"
 	s, _ := NewService(issuer)
 
@@ -97,7 +105,11 @@ func TestService_GetDiscoveryMetadata(t *testing.T) {
 	}
 }
 
-func TestService_GetJWKS(t *testing.T) {
+// TestPurpose: Validates that the JWKS (JSON Web Key Set) correctly exposes the public key for token verification.
+// Scope: Unit Test
+// Security: Public key distribution for signature verification
+// Expected: A JWKS document containing the RSA public key components.
+func TestOIDC_Service_GetJWKS(t *testing.T) {
 	s, _ := NewService("http://localhost")
 
 	jwks := s.GetJWKS()

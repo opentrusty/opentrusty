@@ -20,19 +20,20 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/opentrusty/opentrusty/internal/audit"
+	"github.com/opentrusty/opentrusty/internal/authz"
 	"github.com/opentrusty/opentrusty/internal/identity"
 	"github.com/opentrusty/opentrusty/internal/tenant"
 )
 
 // CreateTenantRequest represents tenant creation data
 type CreateTenantRequest struct {
-	ID   string `json:"id" binding:"required" example:"tenant-1"`
 	Name string `json:"name" binding:"required" example:"My Corporation"`
 }
 
 // CreateTenant handles tenant creation
 // @Summary Create Tenant
-// @Description Create a new tenant
+// @Description Create a new platform tenant (Platform Admin Only)
 // @Tags Tenant
 // @Accept json
 // @Produce json
@@ -40,22 +41,40 @@ type CreateTenantRequest struct {
 // @Param request body CreateTenantRequest true "Tenant Data"
 // @Success 201 {object} tenant.Tenant
 // @Failure 400 {object} map[string]string
+// @Failure 403 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Router /tenants [post]
 func (h *Handler) CreateTenant(w http.ResponseWriter, r *http.Request) {
-	var req CreateTenantRequest
+	// 1. Authorization Check: Platform Admin required
+	userID := GetUserID(r.Context())
+	allowed, err := h.authzService.HasPermission(r.Context(), userID, authz.ScopePlatform, nil, authz.PermPlatformManageTenants)
+	if err != nil || !allowed {
+		respondError(w, http.StatusForbidden, "platform admin administrative access required")
+		return
+	}
 
+	var req CreateTenantRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
-	t, err := h.tenantService.CreateTenant(r.Context(), req.ID, req.Name)
+	t, err := h.tenantService.CreateTenant(r.Context(), req.Name)
 	if err != nil {
-		// TODO: specific error handling
 		respondError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+
+	// 3. Security Event: Minimal audit log for tenant creation
+	h.auditLogger.Log(r.Context(), audit.Event{
+		Type:     audit.TypeTenantCreated,
+		ActorID:  userID,
+		Resource: audit.ResourceTenant,
+		Metadata: map[string]any{
+			audit.AttrTenantID:   t.ID,
+			audit.AttrTenantName: t.Name,
+		},
+	})
 
 	respondJSON(w, http.StatusCreated, t)
 }
@@ -90,9 +109,16 @@ func (h *Handler) ProvisionTenantUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req ProvisionUserRequest
-
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	// 1. Authorization Check: Tenant Admin or Platform Admin required
+	userID := GetUserID(r.Context())
+	allowed, err := h.authzService.HasPermission(r.Context(), userID, authz.ScopeTenant, &tenantID, authz.PermTenantManageUsers)
+	if err != nil || !allowed {
+		respondError(w, http.StatusForbidden, "tenant administrative access required")
 		return
 	}
 
@@ -135,10 +161,7 @@ func (h *Handler) ProvisionTenantUser(w http.ResponseWriter, r *http.Request) {
 
 	// 2. Assign role
 	// Identify who is granting the role (current user)
-	granterID := ""
-	if uid, ok := r.Context().Value("user_id").(string); ok {
-		granterID = uid
-	}
+	granterID := GetUserID(r.Context())
 
 	err = h.tenantService.AssignRole(r.Context(), tenantID, user.ID, req.Role, granterID)
 	if err != nil {
@@ -152,8 +175,8 @@ func (h *Handler) ProvisionTenantUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respondJSON(w, http.StatusOK, map[string]any{
-		"user_id": user.ID,
-		"role":    req.Role,
+		JSONKeyUserID: user.ID,
+		JSONKeyRole:   req.Role,
 	})
 }
 
@@ -186,14 +209,17 @@ func (h *Handler) AssignTenantRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	granterID := ""
-	if uid, ok := r.Context().Value("user_id").(string); ok {
-		granterID = uid
+	// Authorization Check: Tenant Admin or Platform Admin required
+	granterID := GetUserID(r.Context())
+	allowed, err := h.authzService.HasPermission(r.Context(), granterID, authz.ScopeTenant, &tenantID, authz.PermTenantManageUsers)
+	if err != nil || !allowed {
+		respondError(w, http.StatusForbidden, "tenant administrative access required")
+		return
 	}
 
-	err := h.tenantService.AssignRole(r.Context(), tenantID, userID, req.Role, granterID)
+	err = h.tenantService.AssignRole(r.Context(), tenantID, userID, req.Role, granterID)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, err.Error())
+		respondError(w, http.StatusInternalServerError, "failed to assign role")
 		return
 	}
 
@@ -217,7 +243,15 @@ func (h *Handler) RevokeTenantRole(w http.ResponseWriter, r *http.Request) {
 	userID := chi.URLParam(r, "userID")
 	role := chi.URLParam(r, "role")
 
-	err := h.tenantService.RevokeRole(r.Context(), tenantID, userID, role)
+	// 1. Authorization Check: Tenant Admin or Platform Admin required
+	actorID := GetUserID(r.Context())
+	allowed, err := h.authzService.HasPermission(r.Context(), actorID, authz.ScopeTenant, &tenantID, authz.PermTenantManageUsers)
+	if err != nil || !allowed {
+		respondError(w, http.StatusForbidden, "tenant administrative access required")
+		return
+	}
+
+	err = h.tenantService.RevokeRole(r.Context(), tenantID, userID, role)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -238,6 +272,14 @@ func (h *Handler) RevokeTenantRole(w http.ResponseWriter, r *http.Request) {
 // @Router /tenants/{tenantID}/users [get]
 func (h *Handler) ListTenantUsers(w http.ResponseWriter, r *http.Request) {
 	tenantID := chi.URLParam(r, "tenantID")
+
+	// 1. Authorization Check: Tenant View permission required
+	userID := GetUserID(r.Context())
+	allowed, err := h.authzService.HasPermission(r.Context(), userID, authz.ScopeTenant, &tenantID, authz.PermTenantView)
+	if err != nil || !allowed {
+		respondError(w, http.StatusForbidden, "tenant view access required")
+		return
+	}
 
 	roles, err := h.tenantService.GetTenantUsers(r.Context(), tenantID)
 	if err != nil {

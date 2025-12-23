@@ -45,11 +45,11 @@ func (r *AccessTokenRepository) Create(token *oauth2.AccessToken) error {
 
 	_, err := r.db.pool.Exec(ctx, `
 		INSERT INTO access_tokens (
-			id, token_hash, client_id, user_id, 
+			id, tenant_id, token_hash, client_id, user_id, 
 			scope, token_type, expires_at, revoked_at, is_revoked, created_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 	`,
-		token.ID, token.TokenHash, token.ClientID, token.UserID,
+		token.ID, token.TenantID, token.TokenHash, token.ClientID, token.UserID,
 		token.Scope, token.TokenType, token.ExpiresAt, revokedAt, token.IsRevoked, token.CreatedAt,
 	)
 
@@ -69,12 +69,12 @@ func (r *AccessTokenRepository) GetByTokenHash(tokenHash string) (*oauth2.Access
 
 	err := r.db.pool.QueryRow(ctx, `
 		SELECT 
-			id, token_hash, client_id, user_id, 
+			id, tenant_id, token_hash, client_id, user_id, 
 			scope, token_type, expires_at, revoked_at, is_revoked, created_at
 		FROM access_tokens
 		WHERE token_hash = $1
 	`, tokenHash).Scan(
-		&token.ID, &token.TokenHash, &token.ClientID, &token.UserID,
+		&token.ID, &token.TenantID, &token.TokenHash, &token.ClientID, &token.UserID,
 		&token.Scope, &token.TokenType, &token.ExpiresAt, &revokedAt, &token.IsRevoked, &token.CreatedAt,
 	)
 
@@ -153,11 +153,11 @@ func (r *RefreshTokenRepository) Create(token *oauth2.RefreshToken) error {
 
 	_, err := r.db.pool.Exec(ctx, `
 		INSERT INTO refresh_tokens (
-			id, token_hash, access_token_id, client_id, user_id, 
+			id, tenant_id, token_hash, access_token_id, client_id, user_id, 
 			scope, expires_at, revoked_at, is_revoked, created_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 	`,
-		token.ID, token.TokenHash, accessTokenID, token.ClientID, token.UserID,
+		token.ID, token.TenantID, token.TokenHash, accessTokenID, token.ClientID, token.UserID,
 		token.Scope, token.ExpiresAt, revokedAt, token.IsRevoked, token.CreatedAt,
 	)
 
@@ -178,12 +178,12 @@ func (r *RefreshTokenRepository) GetByTokenHash(tokenHash string) (*oauth2.Refre
 
 	err := r.db.pool.QueryRow(ctx, `
 		SELECT 
-			id, token_hash, access_token_id, client_id, user_id, 
+			id, tenant_id, token_hash, access_token_id, client_id, user_id, 
 			scope, expires_at, revoked_at, is_revoked, created_at
 		FROM refresh_tokens
 		WHERE token_hash = $1
 	`, tokenHash).Scan(
-		&token.ID, &token.TokenHash, &accessTokenID, &token.ClientID, &token.UserID,
+		&token.ID, &token.TenantID, &token.TokenHash, &accessTokenID, &token.ClientID, &token.UserID,
 		&token.Scope, &token.ExpiresAt, &revokedAt, &token.IsRevoked, &token.CreatedAt,
 	)
 

@@ -53,9 +53,18 @@ func (m *MockUserRepository) GetByID(id string) (*User, error) {
 	return u, nil
 }
 
-func (m *MockUserRepository) GetByEmail(tenantID, email string) (*User, error) {
+func (m *MockUserRepository) GetByEmail(tenantID *string, email string) (*User, error) {
 	for _, u := range m.users {
-		if u.TenantID == tenantID && u.Email == email {
+		uTenant := ""
+		if u.TenantID != nil {
+			uTenant = *u.TenantID
+		}
+		tID := ""
+		if tenantID != nil {
+			tID = *tenantID
+		}
+
+		if uTenant == tID && u.Email == email {
 			return u, nil
 		}
 	}
@@ -99,7 +108,11 @@ func (m *MockUserRepository) UpdatePassword(userID string, passwordHash string) 
 	return nil
 }
 
-func TestService_Authenticate(t *testing.T) {
+// TestPurpose: Validates the user authentication flow, including success, failure, and account lockout after multiple failed attempts.
+// Scope: Unit Test
+// Security: Authentication mechanisms and Brute-force protection (lockout)
+// Expected: Successful login for correct credentials, error for wrong credentials, and account lockout after context threshold.
+func TestIdentity_Service_Authenticate(t *testing.T) {
 	repo := NewMockUserRepository()
 	hasher := NewPasswordHasher(65536, 3, 4, 16, 32)
 	auditLogger := audit.NewSlogLogger()
@@ -151,7 +164,11 @@ func TestService_Authenticate(t *testing.T) {
 	}
 }
 
-func TestService_ProvisionIdentity_Conflict(t *testing.T) {
+// TestPurpose: Validates that provisioning an identity fails if a user with the same email already exists in the same tenant.
+// Scope: Unit Test
+// Security: Data Integrity and Unique Constraint Enforcement
+// Expected: ErrUserAlreadyExists when email is already registered in the same tenant.
+func TestIdentity_Service_ProvisionIdentity_Conflict(t *testing.T) {
 	repo := NewMockUserRepository()
 	hasher := NewPasswordHasher(65536, 3, 4, 16, 32)
 	s := NewService(repo, hasher, audit.NewSlogLogger(), 3, 5*time.Minute)

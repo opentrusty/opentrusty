@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/opentrusty/opentrusty/internal/audit"
+	"github.com/opentrusty/opentrusty/internal/id"
 	"golang.org/x/crypto/argon2"
 )
 
@@ -185,15 +186,19 @@ func (s *Service) ProvisionIdentity(ctx context.Context, tenantID, email string,
 	}
 
 	// Check if user already exists
-	existing, err := s.repo.GetByEmail(tenantID, email)
+	var tID *string
+	if tenantID != "" {
+		tID = &tenantID
+	}
+	existing, err := s.repo.GetByEmail(tID, email)
 	if err == nil && existing != nil {
 		return nil, ErrUserAlreadyExists
 	}
 
 	// Create user
 	user := &User{
-		ID:            generateID(),
-		TenantID:      tenantID,
+		ID:            id.NewUUIDv7(),
+		TenantID:      tID,
 		Email:         email,
 		EmailVerified: false,
 		Profile:       profile,
@@ -234,14 +239,18 @@ func (s *Service) AddPassword(ctx context.Context, userID, password string) erro
 // Authenticate authenticates a user with email and password
 func (s *Service) Authenticate(ctx context.Context, tenantID, email, password string) (*User, error) {
 	// Get user by email
-	user, err := s.repo.GetByEmail(tenantID, email)
+	var tID *string
+	if tenantID != "" {
+		tID = &tenantID
+	}
+	user, err := s.repo.GetByEmail(tID, email)
 	if err != nil {
 		// Audit failed attempt (unknown user)
 		s.auditLogger.Log(ctx, audit.Event{
 			Type:     audit.TypeLoginFailed,
 			TenantID: tenantID,
 			Resource: email,
-			Metadata: map[string]any{"reason": "user_not_found"},
+			Metadata: map[string]any{audit.AttrReason: "user_not_found"},
 		})
 		return nil, ErrInvalidCredentials
 	}
@@ -253,7 +262,7 @@ func (s *Service) Authenticate(ctx context.Context, tenantID, email, password st
 			TenantID: tenantID,
 			ActorID:  user.ID,
 			Resource: "login",
-			Metadata: map[string]any{"reason": "locked_out"},
+			Metadata: map[string]any{audit.AttrReason: "locked_out"},
 		})
 		return nil, ErrAccountLocked
 	}
@@ -280,7 +289,7 @@ func (s *Service) Authenticate(ctx context.Context, tenantID, email, password st
 				TenantID: tenantID,
 				ActorID:  user.ID,
 				Resource: "login",
-				Metadata: map[string]any{"attempts": newAttempts},
+				Metadata: map[string]any{audit.AttrAttempts: newAttempts},
 			})
 		}
 
@@ -293,7 +302,10 @@ func (s *Service) Authenticate(ctx context.Context, tenantID, email, password st
 			TenantID: tenantID,
 			ActorID:  user.ID,
 			Resource: "login",
-			Metadata: map[string]any{"reason": "invalid_password", "attempt": newAttempts},
+			Metadata: map[string]any{
+				audit.AttrReason:   "invalid_password",
+				audit.AttrAttempts: newAttempts,
+			},
 		})
 
 		return nil, ErrInvalidCredentials
@@ -317,7 +329,11 @@ func (s *Service) Authenticate(ctx context.Context, tenantID, email, password st
 
 // GetByEmail retrieves a user by email
 func (s *Service) GetByEmail(ctx context.Context, tenantID, email string) (*User, error) {
-	user, err := s.repo.GetByEmail(tenantID, email)
+	var tID *string
+	if tenantID != "" {
+		tID = &tenantID
+	}
+	user, err := s.repo.GetByEmail(tID, email)
 	if err != nil {
 		// Can't distinguish between not found and error comfortably without error wrapping check
 		// But GetByEmail usually returns error if not found?
@@ -387,11 +403,4 @@ func isStrongPassword(password string) bool {
 	// Password must be at least 8 characters
 	// In production, implement more sophisticated password strength checking
 	return len(password) >= 8
-}
-
-func generateID() string {
-	// Generate a random ID
-	b := make([]byte, 16)
-	rand.Read(b)
-	return base64.URLEncoding.EncodeToString(b)
 }

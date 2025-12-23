@@ -205,6 +205,11 @@ const HTML_TEMPLATE = `
             var contentRoot = document.getElementById('content');
             
             Redoc.init(specPath, {
+                expandResponses: '200,201',
+                requiredPropsFirst: true,
+                showExtensions: true,
+                scrollYOffset: 0,
+                hideDownloadButton: false,
                 theme: {
                     colors: {
                         primary: { main: '#059669' },

@@ -86,8 +86,8 @@ func (h *Handler) Authorize(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if user is authenticated
-	userID, ok := r.Context().Value("user_id").(string)
-	if !ok || userID == "" {
+	userID := GetUserID(r.Context())
+	if userID == "" {
 		// Store authorization request in session or cookie (simplified for now)
 		// Redirect to login page with return_to param
 		// For API-first approach, we return 401 and expect client to handle login

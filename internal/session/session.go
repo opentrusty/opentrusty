@@ -29,7 +29,7 @@ var (
 // Session represents a user session
 type Session struct {
 	ID         string
-	TenantID   string
+	TenantID   *string
 	UserID     string
 	IPAddress  string
 	UserAgent  string

@@ -112,8 +112,8 @@ func (r *UserRepository) GetByID(id string) (*identity.User, error) {
 	return &user, nil
 }
 
-// GetByEmail retrieves a user by email
-func (r *UserRepository) GetByEmail(tenantID, email string) (*identity.User, error) {
+// GetByEmail retrieves a user by email within a tenant (or no tenant for Platform Admins)
+func (r *UserRepository) GetByEmail(tenantID *string, email string) (*identity.User, error) {
 	ctx := context.Background()
 
 	var user identity.User
@@ -124,7 +124,7 @@ func (r *UserRepository) GetByEmail(tenantID, email string) (*identity.User, err
 			given_name, family_name, full_name, nickname, picture, locale, timezone,
 			created_at, updated_at, deleted_at
 		FROM users
-		WHERE tenant_id = $1 AND email = $2 AND deleted_at IS NULL
+		WHERE tenant_id IS NOT DISTINCT FROM $1 AND email = $2 AND deleted_at IS NULL
 	`, tenantID, email).Scan(
 		&user.ID, &user.TenantID, &user.Email, &user.EmailVerified,
 		&user.Profile.GivenName, &user.Profile.FamilyName, &user.Profile.FullName,
@@ -161,7 +161,7 @@ func (r *UserRepository) Update(user *identity.User) error {
 			picture = $9,
 			locale = $10,
 			timezone = $11
-		WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
+		WHERE id = $1 AND tenant_id IS NOT DISTINCT FROM $2 AND deleted_at IS NULL
 	`,
 		user.ID, user.TenantID, user.Email, user.EmailVerified,
 		user.Profile.GivenName, user.Profile.FamilyName, user.Profile.FullName,

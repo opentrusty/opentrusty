@@ -52,6 +52,16 @@ const docsConfig = {
             items: [
                 { title: "Interactive Reference", file: "api/index.html" }
             ]
+        },
+        {
+            title: "Testing & Quality",
+            path: "testing",
+            items: [
+                { title: "Unit Test Report", file: "docs/testing/ut.html" },
+                { title: "System Test Report", file: "docs/testing/st.html" },
+                { title: "E2E Test Report", file: "docs/testing/e2e.html" },
+                { title: "Annotation Standard", file: "docs/testing/test-annotation-standard.md" }
+            ]
         }
     ]
 };

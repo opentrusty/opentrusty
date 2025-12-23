@@ -128,6 +128,7 @@ func (a *AuthorizationCode) IsExpired() bool {
 // AccessToken represents an OAuth2 access token
 type AccessToken struct {
 	ID        string
+	TenantID  string
 	TokenHash string
 	ClientID  string
 	UserID    string
@@ -147,6 +148,7 @@ func (a *AccessToken) IsExpired() bool {
 // RefreshToken represents an OAuth2 refresh token
 type RefreshToken struct {
 	ID            string
+	TenantID      string
 	TokenHash     string
 	AccessTokenID string
 	ClientID      string

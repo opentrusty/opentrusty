@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -31,7 +32,11 @@ import (
 	"github.com/opentrusty/opentrusty/internal/session"
 )
 
-func TestProtocol_Discovery(t *testing.T) {
+// TestPurpose: Validates that the OIDC discovery endpoint returns correct configuration for clients.
+// Scope: Unit Test
+// Security: Secure discovery of OIDC endpoints
+// Expected: Returns HTTP 200 with valid OIDC discovery metadata.
+func TestHTTP_Protocol_Discovery(t *testing.T) {
 	// Setup OIDC service
 	issuer := "https://auth.opentrusty.org"
 	oidcService, _ := oidc.NewService(issuer)
@@ -68,7 +73,11 @@ func TestProtocol_Discovery(t *testing.T) {
 	}
 }
 
-func TestProtocol_JWKS(t *testing.T) {
+// TestPurpose: Validates that the JWKS endpoint correctly serves public keys for token verification.
+// Scope: Unit Test
+// Security: Public key distribution for signature validation
+// Expected: Returns HTTP 200 with a valid JWKS set.
+func TestHTTP_Protocol_JWKS(t *testing.T) {
 	oidcService, _ := oidc.NewService("http://localhost")
 	h := &Handler{
 		oidcService: oidcService,
@@ -93,7 +102,11 @@ func TestProtocol_JWKS(t *testing.T) {
 	}
 }
 
-func TestProtocol_Token_BadRequest(t *testing.T) {
+// TestPurpose: Validates that the token endpoint rejects invalid requests with a 400 Bad Request or 401 Unauthorized.
+// Scope: Unit Test
+// Security: Token endpoint protection
+// Expected: Returns HTTP 400 or 401 for malformed or unauthorized token requests.
+func TestHTTP_Protocol_Token_BadRequest(t *testing.T) {
 	h := &Handler{
 		auditLogger: audit.NewSlogLogger(),
 	}
@@ -184,7 +197,15 @@ func (m *stubSessionRepo) Delete(id string) error          { delete(m.sessions, 
 func (m *stubSessionRepo) DeleteExpired() error            { return nil }
 func (m *stubSessionRepo) DeleteByUserID(uid string) error { return nil }
 
-func TestProtocol_HappyPath_Flow(t *testing.T) {
+// TestPurpose: Validates a full OAuth2 authorization code flow from code creation to token exchange via HTTP.
+// Scope: Unit Test
+// Security: End-to-end OAuth2 protocol correctness (RFC 6749)
+// Expected: Successful exchange of a valid code for access, refresh, and ID tokens through the HTTP handler.
+func TestHTTP_Protocol_HappyPath_Flow(t *testing.T) {
+	// Set required encryption key for OAuth2 service
+	os.Setenv("OPENID_KEY_ENCRYPTION_KEY", "01234567890123456789012345678901")
+	defer os.Unsetenv("OPENID_KEY_ENCRYPTION_KEY")
+
 	// 1. Setup Dependencies
 	clientRepo := &stubClientRepo{clients: map[string]*oauth2.Client{
 		"client-1": {
@@ -198,7 +219,6 @@ func TestProtocol_HappyPath_Flow(t *testing.T) {
 		},
 	}}
 	codeRepo := &stubCodeRepo{codes: make(map[string]*oauth2.AuthorizationCode)}
-	oauth2Svc := oauth2.NewService(clientRepo, codeRepo, &stubAccessRepo{}, &stubRefreshRepo{}, audit.NewSlogLogger(), nil)
 
 	// Create OIDC service for ID Token generation
 	oidcSvc, _ := oidc.NewService("http://localhost")
@@ -209,7 +229,7 @@ func TestProtocol_HappyPath_Flow(t *testing.T) {
 	// oauth2.OIDCProvider has GenerateIDToken. oidc.Service has GenerateIDToken.
 	// Yes, signatures match.
 	// However, NewService arg is explicitly `oidcProvider`.
-	oauth2Svc = oauth2.NewService(clientRepo, codeRepo, &stubAccessRepo{}, &stubRefreshRepo{}, audit.NewSlogLogger(), oidcSvc)
+	oauth2Svc := oauth2.NewService(clientRepo, codeRepo, &stubAccessRepo{}, &stubRefreshRepo{}, audit.NewSlogLogger(), oidcSvc, 5*time.Minute, 1*time.Hour, 720*time.Hour)
 
 	h := &Handler{
 		oauth2Service: oauth2Svc,
@@ -267,15 +287,19 @@ func TestProtocol_HappyPath_Flow(t *testing.T) {
 	}
 }
 
-func TestProtocol_CrossTenant_Negative(t *testing.T) {
+// TestPurpose: Validates that a session for Tenant A cannot be used to access Tenant B resources through the HTTP middleware.
+// Scope: Unit Test
+// Security: Horizontal privilege escalation prevention (Cross-tenant access)
+// Expected: Returns HTTP 403 Forbidden when session tenant does not match request tenant.
+func TestHTTP_Protocol_CrossTenant_Negative(t *testing.T) {
 	// Setup Session Service
 	sessRepo := &stubSessionRepo{sessions: make(map[string]*session.Session)}
 	sessSvc := session.NewService(sessRepo, 24*time.Hour, 1*time.Hour)
 
 	// Create Session for Tenant A
 	ctx := context.Background()
-	sess, _ := sessSvc.Create(ctx, "tenant-A", "user-A", "127.0.0.1", "test-agent")
-	sessRepo.sessions[sess.ID].TenantID = "tenant-A"
+	sess, _ := sessSvc.Create(ctx, strPtr("tenant-A"), "user-A", "127.0.0.1", "test-agent")
+	sessRepo.sessions[sess.ID].TenantID = strPtr("tenant-A")
 
 	h := NewHandler(nil, sessSvc, nil, nil, nil, nil, audit.NewSlogLogger(), SessionConfig{CookieName: "session_id"})
 
@@ -300,4 +324,7 @@ func TestProtocol_CrossTenant_Negative(t *testing.T) {
 	if w.Code != http.StatusForbidden {
 		t.Errorf("expected 403 Forbidden for cross-tenant access, got %d", w.Code)
 	}
+}
+func strPtr(s string) *string {
+	return &s
 }

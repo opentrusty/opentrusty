@@ -48,6 +48,6 @@ docker exec docker-opentrusty_test-1 ./opentrusty migrate
 echo "--- Running Go E2E Tests ---"
 cd "$PROJECT_ROOT"
 export OPENTRUSTY_API_URL="http://localhost:8080"
-go test -v ./tests/e2e/ --tags=e2e
+go test "$@" ./tests/e2e/ --tags=e2e
 
 echo "--- E2E Tests Passed! ---"

@@ -53,7 +53,17 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
+// Common JSON response keys
+const (
+	JSONKeyUserID  = "user_id"
+	JSONKeyRole    = "role"
+	JSONKeyStatus  = "status"
+	JSONKeyEmail   = "email"
+	JSONKeySession = "session_id"
+)
+
 // Handler holds HTTP handlers and dependencies
+
 type Handler struct {
 	identityService *identity.Service
 	sessionService  *session.Service
@@ -178,7 +188,7 @@ func NewRouter(h *Handler, rateLimiter *RateLimiter) *chi.Mux {
 						r.Use(func(next http.Handler) http.Handler {
 							return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 								tid := chi.URLParam(r, "tenantID")
-								ctx := context.WithValue(r.Context(), "tenant_id", tid)
+								ctx := context.WithValue(r.Context(), tenantIDKey, tid)
 								next.ServeHTTP(w, r.WithContext(ctx))
 							})
 						})
@@ -199,17 +209,29 @@ func NewRouter(h *Handler, rateLimiter *RateLimiter) *chi.Mux {
 	return r
 }
 
+// HealthResponse represents the health status response (RFC draft-inadarei-api-health-check)
+type HealthResponse struct {
+	Status  string `json:"status" example:"pass"`
+	Service string `json:"service" example:"opentrusty"`
+	Version string `json:"version,omitempty" example:"v1.0.0"`
+}
+
 // HealthCheck returns the health status
 // @Summary Health Check
-// @Description Checks if the service is up and running
+// @Description Checks if the service is up and running. Returns "pass", "fail", or "warn".
 // @Tags System
 // @Produce json
-// @Success 200 {object} map[string]string
+// @Success 200 {object} HealthResponse
 // @Router /health [get]
 func (h *Handler) HealthCheck(w http.ResponseWriter, r *http.Request) {
-	respondJSON(w, http.StatusOK, map[string]string{
-		"status":  "healthy",
-		"service": "opentrusty",
+	// Set headers per best practices
+	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+	w.Header().Set("Pragma", "no-cache")
+	w.Header().Set("Expires", "0")
+
+	respondJSON(w, http.StatusOK, HealthResponse{
+		Status:  "pass",
+		Service: "opentrusty",
 	})
 }
 
@@ -227,7 +249,7 @@ type RegisterRequest struct {
 // @Tags Auth
 // @Accept json
 // @Produce json
-// @Param tenant_id header string true "Tenant ID"
+// @Param X-Tenant-ID header string true "Tenant ID" example("tenant_12345")
 // @Param request body RegisterRequest true "Registration Data"
 // @Success 201 {object} map[string]any
 // @Failure 400 {object} map[string]string
@@ -247,7 +269,19 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		FullName:   req.GivenName + " " + req.FamilyName,
 	}
 
-	tenantID := r.Context().Value("tenant_id").(string)
+	tenantID := GetTenantID(r.Context())
+	if tenantID == "" {
+		respondError(w, http.StatusBadRequest, "tenant context required")
+		return
+	}
+
+	// 0. Validate Tenant
+	if _, err := h.tenantService.GetTenant(r.Context(), tenantID); err != nil {
+		slog.WarnContext(r.Context(), "registration attempt for invalid tenant", "tenant_id", tenantID)
+		respondError(w, http.StatusBadRequest, "invalid tenant")
+		return
+	}
+
 	user, err := h.identityService.ProvisionIdentity(r.Context(), tenantID, req.Email, profile)
 	if err != nil {
 		slog.ErrorContext(r.Context(), "failed to provision user",
@@ -270,7 +304,7 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	if err := h.identityService.AddPassword(r.Context(), user.ID, req.Password); err != nil {
 		slog.ErrorContext(r.Context(), "failed to set password",
 			logger.Error(err),
-			"user_id", user.ID,
+			JSONKeyEmail, user.Email,
 		)
 		// TODO: Systematic cleanup if identity exists but password failed?
 		// For now, identity exists but passwordless.
@@ -282,14 +316,14 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		Type:      audit.TypeUserCreated,
 		TenantID:  tenantID,
 		ActorID:   user.ID, // Self-registration
-		Resource:  "user",
+		Resource:  audit.ResourceUser,
 		IPAddress: getIPAddress(r),
 		Metadata:  map[string]any{"email": user.Email},
 	})
 
 	respondJSON(w, http.StatusCreated, map[string]any{
-		"user_id": user.ID,
-		"email":   user.Email,
+		JSONKeyUserID: user.ID,
+		JSONKeyEmail:  user.Email,
 	})
 }
 
@@ -305,7 +339,7 @@ type LoginRequest struct {
 // @Tags Auth
 // @Accept json
 // @Produce json
-// @Param tenant_id header string true "Tenant ID"
+// @Param X-Tenant-ID header string true "Tenant ID" example("tenant_12345")
 // @Param request body LoginRequest true "Credentials"
 // @Success 200 {object} map[string]any
 // @Failure 400 {object} map[string]string
@@ -319,7 +353,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tenantID := r.Context().Value("tenant_id").(string)
+	tenantID := GetTenantID(r.Context())
 	user, err := h.identityService.Authenticate(r.Context(), tenantID, req.Email, req.Password)
 	if err != nil {
 		h.auditLogger.Log(r.Context(), audit.Event{
@@ -355,15 +389,15 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		Type:      audit.TypeLoginSuccess,
 		TenantID:  tenantID,
 		ActorID:   user.ID,
-		Resource:  "session",
+		Resource:  audit.ResourceSession,
 		IPAddress: getIPAddress(r),
 		UserAgent: r.UserAgent(),
 		Metadata:  map[string]any{"session_id": sess.ID},
 	})
 
 	respondJSON(w, http.StatusOK, map[string]any{
-		"user_id": user.ID,
-		"email":   user.Email,
+		JSONKeyUserID: user.ID,
+		JSONKeyEmail:  user.Email,
 	})
 }
 
@@ -372,6 +406,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 // @Description Destroy the current session
 // @Tags Auth
 // @Produce json
+// @Param X-Tenant-ID header string true "Tenant ID" example("tenant_12345")
 // @Security CookieAuth
 // @Success 200 {object} map[string]string
 // @Failure 401 {object} map[string]string
@@ -385,11 +420,16 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 
 	sess, err := h.sessionService.Get(r.Context(), sessionID)
 	if err == nil {
+		sessionTenant := ""
+		if sess.TenantID != nil {
+			sessionTenant = *sess.TenantID
+		}
+
 		h.auditLogger.Log(r.Context(), audit.Event{
 			Type:      audit.TypeLogout,
-			TenantID:  sess.TenantID,
+			TenantID:  sessionTenant,
 			ActorID:   sess.UserID,
-			Resource:  "session",
+			Resource:  audit.ResourceSession,
 			IPAddress: getIPAddress(r),
 			UserAgent: r.UserAgent(),
 			Metadata:  map[string]any{"session_id": sess.ID},
@@ -409,12 +449,20 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 // @Description Retrieve details of the currently logged-in user
 // @Tags User
 // @Produce json
+// @Param X-Tenant-ID header string true "Tenant ID" example("tenant_12345")
 // @Security CookieAuth
 // @Success 200 {object} map[string]any
 // @Failure 404 {object} map[string]string
 // @Router /auth/me [get]
 func (h *Handler) GetCurrentUser(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value("user_id").(string)
+	userID := GetUserID(r.Context())
+
+	// Authorization Check: PermUserReadProfile required (Self)
+	allowed, err := h.authzService.HasPermission(r.Context(), userID, authz.ScopePlatform, nil, authz.PermUserReadProfile)
+	if err != nil || !allowed {
+		respondError(w, http.StatusForbidden, "read profile access required")
+		return
+	}
 
 	user, err := h.identityService.GetUser(r.Context(), userID)
 	if err != nil {
@@ -435,12 +483,20 @@ func (h *Handler) GetCurrentUser(w http.ResponseWriter, r *http.Request) {
 // @Description Retrieve the profile of the current user
 // @Tags User
 // @Produce json
+// @Param X-Tenant-ID header string true "Tenant ID" example("tenant_12345")
 // @Security CookieAuth
 // @Success 200 {object} map[string]any
 // @Failure 404 {object} map[string]string
 // @Router /user/profile [get]
 func (h *Handler) GetProfile(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value("user_id").(string)
+	userID := GetUserID(r.Context())
+
+	// Authorization Check: PermUserReadProfile required
+	allowed, err := h.authzService.HasPermission(r.Context(), userID, authz.ScopePlatform, nil, authz.PermUserReadProfile)
+	if err != nil || !allowed {
+		respondError(w, http.StatusForbidden, "read profile access required")
+		return
+	}
 
 	user, err := h.identityService.GetUser(r.Context(), userID)
 	if err != nil {
@@ -462,13 +518,21 @@ func (h *Handler) GetProfile(w http.ResponseWriter, r *http.Request) {
 // @Tags User
 // @Accept json
 // @Produce json
+// @Param X-Tenant-ID header string true "Tenant ID" example("tenant_12345")
 // @Security CookieAuth
 // @Param request body identity.Profile true "New Profile"
 // @Success 200 {object} map[string]string
 // @Failure 400 {object} map[string]string
 // @Router /user/profile [put]
 func (h *Handler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value("user_id").(string)
+	userID := GetUserID(r.Context())
+
+	// Authorization Check: PermUserWriteProfile required
+	allowed, err := h.authzService.HasPermission(r.Context(), userID, authz.ScopePlatform, nil, authz.PermUserWriteProfile)
+	if err != nil || !allowed {
+		respondError(w, http.StatusForbidden, "update profile access required")
+		return
+	}
 
 	var profile identity.Profile
 	if err := json.NewDecoder(r.Body).Decode(&profile); err != nil {
@@ -498,6 +562,7 @@ type ChangePasswordRequest struct {
 // @Tags User
 // @Accept json
 // @Produce json
+// @Param X-Tenant-ID header string true "Tenant ID" example("tenant_12345")
 // @Security CookieAuth
 // @Param request body ChangePasswordRequest true "Password Change Data"
 // @Success 200 {object} map[string]string
@@ -505,7 +570,14 @@ type ChangePasswordRequest struct {
 // @Failure 401 {object} map[string]string
 // @Router /user/change-password [post]
 func (h *Handler) ChangePassword(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value("user_id").(string)
+	userID := GetUserID(r.Context())
+
+	// Authorization Check: PermUserChangePassword required
+	allowed, err := h.authzService.HasPermission(r.Context(), userID, authz.ScopePlatform, nil, authz.PermUserChangePassword)
+	if err != nil || !allowed {
+		respondError(w, http.StatusForbidden, "change password access required")
+		return
+	}
 
 	var req ChangePasswordRequest
 
@@ -514,7 +586,7 @@ func (h *Handler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := h.identityService.ChangePassword(r.Context(), userID, req.OldPassword, req.NewPassword)
+	err = h.identityService.ChangePassword(r.Context(), userID, req.OldPassword, req.NewPassword)
 	if err != nil {
 		switch err {
 		case identity.ErrInvalidCredentials:
@@ -529,9 +601,9 @@ func (h *Handler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 
 	h.auditLogger.Log(r.Context(), audit.Event{
 		Type:      audit.TypePasswordChanged,
-		TenantID:  r.Context().Value("tenant_id").(string),
+		TenantID:  GetTenantID(r.Context()),
 		ActorID:   userID,
-		Resource:  "user_credentials",
+		Resource:  audit.ResourceUserCredentials,
 		IPAddress: getIPAddress(r),
 		UserAgent: r.UserAgent(),
 	})

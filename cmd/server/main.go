@@ -161,6 +161,9 @@ func main() {
 		refreshRepo,
 		auditLogger,
 		oidcService,
+		cfg.OAuth2.AuthCodeLifetime,
+		cfg.OAuth2.AccessTokenLifetime,
+		cfg.OAuth2.RefreshTokenLifetime,
 	)
 	authzService := authz.NewService(projectRepo, roleRepo, assignmentRepo)
 	tenantService := tenant.NewService(tenantRepo, tenantRoleRepo, auditLogger)

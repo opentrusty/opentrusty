@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenTrusty - System Test Report</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --bg: #f8fafc;
+            --text: #1e293b;
+            --border: #e2e8f0;
+        }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; margin: 0; padding: 2rem; }
+        .container { max-width: 1000px; margin: 0 auto; background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        h1 { margin-top: 0; border-bottom: 2px solid var(--border); padding-bottom: 0.5rem; }
+        .meta { color: #64748b; margin-bottom: 2rem; }
+        .status-badge { display: inline-block; padding: 0.25rem 0.75rem; border-radius: 9999px; font-weight: 600; font-size: 0.875rem; }
+        .status-pass { background: #dcfce7; color: #166534; }
+        .status-fail { background: #fee2e2; color: #991b1b; }
+        .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+        .summary-card { background: var(--bg); padding: 1rem; border-radius: 6px; text-align: center; border: 1px solid var(--border); }
+        .summary-val { display: block; font-size: 1.5rem; font-weight: 700; }
+        .summary-label { font-size: 0.75rem; text-transform: uppercase; color: #64748b; letter-spacing: 0.05em; }
+        table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+        th { text-align: left; background: #f1f5f9; padding: 0.75rem; border-bottom: 2px solid var(--border); }
+        td { padding: 0.75rem; border-bottom: 1px solid var(--border); font-size: 0.875rem; vertical-align: top; }
+        .col-id { width: 100px; color: #64748b; font-family: ui-monospace, SFMono-Regular, monospace; font-size: 0.75rem; word-break: break-all; }
+        .col-name { width: 250px; font-weight: 500; word-break: break-all; }
+        .col-status { width: 80px; text-align: center; }
+        .col-purpose { min-width: 250px; }
+        .col-security { width: 200px; }
+        .cat-header { background: #f8fafc; padding: 0.5rem 1rem; margin-top: 2rem; border-left: 4px solid var(--primary); font-weight: 600; }
+        .failure-box { background: #0f172a; color: #f8fafc; padding: 1rem; border-radius: 4px; overflow-x: auto; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 0.75rem; margin-bottom: 1rem; }
+        .security-mark { color: var(--warning); font-weight: 600; }
+        .status-icon { font-size: 1.125rem; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>System Test Report</h1>
+        <div class="meta">
+            Generated at: 2025-12-23 14:38:52 CST | 
+            Status: <span class="status-badge status-pass">PASSED</span>
+        </div>
+
+        <div class="summary-grid">
+            <div class="summary-card"><span class="summary-val">56</span><span class="summary-label">Total</span></div>
+            <div class="summary-card"><span class="summary-val" style="color: var(--success)">0</span><span class="summary-label">Passed</span></div>
+            <div class="summary-card"><span class="summary-val" style="color: var(--danger)">0</span><span class="summary-label">Failed</span></div>
+            <div class="summary-card"><span class="summary-val">0</span><span class="summary-label">Skipped</span></div>
+            <div class="summary-card"><span class="summary-val">0.0%</span><span class="summary-label">Pass Rate</span></div>
+        </div>
+
+        <h2>Test Results</h2><div class="cat-header">AuthN</div>
+        <table>
+            <thead>
+                <tr>
+                    <th class="col-id">ID</th>
+                    <th class="col-name">Test Name</th>
+                    <th class="col-status">Status</th>
+                    <th class="col-purpose">Purpose</th>
+                    <th class="col-security">Security</th>
+                </tr>
+            </thead>
+            <tbody><tr>
+                    <td class="col-id"></td>
+                    <td class="col-name"><code>TestIdentity_Service_Authenticate</code></td>
+                    <td class="col-status"><span class="status-icon">⚪</span></td>
+                    <td class="col-purpose">Validates the user authentication flow, including success, failure, and account lockout after multiple failed attempts.</td>
+                    <td class="col-security"><span class="security-mark">🛡️ Authentication mechanisms and Brute-force protection (lockout)</span></td>
+                </tr><tr>
+                    <td class="col-id"></td>
+                    <td class="col-name"><code>TestIdentity_Service_ProvisionIdentity_Conflict</code></td>
+                    <td class="col-status"><span class="status-icon">⚪</span></td>
+                    <td class="col-purpose">Validates that provisioning an identity fails if a user with the same email already exists in the same tenant.</td>
+                    <td class="col-security"><span class="security-mark">🛡️ Data Integrity and Unique Constraint Enforcement</span></td>
+                </tr></tbody></table><div class="cat-header">AuthZ</div>
+        <table>
+            <thead>
+                <tr>
+                    <th class="col-id">ID</th>
+                    <th class="col-name">Test Name</th>
+                    <th class="col-status">Status</th>
+                    <th class="col-purpose">Purpose</th>
+                    <th class="col-security">Security</th>
+                </tr>
+            </thead>
+            <tbody><tr>
+                    <td class="col-id"></td>
+                    <td class="col-name"><code>TestAuthz_Scope_PlatformAdminVsTenantAdmin</code></td>
+                    <td class="col-status"><span class="status-icon">⚪</span></td>
+                    <td class="col-purpose">Validates that Platform Admin privileges are scoped to the platform and strictly completely isolated from Tenant Admin privileges where appropriate (and vice versa).</td>
+                    <td class="col-security"><span class="security-mark">🛡️ RBAC Scope Isolation (prevents vertical privilege escalation)</span></td>
+                </tr><tr>
+                    <td class="col-id"></td>
+                    <td class="col-name"><code>TestAuthz_Isolation_CrossTenantAccessDenied</code></td>
+                    <td class="col-status"><span class="status-icon">⚪</span></td>
+                    <td class="col-purpose">Validates that a user with admin privileges in Tenant A cannot perform actions in Tenant B.</td>
+                    <td class="col-security"><span class="security-mark">🛡️ Multi-tenancy Data Isolation (prevents lateral movement / horizontal privilege escalation)</span></td>
+                </tr><tr>
+                    <td class="col-id"></td>
+                    <td class="col-name"><code>TestAuthz_Role_HasPermission</code></td>
+                    <td class="col-status"><span class="status-icon">⚪</span></td>
+                    <td class="col-purpose">Validates the HasPermission method on the Role struct for various scenarios (wildcards, direct matches).</td>
+                    <td class="col-security"><span class="security-mark">🛡️ Core logic for permission checking</span></td>
+                </tr><tr>
+                    <td class="col-id"></td>
+                    <td class="col-name"><code>TestAuthz_Scope_TenantAdminVsTenantMember</code></td>
+                    <td class="col-status"><span class="status-icon">⚪</span></td>
+                    <td class="col-purpose">Validates that Tenant Admin privileges are correctly authorized while Tenant Member privileges are restricted within the same tenant.</td>
+                    <td class="col-security"><span class="security-mark">🛡️ RBAC Permission Enforcement</span></td>
+                </tr></tbody></table><div class="cat-header">Tenant</div>
+        <table>
+            <thead>
+                <tr>
+                    <th class="col-id">ID</th>
+                    <th class="col-name">Test Name</th>
+                    <th class="col-status">Status</th>
+                    <th class="col-purpose">Purpose</th>
+                    <th class="col-security">Security</th>
+                </tr>
+            </thead>
+            <tbody><tr>
+                    <td class="col-id"></td>
+                    <td class="col-name"><code>TestTenant_Isolation_AssignInvalidRole_ReturnsError</code></td>
+                    <td class="col-status"><span class="status-icon">⚪</span></td>
+                    <td class="col-purpose">Validates that non-defined role names are rejected to prevent arbitrary privilege assignment.</td>
+                    <td class="col-security"><span class="security-mark">🛡️ Unauthorized privilege escalation prevention</span></td>
+                </tr><tr>
+                    <td class="col-id"></td>
+                    <td class="col-name"><code>TestTenant_Isolation_RoleValidation_OnlyAcceptsDefinedConstants</code></td>
+                    <td class="col-status"><span class="status-icon">⚪</span></td>
+                    <td class="col-purpose">Validates that only defined tenant role constants (RoleTenantOwner, RoleTenantAdmin, RoleTenantMember) are accepted.</td>
+                    <td class="col-security"><span class="security-mark">🛡️ Role name validation logic</span></td>
+                </tr><tr>
+                    <td class="col-id"></td>
+                    <td class="col-name"><code>TestTenant_Service_CreateTenant_UUIDv7</code></td>
+                    <td class="col-status"><span class="status-icon">⚪</span></td>
+                    <td class="col-purpose">Validates that tenant creation correctly generates IDs using UUIDv7 for temporal ordering.</td>
+                    <td class="col-security"><span class="security-mark">🛡️ Traceability and unique identification of tenants</span></td>
+                </tr><tr>
+                    <td class="col-id"></td>
+                    <td class="col-name"><code>TestTenant_Isolation_RevokeRole_ValidRole_Succeeds</code></td>
+                    <td class="col-status"><span class="status-icon">⚪</span></td>
+                    <td class="col-purpose">Validates that role revocation works for valid roles.</td>
+                    <td class="col-security"><span class="security-mark">🛡️ Revocation enforcement</span></td>
+                </tr><tr>
+                    <td class="col-id"></td>
+                    <td class="col-name"><code>TestTenant_Isolation_GetUserRoles_ReturnsAllRoles</code></td>
+                    <td class="col-status"><span class="status-icon">⚪</span></td>
+                    <td class="col-purpose">Validates that retrieval of user roles returns all roles assigned to that user in a specific tenant.</td>
+                    <td class="col-security"><span class="security-mark">🛡️ RBAC role transparency</span></td>
+                </tr><tr>
+                    <td class="col-id"></td>
+                    <td class="col-name"><code>TestTenant_Isolation_TenantIDMustBePresent</code></td>
+                    <td class="col-status"><span class="status-icon">⚪</span></td>
+                    <td class="col-purpose">Validates that tenant-scoped operations strictly require a non-empty tenant ID to prevent global data exposure.</td>
+                    <td class="col-security"><span class="security-mark">🛡️ Multi-tenant boundary enforcement</span></td>
+                </tr><tr>
+                    <td class="col-id"></td>
+                    <td class="col-name"><code>TestTenant_Isolation_AssignValidRole_Succeeds</code></td>
+                    <td class="col-status"><span class="status-icon">⚪</span></td>
+                    <td class="col-purpose">Validates that defined role constants are correctly accepted for assignment.</td>
+                    <td class="col-security"><span class="security-mark">🛡️ RBAC data integrity</span></td>
+                </tr></tbody></table><div class="cat-header">OAuth2</div>
+        <table>
+            <thead>
+                <tr>
+                    <th class="col-id">ID</th>
+                    <th class="col-name">Test Name</th>
+                    <th class="col-status">Status</th>
+                    <th class="col-purpose">Purpose</th>
+                    <th class="col-security">Security</th>
+                </tr>
+            </thead>
+            <tbody><tr>
+                    <td class="col-id"></td>
+                    <td class="col-name"><code>TestOAuth2_Service_ExchangeCodeForToken_Success</code></td>
+                    <td class="col-status"><span class="status-icon">⚪</span></td>
+                    <td class="col-purpose">Validates a successful OAuth2 authorization code exchange for tokens, including ID token generation.</td>
+                    <td class="col-security"><span class="security-mark">🛡️ OAuth2 Authorization Code Grant flow (RFC 6749 Section 4.1.3)</span></td>
+                </tr><tr>
+                    <td class="col-id"></td>
+                    <td class="col-name"><code>TestOAuth2_Service_ExchangeCodeForToken_PKCEFailure</code></td>
+                    <td class="col-status"><span class="status-icon">⚪</span></td>
+                    <td class="col-purpose">Validates that OAuth2 code exchange fails if the PKCE code verifier does not match the challenge.</td>
+                    <td class="col-security"><span class="security-mark">🛡️ PKCE enforcement (RFC 7636) to prevent code injection/interception</span></td>
+                </tr><tr>
+                    <td class="col-id"></td>
+                    <td class="col-name"><code>TestOAuth2_Service_ExchangeCodeForToken_Expired</code></td>
+                    <td class="col-status"><span class="status-icon">⚪</span></td>
+                    <td class="col-purpose">Validates that an expired authorization code cannot be exchanged for tokens.</td>
+                    <td class="col-security"><span class="security-mark">🛡️ Temporary credential lifecycle enforcement</span></td>
+                </tr><tr>
+                    <td class="col-id"></td>
+                    <td class="col-name"><code>TestOAuth2_Service_ExchangeCodeForToken_Replay</code></td>
+                    <td class="col-status"><span class="status-icon">⚪</span></td>
+                    <td class="col-purpose">Validates that an authorization code cannot be reused for token exchange (replay prevention).</td>
+                    <td class="col-security"><span class="security-mark">🛡️ Authorization code replay attack prevention</span></td>
+                </tr></tbody></table><div class="cat-header">OIDC</div>
+        <table>
+            <thead>
+                <tr>
+                    <th class="col-id">ID</th>
+                    <th class="col-name">Test Name</th>
+                    <th class="col-status">Status</th>
+                    <th class="col-purpose">Purpose</th>
+                    <th class="col-security">Security</th>
+                </tr>
+            </thead>
+            <tbody><tr>
+                    <td class="col-id"></td>
+                    <td class="col-name"><code>TestOIDC_Claims_AudienceMatch</code></td>
+                    <td class="col-status"><span class="status-icon">⚪</span></td>
+                    <td class="col-purpose">Verifies that the aud claim matches the client ID.</td>
+                    <td class="col-security"><span class="security-mark">🛡️ Intended Audience Verification</span></td>
+                </tr><tr>
+                    <td class="col-id"></td>
+                    <td class="col-name"><code>TestOIDC_Service_GenerateIDToken</code></td>
+                    <td class="col-status"><span class="status-icon">⚪</span></td>
+                    <td class="col-purpose">Validates the generation of OIDC ID tokens, ensuring correct claims (iss, aud, sub, at_hash, nonce) and header (kid).</td>
+                    <td class="col-security"><span class="security-mark">🛡️ OIDC compliance and cryptographic integrity of ID tokens</span></td>
+                </tr><tr>
+                    <td class="col-id"></td>
+                    <td class="col-name"><code>TestOIDC_Service_GetJWKS</code></td>
+                    <td class="col-status"><span class="status-icon">⚪</span></td>
+                    <td class="col-purpose">Validates that the JWKS (JSON Web Key Set) correctly exposes the public key for token verification.</td>
+                    <td class="col-security"><span class="security-mark">🛡️ Public key distribution for signature verification</span></td>
+                </tr><tr>
+                    <td class="col-id"></td>
+                    <td class="col-name"><code>TestOIDC_Claims_AtHashCorrectness_AtHashIsCorrectlyComputed</code></td>
+                    <td class="col-status"><span class="status-icon">⚪</span></td>
+                    <td class="col-purpose">Verifies that at_hash is computed as the base64url encoding of the left-most half of the SHA-256 hash of the access token.</td>
+                    <td class="col-security"><span class="security-mark">🛡️ Token Binding Verification (OIDC Core Section 3.1.3.6)</span></td>
+                </tr><tr>
+                    <td class="col-id"></td>
+                    <td class="col-name"><code>TestOIDC_Service_GetDiscoveryMetadata</code></td>
+                    <td class="col-status"><span class="status-icon">⚪</span></td>
+                    <td class="col-purpose">Validates that the discovery metadata matches the service configuration and OIDC standards.</td>
+                    <td class="col-security"><span class="security-mark">🛡️ Exposure of correct OIDC endpoints and supported algorithms</span></td>
+                </tr><tr>
+                    <td class="col-id"></td>
+                    <td class="col-name"><code>TestOIDC_Claims_SubClaimStability_SameTenantAndUserProduceSameSub</code></td>
+                    <td class="col-status"><span class="status-icon">⚪</span></td>
+                    <td class="col-purpose">Verifies that the sub (subject) claim is deterministic: the same (tenant, user) pair always produces the same sub value.</td>
+                    <td class="col-security"><span class="security-mark">🛡️ Identity Stability (prevents account fragmentation)</span></td>
+                </tr><tr>
+                    <td class="col-id"></td>
+                    <td class="col-name"><code>TestOIDC_Claims_IssuerMatch</code></td>
+                    <td class="col-status"><span class="status-icon">⚪</span></td>
+                    <td class="col-purpose">Verifies that the iss claim matches the service issuer configuration.</td>
+                    <td class="col-security"><span class="security-mark">🛡️ Trust Root Verification</span></td>
+                </tr><tr>
+                    <td class="col-id"></td>
+                    <td class="col-name"><code>TestOIDC_Claims_NoncePropagation_NonceIsIncludedWhenProvided</code></td>
+                    <td class="col-status"><span class="status-icon">⚪</span></td>
+                    <td class="col-purpose">Verifies that the nonce claim is included in the ID token when provided (OIDC Core Section 3.1.2.1).</td>
+                    <td class="col-security"><span class="security-mark">🛡️ Replay Attack Prevention</span></td>
+                </tr><tr>
+                    <td class="col-id"></td>
+                    <td class="col-name"><code>TestNoncePropagation_NonceIsOmittedWhenEmpty</code></td>
+                    <td class="col-status"><span class="status-icon">⚪</span></td>
+                    <td class="col-purpose"></td>
+                    <td class="col-security"></td>
+                </tr><tr>
+                    <td class="col-id"></td>
+                    <td class="col-name"><code>TestAtHashCorrectness_AtHashIsOmittedWhenNoAccessToken</code></td>
+                    <td class="col-status"><span class="status-icon">⚪</span></td>
+                    <td class="col-purpose"></td>
+                    <td class="col-security"></td>
+                </tr><tr>
+                    <td class="col-id"></td>
+                    <td class="col-name"><code>TestOIDC_Claims_SubClaimStability_DifferentTenantProducesDifferentSub</code></td>
+                    <td class="col-status"><span class="status-icon">⚪</span></td>
+                    <td class="col-purpose">Verifies that different tenants produce different sub values, even for the same user ID (Pairwise ID-like behavior).</td>
+                    <td class="col-security"><span class="security-mark">🛡️ Multi-tenant Privacy and Isolation</span></td>
+                </tr><tr>
+                    <td class="col-id"></td>
+                    <td class="col-name"><code>TestOIDC_Claims_SubClaimStability_DifferentUserProducesDifferentSub</code></td>
+                    <td class="col-status"><span class="status-icon">⚪</span></td>
+                    <td class="col-purpose">Verifies that different users in the same tenant produce different sub values.</td>
+                    <td class="col-security"><span class="security-mark">🛡️ Identity Uniqueness</span></td>
+                </tr></tbody></table><div class="cat-header">Audit</div>
+        <table>
+            <thead>
+                <tr>
+                    <th class="col-id">ID</th>
+                    <th class="col-name">Test Name</th>
+                    <th class="col-status">Status</th>
+                    <th class="col-purpose">Purpose</th>
+                    <th class="col-security">Security</th>
+                </tr>
+            </thead>
+            <tbody><tr>
+                    <td class="col-id"></td>
+                    <td class="col-name"><code>TestAudit_IsSecret</code></td>
+                    <td class="col-status"><span class="status-icon">⚪</span></td>
+                    <td class="col-purpose">Validates that sensitive keys are correctly identified as secrets to prevent them from being logged in plaintext.</td>
+                    <td class="col-security"><span class="security-mark">🛡️ Data Masking and Leakage Prevention (CWE-532)</span></td>
+                </tr></tbody></table><div class="cat-header">Auth API</div>
+        <table>
+            <thead>
+                <tr>
+                    <th class="col-id">ID</th>
+                    <th class="col-name">Test Name</th>
+                    <th class="col-status">Status</th>
+                    <th class="col-purpose">Purpose</th>
+                    <th class="col-security">Security</th>
+                </tr>
+            </thead>
+            <tbody><tr>
+                    <td class="col-id">LGN-05</td>
+                    <td class="col-name"><code>TestAuth_Login_EmptyBody_ReturnsBadRequest</code></td>
+                    <td class="col-status"><span class="status-icon">⚪</span></td>
+                    <td class="col-purpose">Validates that empty request bodies for login are rejected with 400 Bad Request.</td>
+                    <td class="col-security"><span class="security-mark">🛡️ Request body parsing and validation</span></td>
+                </tr><tr>
+                    <td class="col-id">AUT-02</td>
+                    <td class="col-name"><code>TestOAuth2_Authorize_MissingClientID_ReturnsBadRequest</code></td>
+                    <td class="col-status"><span class="status-icon">⚪</span></td>
+                    <td class="col-purpose">Validates that the authorize endpoint requires a client_id parameter.</td>
+                    <td class="col-security"><span class="security-mark">🛡️ OAuth2 parameter validation (RFC 6749)</span></td>
+                </tr><tr>
+                    <td class="col-id">REG-04</td>
+                    <td class="col-name"><code>TestAuth_Register_WeakPassword_ReturnsBadRequest</code></td>
+                    <td class="col-status"><span class="status-icon">⚪</span></td>
+                    <td class="col-purpose">Validates that passwords below the minimum length (8 chars) are rejected.</td>
+                    <td class="col-security"><span class="security-mark">🛡️ Password strength validation (prevents weak credentials)</span></td>
+                </tr><tr>
+                    <td class="col-id">LGN-06B</td>
+                    <td class="col-name"><code>TestAuth_Login_MalformedJSON_ReturnsBadRequest</code></td>
+                    <td class="col-status"><span class="status-icon">⚪</span></td>
+                    <td class="col-purpose">Validates that malformed JSON in the login request is rejected safely.</td>
+                    <td class="col-security"><span class="security-mark">🛡️ JSON parsing safety (prevents parser exploits)</span></td>
+                </tr><tr>
+                    <td class="col-id">TKN-11</td>
+                    <td class="col-name"><code>TestOAuth2_Token_UnsupportedGrantType_ReturnsBadRequest</code></td>
+                    <td class="col-status"><span class="status-icon">⚪</span></td>
+                    <td class="col-purpose">Validates that unsupported grant types are rejected.</td>
+                    <td class="col-security"><span class="security-mark">🛡️ OAuth2 grant type validation (RFC 6749)</span></td>
+                </tr><tr>
+                    <td class="col-id"></td>
+                    <td class="col-name"><code>TestTenant_Create_AuthorizationEnforcement</code></td>
+                    <td class="col-status"><span class="status-icon">⚪</span></td>
+                    <td class="col-purpose">Validates authorization rules for creating tenants (only platform admins).</td>
+                    <td class="col-security"><span class="security-mark">🛡️ RBAC enforcement (prevents unauthorized tenant creation)</span></td>
+                </tr><tr>
+                    <td class="col-id">REG-02</td>
+                    <td class="col-name"><code>TestAuth_Register_EmptyEmail_ReturnsBadRequest</code></td>
+                    <td class="col-status"><span class="status-icon">⚪</span></td>
+                    <td class="col-purpose">Validates that registration fails with a 400 Bad Request if the email is empty.</td>
+                    <td class="col-security"><span class="security-mark">🛡️ Input sanitization boundary check</span></td>
+                </tr></tbody></table><div class="cat-header">Tenant API</div>
+        <table>
+            <thead>
+                <tr>
+                    <th class="col-id">ID</th>
+                    <th class="col-name">Test Name</th>
+                    <th class="col-status">Status</th>
+                    <th class="col-purpose">Purpose</th>
+                    <th class="col-security">Security</th>
+                </tr>
+            </thead>
+            <tbody><tr>
+                    <td class="col-id">TEN-04</td>
+                    <td class="col-name"><code>TestTenant_Create_EmptyName_ReturnsBadRequest</code></td>
+                    <td class="col-status"><span class="status-icon">⚪</span></td>
+                    <td class="col-purpose">Validates that creating a tenant requires a non-empty name.</td>
+                    <td class="col-security"><span class="security-mark">🛡️ Input validation</span></td>
+                </tr><tr>
+                    <td class="col-id">ROL-03</td>
+                    <td class="col-name"><code>TestTenant_AssignRole_EmptyRole_ReturnsBadRequest</code></td>
+                    <td class="col-status"><span class="status-icon">⚪</span></td>
+                    <td class="col-purpose">Validates that assigning a role requires a non-empty role name.</td>
+                    <td class="col-security"><span class="security-mark">🛡️ Input validation</span></td>
+                </tr><tr>
+                    <td class="col-id"></td>
+                    <td class="col-name"><code>TestHTTP_Protocol_CrossTenant_Negative</code></td>
+                    <td class="col-status"><span class="status-icon">⚪</span></td>
+                    <td class="col-purpose">Validates that a session for Tenant A cannot be used to access Tenant B resources through the HTTP middleware.</td>
+                    <td class="col-security"><span class="security-mark">🛡️ Horizontal privilege escalation prevention (Cross-tenant access)</span></td>
+                </tr></tbody></table><div class="cat-header">API</div>
+        <table>
+            <thead>
+                <tr>
+                    <th class="col-id">ID</th>
+                    <th class="col-name">Test Name</th>
+                    <th class="col-status">Status</th>
+                    <th class="col-purpose">Purpose</th>
+                    <th class="col-security">Security</th>
+                </tr>
+            </thead>
+            <tbody><tr>
+                    <td class="col-id">SEC-02</td>
+                    <td class="col-name"><code>TestSecurity_ErrorHandling_NoSensitiveDataIsLeaked</code></td>
+                    <td class="col-status"><span class="status-icon">⚪</span></td>
+                    <td class="col-purpose">Validates that error responses do not leak sensitive internal details (stack traces, paths).</td>
+                    <td class="col-security"><span class="security-mark">🛡️ Information disclosure prevention (CWE-209)</span></td>
+                </tr><tr>
+                    <td class="col-id">SEC-10</td>
+                    <td class="col-name"><code>TestSecurity_Headers_JSONContentTypeIsSet</code></td>
+                    <td class="col-status"><span class="status-icon">⚪</span></td>
+                    <td class="col-purpose">Validates that JSON responses include the application/json Content-Type header.</td>
+                    <td class="col-security"><span class="security-mark">🛡️ Prevents MIME sniffing attacks</span></td>
+                </tr><tr>
+                    <td class="col-id"></td>
+                    <td class="col-name"><code>TestHTTP_Protocol_Discovery</code></td>
+                    <td class="col-status"><span class="status-icon">⚪</span></td>
+                    <td class="col-purpose">Validates that the OIDC discovery endpoint returns correct configuration for clients.</td>
+                    <td class="col-security"><span class="security-mark">🛡️ Secure discovery of OIDC endpoints</span></td>
+                </tr><tr>
+                    <td class="col-id"></td>
+                    <td class="col-name"><code>TestHTTP_Protocol_JWKS</code></td>
+                    <td class="col-status"><span class="status-icon">⚪</span></td>
+                    <td class="col-purpose">Validates that the JWKS endpoint correctly serves public keys for token verification.</td>
+                    <td class="col-security"><span class="security-mark">🛡️ Public key distribution for signature validation</span></td>
+                </tr><tr>
+                    <td class="col-id"></td>
+                    <td class="col-name"><code>TestHTTP_Protocol_Token_BadRequest</code></td>
+                    <td class="col-status"><span class="status-icon">⚪</span></td>
+                    <td class="col-purpose">Validates that the token endpoint rejects invalid requests with a 400 Bad Request or 401 Unauthorized.</td>
+                    <td class="col-security"><span class="security-mark">🛡️ Token endpoint protection</span></td>
+                </tr><tr>
+                    <td class="col-id">SEC-05B</td>
+                    <td class="col-name"><code>TestSecurity_HealthCheck_ReturnsValidJSON</code></td>
+                    <td class="col-status"><span class="status-icon">⚪</span></td>
+                    <td class="col-purpose">Validates that the health check endpoint returns valid JSON with the expected structure.</td>
+                    <td class="col-security"><span class="security-mark">🛡️ Validates safe response format</span></td>
+                </tr><tr>
+                    <td class="col-id"></td>
+                    <td class="col-name"><code>TestHTTP_Protocol_HappyPath_Flow</code></td>
+                    <td class="col-status"><span class="status-icon">⚪</span></td>
+                    <td class="col-purpose">Validates a full OAuth2 authorization code flow from code creation to token exchange via HTTP.</td>
+                    <td class="col-security"><span class="security-mark">🛡️ End-to-end OAuth2 protocol correctness (RFC 6749)</span></td>
+                </tr></tbody></table><div class="cat-header">System Tests</div>
+        <table>
+            <thead>
+                <tr>
+                    <th class="col-id">ID</th>
+                    <th class="col-name">Test Name</th>
+                    <th class="col-status">Status</th>
+                    <th class="col-purpose">Purpose</th>
+                    <th class="col-security">Security</th>
+                </tr>
+            </thead>
+            <tbody><tr>
+                    <td class="col-id">OID-01</td>
+                    <td class="col-name"><code>TestOIDC_TokenExchange_IDTokenOnlyWithOpenIDScope</code></td>
+                    <td class="col-status"><span class="status-icon">⚪</span></td>
+                    <td class="col-purpose">Validates that an id_token is only issued when the 'openid' scope is explicitly requested.</td>
+                    <td class="col-security"><span class="security-mark">🛡️ Compliance with OIDC Core specification (Issue #3.1.2.1)</span></td>
+                </tr><tr>
+                    <td class="col-id"></td>
+                    <td class="col-name"><code>TestMain</code></td>
+                    <td class="col-status"><span class="status-icon">⚪</span></td>
+                    <td class="col-purpose"></td>
+                    <td class="col-security"></td>
+                </tr><tr>
+                    <td class="col-id">OA2-02</td>
+                    <td class="col-name"><code>TestOAuth2_RefreshToken_RevocationPreventsUsage</code></td>
+                    <td class="col-status"><span class="status-icon">⚪</span></td>
+                    <td class="col-purpose">Validates that revoking a refresh token makes it unusable for obtaining new access tokens.</td>
+                    <td class="col-security"><span class="security-mark">🛡️ Ensures revoked tokens cannot be used (RFC 7009)</span></td>
+                </tr><tr>
+                    <td class="col-id">AUT-01</td>
+                    <td class="col-name"><code>TestAuthz_TenantAdmin_CanManageUsersInOwnTenant</code></td>
+                    <td class="col-status"><span class="status-icon">⚪</span></td>
+                    <td class="col-purpose">Validates that a tenant admin can manage users within their own tenant.</td>
+                    <td class="col-security"><span class="security-mark">🛡️ RBAC enforcement at service layer</span></td>
+                </tr><tr>
+                    <td class="col-id">OA2-01</td>
+                    <td class="col-name"><code>TestOAuth2_AuthorizationCode_OneTimeUseEnforced</code></td>
+                    <td class="col-status"><span class="status-icon">⚪</span></td>
+                    <td class="col-purpose">Validates that authorization codes cannot be used more than once (replay attack prevention).</td>
+                    <td class="col-security"><span class="security-mark">🛡️ Prevents authorization code replay attacks (RFC 6749 Section 4.1.2)</span></td>
+                </tr><tr>
+                    <td class="col-id">TEN-01</td>
+                    <td class="col-name"><code>TestTenant_Isolation_UserFromTenantACannotAccessTenantBResources</code></td>
+                    <td class="col-status"><span class="status-icon">⚪</span></td>
+                    <td class="col-purpose">Validates cross-tenant isolation ensures users in Tenant A cannot access Tenant B resources.</td>
+                    <td class="col-security"><span class="security-mark">🛡️ Multi-tenancy boundary enforcement (prevents cross-tenant access)</span></td>
+                </tr><tr>
+                    <td class="col-id">AUT-02</td>
+                    <td class="col-name"><code>TestAuthz_RoleAssignment_InvalidRoleNameIsRejected</code></td>
+                    <td class="col-status"><span class="status-icon">⚪</span></td>
+                    <td class="col-purpose">Validates that invalid or malicious role names are rejected during assignment.</td>
+                    <td class="col-security"><span class="security-mark">🛡️ Prevents privilege escalation via role name manipulation (e.g. SQL injection or privilege escalation)</span></td>
+                </tr></tbody></table><div class="cat-header">Other</div>
+        <table>
+            <thead>
+                <tr>
+                    <th class="col-id">ID</th>
+                    <th class="col-name">Test Name</th>
+                    <th class="col-status">Status</th>
+                    <th class="col-purpose">Purpose</th>
+                    <th class="col-security">Security</th>
+                </tr>
+            </thead>
+            <tbody><tr>
+                    <td class="col-id"></td>
+                    <td class="col-name"><code>TestE2E_Workflows</code></td>
+                    <td class="col-status"><span class="status-icon">⚪</span></td>
+                    <td class="col-purpose"></td>
+                    <td class="col-security"></td>
+                </tr><tr>
+                    <td class="col-id"></td>
+                    <td class="col-name"><code>TestUserRepository_TenantIsolation</code></td>
+                    <td class="col-status"><span class="status-icon">⚪</span></td>
+                    <td class="col-purpose"></td>
+                    <td class="col-security"></td>
+                </tr></tbody></table>
+        <p style="margin-top: 3rem; color: #64748b; font-size: 0.75rem; text-align: center;">
+            &copy; 2025 OpenTrusty Project | Generated by Test Infrastructure
+        </p>
+    </div>
+</body>
+</html>

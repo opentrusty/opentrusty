@@ -22,6 +22,7 @@ import (
 
 	"github.com/opentrusty/opentrusty/internal/audit"
 	"github.com/opentrusty/opentrusty/internal/authz"
+	"github.com/opentrusty/opentrusty/internal/id"
 )
 
 const (
@@ -57,12 +58,12 @@ func (s *BootstrapService) Bootstrap(ctx context.Context) error {
 	email := os.Getenv(EnvBootstrapAdminEmail)
 	tenantID := os.Getenv(EnvBootstrapAdminTenantID)
 
-	if email == "" || tenantID == "" {
+	if email == "" {
 		return nil
 	}
 
 	// 1. Check if ANY platform admin already exists
-	roleID := "role:platform:admin"
+	roleID := "20000000-0000-0000-0000-000000000001" // hardcoded platform_admin UUID from migrations
 	exists, err := s.authzRepo.CheckExists(roleID, authz.ScopePlatform, nil)
 	if err != nil {
 		return fmt.Errorf("failed to check for existing platform admin: %w", err)
@@ -74,20 +75,24 @@ func (s *BootstrapService) Bootstrap(ctx context.Context) error {
 	}
 
 	// 2. Look up the user by email and tenant
-	user, err := s.identityService.repo.GetByEmail(tenantID, email)
+	var tID *string
+	if tenantID != "" {
+		tID = &tenantID
+	}
+	user, err := s.identityService.repo.GetByEmail(tID, email)
 	if err != nil {
 		return fmt.Errorf("bootstrap user not found (tenant: %s, email: %s): %w", tenantID, email, err)
 	}
 
 	// 3. Assign the platform admin role
 	assignment := &authz.Assignment{
-		ID:             generateID(),
+		ID:             id.NewUUIDv7(),
 		UserID:         user.ID,
 		RoleID:         roleID,
 		Scope:          authz.ScopePlatform,
 		ScopeContextID: nil,
 		GrantedAt:      time.Now(),
-		GrantedBy:      "system:bootstrap",
+		GrantedBy:      audit.ActorSystemBootstrap,
 	}
 
 	if err := s.authzRepo.Grant(assignment); err != nil {
@@ -96,14 +101,14 @@ func (s *BootstrapService) Bootstrap(ctx context.Context) error {
 
 	// 4. Record audit log
 	s.auditLogger.Log(ctx, audit.Event{
-		Type:     "platform_admin_bootstrapped",
+		Type:     audit.TypePlatformAdminBootstrap,
 		TenantID: tenantID,
 		ActorID:  user.ID,
-		Resource: "platform",
+		Resource: audit.ResourcePlatform,
 		Metadata: map[string]any{
-			"email":     email,
-			"tenant_id": tenantID,
-			"role_id":   roleID,
+			audit.AttrEmail:    email,
+			audit.AttrTenantID: tenantID,
+			audit.AttrRoleID:   roleID,
 		},
 	})
 

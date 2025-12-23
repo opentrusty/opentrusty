@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/opentrusty/opentrusty/internal/audit"
+	"github.com/opentrusty/opentrusty/internal/id"
 )
 
 // Service provides tenant management business logic
@@ -38,19 +39,14 @@ func NewService(repo Repository, roleRepo RoleRepository, auditLogger audit.Logg
 	}
 }
 
-// CreateTenant creates a new tenant
-func (s *Service) CreateTenant(ctx context.Context, id, name string) (*Tenant, error) {
-	if id == "" {
-		return nil, fmt.Errorf("tenant id is required")
-	}
+// CreateTenant creates a new tenant with a system-generated UUID v7
+func (s *Service) CreateTenant(ctx context.Context, name string) (*Tenant, error) {
 	if name == "" {
 		return nil, fmt.Errorf("tenant name is required")
 	}
 
-	// Check if tenant already exists
-	if _, err := s.repo.GetByID(ctx, id); err == nil {
-		return nil, fmt.Errorf("tenant with id %s already exists", id)
-	}
+	// Generate UUID v7 (RFC 9562)
+	id := id.NewUUIDv7()
 
 	now := time.Now()
 	tenant := &Tenant{
@@ -108,7 +104,7 @@ func (s *Service) AssignRole(ctx context.Context, tenantID, userID, role string,
 		TenantID: tenantID,
 		ActorID:  grantedBy,
 		Resource: role,
-		Metadata: map[string]any{"user_id": userID},
+		Metadata: map[string]any{audit.AttrActorID: userID},
 	})
 
 	return nil
@@ -124,12 +120,11 @@ func (s *Service) RevokeRole(ctx context.Context, tenantID, userID, role string)
 	// We might need to pass `revokedBy` similar to `grantedBy` but for now we'll rely on ActorID if context provided it, or leave empty)
 	// Actually, `ctx` doesn't inherently carry ActorID unless we standardise it.
 	// For now, let's leave ActorID empty or "system" if unknown.
-
 	s.auditLogger.Log(ctx, audit.Event{
 		Type:     audit.TypeRoleRevoked,
 		TenantID: tenantID,
 		Resource: role,
-		Metadata: map[string]any{"user_id": userID},
+		Metadata: map[string]any{audit.AttrActorID: userID},
 	})
 
 	return nil

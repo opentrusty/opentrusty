@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/opentrusty/opentrusty/internal/audit"
+	"github.com/opentrusty/opentrusty/internal/id"
 )
 
 // OIDCProvider defines the interface for OIDC integration (Phase II.3)
@@ -59,12 +60,14 @@ func NewService(
 	refreshRepo RefreshTokenRepository,
 	auditLogger audit.Logger,
 	oidcProvider OIDCProvider,
+	authCodeLifetime time.Duration,
+	accessTokenLifetime time.Duration,
+	refreshTokenLifetime time.Duration,
 ) *Service {
-	// Load encryption key from env or use default (dev only)
+	// Load encryption key from env - MUST be exactly 32 bytes
 	encKey := []byte(os.Getenv("OPENID_KEY_ENCRYPTION_KEY"))
 	if len(encKey) != 32 {
-		encKey = make([]byte, 32)
-		copy(encKey, []byte("insecure_dev_key_must_change_!!"))
+		panic("OPENID_KEY_ENCRYPTION_KEY environment variable must be exactly 32 bytes")
 	}
 
 	return &Service{
@@ -74,9 +77,9 @@ func NewService(
 		refreshRepo:          refreshRepo,
 		auditLogger:          auditLogger,
 		oidcProvider:         oidcProvider,
-		authCodeLifetime:     5 * time.Minute,
-		accessTokenLifetime:  1 * time.Hour,
-		refreshTokenLifetime: 30 * 24 * time.Hour,
+		authCodeLifetime:     authCodeLifetime,
+		accessTokenLifetime:  accessTokenLifetime,
+		refreshTokenLifetime: refreshTokenLifetime,
 		encryptionKey:        encKey,
 	}
 }
@@ -118,10 +121,10 @@ type TokenResponse struct {
 // CreateClient registers a new OAuth2 client
 func (s *Service) CreateClient(ctx context.Context, client *Client) error {
 	if client.ID == "" {
-		client.ID = generateID()
+		client.ID = id.NewUUIDv7()
 	}
 	if client.ClientID == "" {
-		client.ClientID = generateID()
+		client.ClientID = id.NewUUIDv7()
 	}
 
 	if client.CreatedAt.IsZero() {
@@ -174,7 +177,7 @@ func (s *Service) ValidateAuthorizeRequest(ctx context.Context, req *AuthorizeRe
 // CreateAuthorizationCode creates a new authorization code (RFC 6749 Section 4.1.2)
 func (s *Service) CreateAuthorizationCode(ctx context.Context, req *AuthorizeRequest, userID string) (*AuthorizationCode, error) {
 	code := &AuthorizationCode{
-		ID:                  generateID(),
+		ID:                  id.NewUUIDv7(),
 		Code:                generateAuthorizationCode(),
 		ClientID:            req.ClientID,
 		UserID:              userID,
@@ -268,7 +271,8 @@ func (s *Service) ExchangeCodeForToken(ctx context.Context, req *TokenRequest) (
 	// 6. Issue Access Token
 	rawAccessToken := generateToken()
 	accessToken := &AccessToken{
-		ID:        generateID(),
+		ID:        id.NewUUIDv7(),
+		TenantID:  client.TenantID,
 		TokenHash: hashToken(rawAccessToken),
 		ClientID:  client.ClientID,
 		UserID:    code.UserID,
@@ -295,7 +299,8 @@ func (s *Service) ExchangeCodeForToken(ctx context.Context, req *TokenRequest) (
 
 	if allowedRefresh {
 		rt := &RefreshToken{
-			ID:            generateID(),
+			ID:            id.NewUUIDv7(),
+			TenantID:      client.TenantID,
 			TokenHash:     hashToken(generateToken()),
 			AccessTokenID: accessToken.ID,
 			ClientID:      client.ClientID,
@@ -328,7 +333,7 @@ func (s *Service) ExchangeCodeForToken(ctx context.Context, req *TokenRequest) (
 		Type:     audit.TypeTokenIssued,
 		TenantID: client.TenantID,
 		ActorID:  code.UserID,
-		Resource: "token",
+		Resource: audit.ResourceToken,
 		Metadata: map[string]any{
 			"client_id": client.ClientID,
 			"scope":     code.Scope,
@@ -375,7 +380,8 @@ func (s *Service) RefreshAccessToken(ctx context.Context, req *TokenRequest) (*T
 
 	// 3. Issue New Access Token
 	accessToken := &AccessToken{
-		ID:        generateID(),
+		ID:        id.NewUUIDv7(),
+		TenantID:  client.TenantID,
 		TokenHash: hashToken(generateToken()),
 		ClientID:  client.ClientID,
 		UserID:    rt.UserID,
@@ -510,12 +516,6 @@ func containsScope(scope, target string) bool {
 		}
 	}
 	return false
-}
-
-func generateID() string {
-	b := make([]byte, 16)
-	rand.Read(b)
-	return base64.RawURLEncoding.EncodeToString(b)
 }
 
 func generateAuthorizationCode() string {

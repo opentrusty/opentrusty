@@ -107,7 +107,11 @@ func (m *MockOIDCProvider) GenerateIDToken(userID, tenantID, clientID, nonce, ac
 	return "mock-id-token", nil
 }
 
-func TestService_ExchangeCodeForToken_Success(t *testing.T) {
+// TestPurpose: Validates a successful OAuth2 authorization code exchange for tokens, including ID token generation.
+// Scope: Unit Test
+// Security: OAuth2 Authorization Code Grant flow (RFC 6749 Section 4.1.3)
+// Expected: Returns a set of tokens (access, refresh, and OIDC ID token) on successful exchange.
+func TestOAuth2_Service_ExchangeCodeForToken_Success(t *testing.T) {
 	s := &Service{
 		clientRepo: &MockClientRepo{
 			clients: map[string]*Client{
@@ -178,7 +182,11 @@ func TestService_ExchangeCodeForToken_Success(t *testing.T) {
 	}
 }
 
-func TestService_ExchangeCodeForToken_PKCEFailure(t *testing.T) {
+// TestPurpose: Validates that OAuth2 code exchange fails if the PKCE code verifier does not match the challenge.
+// Scope: Unit Test
+// Security: PKCE enforcement (RFC 7636) to prevent code injection/interception
+// Expected: Returns an error when the PKCE challenge verification fails.
+func TestOAuth2_Service_ExchangeCodeForToken_PKCEFailure(t *testing.T) {
 	s := &Service{
 		clientRepo: &MockClientRepo{
 			clients: map[string]*Client{
@@ -226,7 +234,11 @@ func TestService_ExchangeCodeForToken_PKCEFailure(t *testing.T) {
 	}
 }
 
-func TestService_ExchangeCodeForToken_Replay(t *testing.T) {
+// TestPurpose: Validates that an authorization code cannot be reused for token exchange (replay prevention).
+// Scope: Unit Test
+// Security: Authorization code replay attack prevention
+// Expected: Second exchange attempt with the same code returns an error.
+func TestOAuth2_Service_ExchangeCodeForToken_Replay(t *testing.T) {
 	s := &Service{
 		clientRepo: &MockClientRepo{
 			clients: map[string]*Client{
@@ -286,7 +298,11 @@ func TestService_ExchangeCodeForToken_Replay(t *testing.T) {
 	}
 }
 
-func TestService_ExchangeCodeForToken_Expired(t *testing.T) {
+// TestPurpose: Validates that an expired authorization code cannot be exchanged for tokens.
+// Scope: Unit Test
+// Security: Temporary credential lifecycle enforcement
+// Expected: Returns an error when attempting to use an expired code.
+func TestOAuth2_Service_ExchangeCodeForToken_Expired(t *testing.T) {
 	s := &Service{
 		clientRepo: &MockClientRepo{
 			clients: map[string]*Client{

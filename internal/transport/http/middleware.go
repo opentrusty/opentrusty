@@ -88,7 +88,7 @@ func TenantMiddleware(next http.Handler) http.Handler {
 
 		// Inject into context if found
 		if tenantID != "" {
-			ctx := context.WithValue(r.Context(), "tenant_id", tenantID)
+			ctx := context.WithValue(r.Context(), tenantIDKey, tenantID)
 			r = r.WithContext(ctx)
 		}
 
@@ -99,7 +99,7 @@ func TenantMiddleware(next http.Handler) http.Handler {
 // RequireTenant enforces that a tenant context is present.
 func RequireTenant(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		tenantID, _ := r.Context().Value("tenant_id").(string)
+		tenantID := GetTenantID(r.Context())
 		if tenantID == "" {
 			respondError(w, http.StatusBadRequest, "tenant_id or X-Tenant-ID header is required")
 			return
@@ -130,29 +130,34 @@ func (h *Handler) AuthMiddleware(next http.Handler) http.Handler {
 		}
 
 		// Add user_id to context
-		ctx := context.WithValue(r.Context(), "user_id", sess.UserID)
-		ctx = context.WithValue(ctx, "session_id", sess.ID)
+		ctx := context.WithValue(r.Context(), userIDKey, sess.UserID)
+		ctx = context.WithValue(ctx, sessionIDKey, sess.ID)
 
 		// Authorization principles:
 		// - All sessions have a tenant_id (NOT NULL in schema)
 		// - Platform admin privileges are derived from rbac_assignments, NOT from tenant_id
 		// - Empty tenantID DOES NOT imply platform privileges
 
-		requestTenant, _ := r.Context().Value("tenant_id").(string)
+		requestTenant := GetTenantID(r.Context())
 
 		// Tenant isolation: session tenant must match request tenant if specified
-		if requestTenant != "" && sess.TenantID != requestTenant {
+		sessionTenant := ""
+		if sess.TenantID != nil {
+			sessionTenant = *sess.TenantID
+		}
+
+		if requestTenant != "" && sessionTenant != requestTenant {
 			slog.WarnContext(r.Context(), "cross-tenant access attempt detected",
 				"actor_id", sess.UserID,
-				"session_tenant", sess.TenantID,
+				"session_tenant", sessionTenant,
 				"request_tenant", requestTenant,
 			)
 			respondError(w, http.StatusForbidden, "session does not belong to this tenant")
 			return
 		}
 
-		// Use session tenant as the authoritative tenant context
-		ctx = context.WithValue(ctx, "tenant_id", sess.TenantID)
+		// Use session tenant (nullable) as the authoritative tenant context
+		ctx = context.WithValue(ctx, tenantIDKey, sessionTenant)
 
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})

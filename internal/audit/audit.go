@@ -17,24 +17,67 @@ package audit
 import (
 	"context"
 	"log/slog"
+	"strings"
 	"time"
 )
 
 // Event types
 const (
-	TypeLoginSuccess    = "login_success"
-	TypeLoginFailed     = "login_failed"
-	TypeTokenIssued     = "token_issued"
-	TypeTokenRevoked    = "token_revoked"
-	TypeRoleAssigned    = "role_assigned"
-	TypeRoleRevoked     = "role_revoked"
-	TypeClientCreated   = "client_created"
-	TypeSecretRotated   = "secret_rotated"
-	TypeUserLocked      = "user_locked"
-	TypeUserUnlocked    = "user_unlocked"
-	TypeUserCreated     = "user_created"
-	TypePasswordChanged = "password_changed"
-	TypeLogout          = "logout"
+	TypeLoginSuccess           = "login_success"
+	TypeLoginFailed            = "login_failed"
+	TypeTokenIssued            = "token_issued"
+	TypeTokenRevoked           = "token_revoked"
+	TypeRoleAssigned           = "role_assigned"
+	TypeRoleRevoked            = "role_revoked"
+	TypeClientCreated          = "client_created"
+	TypeSecretRotated          = "secret_rotated"
+	TypeUserLocked             = "user_locked"
+	TypeUserUnlocked           = "user_unlocked"
+	TypeUserCreated            = "user_created"
+	TypePasswordChanged        = "password_changed"
+	TypeLogout                 = "logout"
+	TypePlatformAdminBootstrap = "platform_admin_bootstrap"
+	TypeTenantCreated          = "tenant_created"
+)
+
+// Standard audit attribute keys
+const (
+	AttrAuditType = "audit_type"
+	AttrTenantID  = "tenant_id"
+	AttrActorID   = "actor_id"
+	AttrResource  = "resource"
+	AttrTimestamp = "timestamp"
+	AttrIPAddress = "ip_address"
+	AttrUserAgent = "user_agent"
+	AttrComponent = "component"
+	AttrMetadata  = "metadata"
+)
+
+// Common Resource Types
+const (
+	ResourcePlatform        = "platform"
+	ResourceTenant          = "tenant"
+	ResourceUser            = "user"
+	ResourceRole            = "role"
+	ResourceClient          = "client"
+	ResourceSession         = "session"
+	ResourceUserCredentials = "user_credentials"
+	ResourceToken           = "token"
+)
+
+// Standard Actor IDs
+const (
+	ActorSystemBootstrap = "system:bootstrap"
+)
+
+// Common Metadata Keys
+const (
+	AttrEmail      = "email"
+	AttrRoleID     = "role_id"
+	AttrReason     = "reason"
+	AttrAttempts   = "attempts"
+	AttrSessionID  = "session_id"
+	AttrTenantName = "tenant_name"
 )
 
 // Event represents an auditable action
@@ -71,18 +114,18 @@ func (l *SlogLogger) Log(ctx context.Context, event Event) {
 
 	// Prepare attributes
 	attrs := []any{
-		slog.String("audit_type", event.Type),
-		slog.String("tenant_id", event.TenantID),
-		slog.String("actor_id", event.ActorID),
-		slog.String("resource", event.Resource),
-		slog.Time("timestamp", event.Timestamp),
+		slog.String(AttrAuditType, event.Type),
+		slog.String(AttrTenantID, event.TenantID),
+		slog.String(AttrActorID, event.ActorID),
+		slog.String(AttrResource, event.Resource),
+		slog.Time(AttrTimestamp, event.Timestamp),
 	}
 
 	if event.IPAddress != "" {
-		attrs = append(attrs, slog.String("ip_address", event.IPAddress))
+		attrs = append(attrs, slog.String(AttrIPAddress, event.IPAddress))
 	}
 	if event.UserAgent != "" {
-		attrs = append(attrs, slog.String("user_agent", event.UserAgent))
+		attrs = append(attrs, slog.String(AttrUserAgent, event.UserAgent))
 	}
 
 	// Flatten metadata
@@ -95,18 +138,24 @@ func (l *SlogLogger) Log(ctx context.Context, event Event) {
 			}
 			group = append(group, slog.Any(k, v))
 		}
-		attrs = append(attrs, slog.Group("metadata", group...))
+		attrs = append(attrs, slog.Group(AttrMetadata, group...))
 	}
 
 	// Log at INFO level with "audit" component
-	slog.InfoContext(ctx, "AUDIT_EVENT", append(attrs, slog.String("component", "audit"))...)
+	slog.InfoContext(ctx, "AUDIT_EVENT", append(attrs, slog.String(AttrComponent, "audit"))...)
 }
 
-// isSecret checks if a key likely contains a secret
+// isSecret checks if a key likely contains a secret.
+// It uses case-insensitive substring matching against a set of common sensitive keywords.
 func isSecret(key string) bool {
-	secrets := []string{"password", "secret", "token", "key", "authorization"}
+	// Case-insensitive check
+	k := strings.ToLower(key)
+	secrets := []string{
+		"password", "secret", "token", "key", "authorization",
+		"hash", "credential", "private", "api_key",
+	}
 	for _, s := range secrets {
-		if key == s {
+		if strings.Contains(k, s) {
 			return true
 		}
 	}

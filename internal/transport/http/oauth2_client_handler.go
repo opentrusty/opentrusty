@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/opentrusty/opentrusty/internal/authz"
 	"github.com/opentrusty/opentrusty/internal/oauth2"
 )
 
@@ -52,7 +53,15 @@ type RegisterClientResponse struct {
 // @Failure 500 {object} map[string]string
 // @Router /tenants/{tenantID}/oauth2/clients [post]
 func (h *Handler) RegisterClient(w http.ResponseWriter, r *http.Request) {
-	tenantID := r.Context().Value("tenant_id").(string)
+	tenantID := GetTenantID(r.Context())
+
+	// Authorization Check: Tenant Admin required to register clients
+	userID := GetUserID(r.Context())
+	allowed, err := h.authzService.HasPermission(r.Context(), userID, authz.ScopeTenant, &tenantID, authz.PermTenantManageClients)
+	if err != nil || !allowed {
+		respondError(w, http.StatusForbidden, "client management access required")
+		return
+	}
 
 	var req RegisterClientRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

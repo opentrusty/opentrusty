@@ -29,12 +29,21 @@ type Config struct {
 	Observability ObservabilityConfig
 	Security      SecurityConfig
 	RateLimit     RateLimitConfig
+	OAuth2        OAuth2Config
 }
 
 // RateLimitConfig holds rate limiting configuration
 type RateLimitConfig struct {
 	RequestsPerSecond float64
 	Burst             int
+}
+
+// OAuth2Config holds OAuth2/OIDC related configurations
+type OAuth2Config struct {
+	AuthCodeLifetime     time.Duration
+	AccessTokenLifetime  time.Duration
+	RefreshTokenLifetime time.Duration
+	IDTokenLifetime      time.Duration
 }
 
 // ServerConfig holds HTTP server configuration
@@ -141,6 +150,12 @@ func Load() (*Config, error) {
 		RateLimit: RateLimitConfig{
 			RequestsPerSecond: float64(parseInt("RATELIMIT_RPS", 10)),
 			Burst:             parseInt("RATELIMIT_BURST", 20),
+		},
+		OAuth2: OAuth2Config{
+			AuthCodeLifetime:     parseDuration("OAUTH2_AUTH_CODE_LIFETIME", "10m"),
+			AccessTokenLifetime:  parseDuration("OAUTH2_ACCESS_TOKEN_LIFETIME", "1h"),
+			RefreshTokenLifetime: parseDuration("OAUTH2_REFRESH_TOKEN_LIFETIME", "720h"), // 30 days
+			IDTokenLifetime:      parseDuration("OAUTH2_ID_TOKEN_LIFETIME", "1h"),
 		},
 	}
 
