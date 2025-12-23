@@ -489,7 +489,8 @@ func TestOIDC_TokenExchange_IDTokenOnlyWithOpenIDScope(t *testing.T) {
 			Scope:         "openid profile", // Has openid
 			CodeChallenge: "oidc-challenge-1",
 		}
-		code, _ := oauth2Service.CreateAuthorizationCode(ctx, authReq, id.NewUUIDv7())
+		code, err := oauth2Service.CreateAuthorizationCode(ctx, authReq, id.NewUUIDv7())
+require.NoError(t, err)
 
 		resp, err := oauth2Service.ExchangeCodeForToken(ctx, &oauth2.TokenRequest{
 			GrantType:    "authorization_code",
@@ -515,6 +516,7 @@ func TestOIDC_TokenExchange_IDTokenOnlyWithOpenIDScope(t *testing.T) {
 		}
 		code, _ := oauth2Service.CreateAuthorizationCode(ctx, authReq, id.NewUUIDv7())
 
+require.NoError(t, err)
 		resp, err := oauth2Service.ExchangeCodeForToken(ctx, &oauth2.TokenRequest{
 			GrantType:    "authorization_code",
 			ClientID:     client.ClientID,
