@@ -115,8 +115,16 @@ jobs:
       - name: Install dependencies
         run: go mod download
 
-      - name: Run unit tests
-        run: make test-unit
+      - name: Run unit tests with report
+        run: make test-report-ut
+
+      - name: Upload UT reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ut-reports
+          path: artifacts/tests/ut-*
+          retention-days: 7
 
   integration-tests:
     name: Integration Tests
@@ -133,8 +141,16 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Run integration tests
-        run: make test-integration
+      - name: Run integration tests with report
+        run: make test-report-st
+
+      - name: Upload ST reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: st-reports
+          path: artifacts/tests/st-*
+          retention-days: 7
 
   docker-e2e:
     name: Docker E2E Tests
@@ -151,8 +167,16 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Run E2E tests
-        run: make test-e2e
+      - name: Run E2E tests with report
+        run: make test-report-e2e
+
+      - name: Upload E2E reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-reports
+          path: artifacts/tests/e2e-*
+          retention-days: 7
 
       - name: Capture Docker logs on failure
         if: failure()

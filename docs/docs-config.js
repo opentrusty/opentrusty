@@ -57,9 +57,9 @@ const docsConfig = {
             title: "Testing & Quality",
             path: "testing",
             items: [
-                { title: "Unit Test Report", file: "docs/testing/ut.html" },
-                { title: "System Test Report", file: "docs/testing/st.html" },
-                { title: "E2E Test Report", file: "docs/testing/e2e.html" },
+                { title: "Unit Test Report", file: "docs/testing/ut-report.md" },
+                { title: "System Test Report", file: "docs/testing/st-report.md" },
+                { title: "E2E Test Report", file: "docs/testing/e2e-report.md" },
                 { title: "Annotation Standard", file: "docs/testing/test-annotation-standard.md" }
             ]
         }

@@ -80,6 +80,19 @@ jobs:
           fetch-depth: 0
         continue-on-error: true
 
+      - name: Download test reports from Release Gate
+        uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ github.event.workflow_run.id }}
+          path: artifacts/tests
+
+      - name: Prepare reports for build
+        run: |
+          mkdir -p docs/testing
+          cp artifacts/tests/ut-reports/ut-report.md docs/testing/ut-report.md || echo "UT report missing"
+          cp artifacts/tests/st-reports/st-report.md docs/testing/st-report.md || echo "ST report missing"
+          cp artifacts/tests/e2e-reports/e2e-report.md docs/testing/e2e-report.md || echo "E2E report missing"
+
       - name: Build Premium Documentation Portal
         run: |
           export DOCS_VERSION="${{ steps.info.outputs.version }}"

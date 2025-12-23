@@ -87,9 +87,9 @@ test-report-e2e:
 docs-test-reports: test-reports
 	@echo "Publishing test reports to docs..."
 	@mkdir -p docs/testing
-	@cp $(TEST_ARTIFACTS)/ut-report.html docs/testing/ut.html
-	@cp $(TEST_ARTIFACTS)/st-report.html docs/testing/st.html
-	@cp $(TEST_ARTIFACTS)/e2e-report.html docs/testing/e2e.html
+	@cp $(TEST_ARTIFACTS)/ut-report.md docs/testing/ut-report.md
+	@cp $(TEST_ARTIFACTS)/st-report.md docs/testing/st-report.md
+	@cp $(TEST_ARTIFACTS)/e2e-report.md docs/testing/e2e-report.md
 	@echo "Test reports published to docs/testing/"
 
 
