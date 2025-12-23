@@ -67,7 +67,7 @@ const (
 
 // Standard Actor IDs
 const (
-	ActorSystemBootstrap = "system:bootstrap"
+	ActorSystemBootstrap = ""
 )
 
 // Common Metadata Keys

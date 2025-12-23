@@ -298,10 +298,11 @@ func (s *Service) ExchangeCodeForToken(ctx context.Context, req *TokenRequest) (
 	}
 
 	if allowedRefresh {
+		rawRefreshToken := generateToken()
 		rt := &RefreshToken{
 			ID:            id.NewUUIDv7(),
 			TenantID:      client.TenantID,
-			TokenHash:     hashToken(generateToken()),
+			TokenHash:     hashToken(rawRefreshToken),
 			AccessTokenID: accessToken.ID,
 			ClientID:      client.ClientID,
 			UserID:        code.UserID,
@@ -311,7 +312,7 @@ func (s *Service) ExchangeCodeForToken(ctx context.Context, req *TokenRequest) (
 			CreatedAt:     time.Now(),
 		}
 		if err := s.refreshRepo.Create(rt); err == nil {
-			refreshToken = rt.TokenHash
+			refreshToken = rawRefreshToken
 		}
 	}
 
@@ -361,7 +362,7 @@ func (s *Service) RefreshAccessToken(ctx context.Context, req *TokenRequest) (*T
 	}
 
 	// 2. Validate Refresh Token
-	rt, err := s.refreshRepo.GetByTokenHash(req.RefreshToken)
+	rt, err := s.refreshRepo.GetByTokenHash(hashToken(req.RefreshToken))
 	if err != nil {
 		return nil, NewError(ErrInvalidGrant, "refresh token not found")
 	}
@@ -379,10 +380,11 @@ func (s *Service) RefreshAccessToken(ctx context.Context, req *TokenRequest) (*T
 	}
 
 	// 3. Issue New Access Token
+	rawAccessToken := generateToken()
 	accessToken := &AccessToken{
 		ID:        id.NewUUIDv7(),
 		TenantID:  client.TenantID,
-		TokenHash: hashToken(generateToken()),
+		TokenHash: hashToken(rawAccessToken),
 		ClientID:  client.ClientID,
 		UserID:    rt.UserID,
 		Scope:     rt.Scope, // Scope SHOULD be same or subset (RFC 6749 Section 6)
@@ -401,10 +403,10 @@ func (s *Service) RefreshAccessToken(ctx context.Context, req *TokenRequest) (*T
 	// But issuance of new RT is allowed.
 
 	return &TokenResponse{
-		AccessToken:  accessToken.TokenHash,
+		AccessToken:  rawAccessToken,
 		TokenType:    "Bearer",
 		ExpiresIn:    client.AccessTokenLifetime,
-		RefreshToken: rt.TokenHash,
+		RefreshToken: req.RefreshToken, // Return the same refresh token (simplification)
 		Scope:        rt.Scope,
 	}, nil
 }
@@ -436,21 +438,21 @@ func (s *Service) ValidateClientCredentials(clientID, clientSecret string) (*Cli
 }
 
 // ValidateAccessToken validates an access token
-func (s *Service) ValidateAccessToken(ctx context.Context, tokenHash string) (*AccessToken, error) {
-	token, err := s.accessRepo.GetByTokenHash(tokenHash)
+func (s *Service) ValidateAccessToken(ctx context.Context, token string) (*AccessToken, error) {
+	at, err := s.accessRepo.GetByTokenHash(hashToken(token))
 	if err != nil {
 		return nil, ErrTokenNotFound
 	}
 
-	if token.IsRevoked {
+	if at.IsRevoked {
 		return nil, ErrTokenRevoked
 	}
 
-	if token.IsExpired() {
+	if at.IsExpired() {
 		return nil, ErrTokenExpired
 	}
 
-	return token, nil
+	return at, nil
 }
 
 // Helper functions
@@ -495,8 +497,8 @@ func (s *Service) decrypt(data []byte) ([]byte, error) {
 }
 
 // RevokeRefreshToken revokes a refresh token (Security Best Practice)
-func (s *Service) RevokeRefreshToken(ctx context.Context, tokenHash string, clientID string) error {
-	rt, err := s.refreshRepo.GetByTokenHash(tokenHash)
+func (s *Service) RevokeRefreshToken(ctx context.Context, token string, clientID string) error {
+	rt, err := s.refreshRepo.GetByTokenHash(hashToken(token))
 	if err != nil {
 		return ErrTokenNotFound
 	}
@@ -505,7 +507,7 @@ func (s *Service) RevokeRefreshToken(ctx context.Context, tokenHash string, clie
 		return NewError(ErrInvalidClient, "client_id mismatch")
 	}
 
-	return s.refreshRepo.Revoke(tokenHash)
+	return s.refreshRepo.Revoke(hashToken(token))
 }
 
 func containsScope(scope, target string) bool {
