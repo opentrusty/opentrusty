@@ -111,16 +111,23 @@ jobs:
       - name: Build Premium Documentation Portal
         run: |
           export DOCS_VERSION="${{ steps.info.outputs.version }}"
-          rm -rf build_output
-          mkdir -p build_output
+          echo "🔨 Building portal for version: $DOCS_VERSION"
+          
+          rm -rf build_output build_docs
+          mkdir -p build_output build_docs
+          
           if [ -d "public_history/versions" ]; then
             EXISTING=$(ls public_history/versions | paste -sd "," -)
             export ALL_VERSIONS="${EXISTING},${DOCS_VERSION}"
           else
             export ALL_VERSIONS="${DOCS_VERSION}"
           fi
+          
           node scripts/build-docs-site.js
           cp -r build_docs/* build_output/
+          
+          echo "🔍 Diagnostic: build_output contents:"
+          ls -R build_output
 
       - name: Verify Documentation Build
         run: |
@@ -128,6 +135,14 @@ jobs:
             echo "❌ Documentation build failed: index.html not found"
             exit 1
           fi
+          
+          REPORT_COUNT=$(find build_output -name "*report.html" | wc -l)
+          echo "📊 Found $REPORT_COUNT test report files in build_output"
+          
+          if [ "$REPORT_COUNT" -eq 0 ]; then
+             echo "⚠️  Warning: No test reports found in build_output. This will cause 404s."
+          fi
+          
           echo "✅ Documentation build verified successfully"
 
       - name: Prepare Deployment Directory
@@ -161,8 +176,15 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
+          # CRITICAL: Explicitly remove any .gitignore that might exist on the gh-pages branch
+          # this ensures that even if it's there from a previous commit, it's gone now.
+          rm -f .gitignore
+          
+          echo "🔍 Diagnostic: Final public_history status before push:"
+          ls -R .
+          
           git add .
-          git commit -m "Deploy API Docs for $VERSION"
+          git commit -m "Deploy API Docs for $VERSION" || echo "No changes to commit"
           git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }} HEAD:gh-pages --force
 
       - name: Upload Pages Artifact

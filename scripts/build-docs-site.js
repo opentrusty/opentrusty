@@ -276,9 +276,10 @@ function build() {
             if (item.file.indexOf('.md') !== -1) {
                 var fullPath = path.join(REPO_ROOT, item.file);
                 if (!fs.existsSync(fullPath)) {
-                    console.log('Warning: File not found: ' + fullPath);
+                    console.log('❌ Error: Source file not found: ' + fullPath);
                     return;
                 }
+                console.log('📖 Processing: ' + item.file);
 
                 var raw = fs.readFileSync(fullPath, 'utf8');
                 var slug = item.file.replace('.md', '.html').replace(/\//g, '_');
