@@ -235,14 +235,7 @@ func determineType(pkgPath string) string {
 	if strings.HasPrefix(relPath, "tests/") {
 		parts := strings.Split(relPath, "/")
 		if len(parts) > 1 {
-			switch parts[1] {
-			case "system":
-				return "ST"
-			case "e2e":
-				return "E2E"
-			default:
-				return strings.ToUpper(parts[1])
-			}
+			return strings.ToUpper(parts[1])
 		}
 	}
 	return "UT"
@@ -446,7 +439,7 @@ func saveMarkdown(summary ReportSummary, path string, title string) {
 	sb.WriteString("## Test Results by Category\n\n")
 
 	// Fixed order for categories
-	order := []string{"AuthN", "AuthZ", "Tenant", "OAuth2", "OIDC", "Audit", "Auth API", "Tenant API", "API", "System Tests", "Other", "Uncategorized"}
+	order := []string{"AuthN", "AuthZ", "Tenant", "OAuth2", "OIDC", "Audit", "Auth API", "Tenant API", "API", "SYSTEM Tests", "E2E Tests", "Other", "Uncategorized"}
 	for _, cat := range order {
 		tests, ok := categories[cat]
 		if !ok || len(tests) == 0 {
@@ -579,7 +572,7 @@ func saveHTML(summary ReportSummary, path string, title string) {
 		categories[cat] = append(categories[cat], r)
 	}
 
-	order := []string{"AuthN", "AuthZ", "Tenant", "OAuth2", "OIDC", "Audit", "Auth API", "Tenant API", "API", "System Tests", "Other", "Uncategorized"}
+	order := []string{"AuthN", "AuthZ", "Tenant", "OAuth2", "OIDC", "Audit", "Auth API", "Tenant API", "API", "SYSTEM Tests", "E2E Tests", "Other", "Uncategorized"}
 	for _, cat := range order {
 		tests, ok := categories[cat]
 		if !ok || len(tests) == 0 {

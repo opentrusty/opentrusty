@@ -111,6 +111,7 @@ func (m *MockOIDCProvider) GenerateIDToken(userID, tenantID, clientID, nonce, ac
 // Scope: Unit Test
 // Security: OAuth2 Authorization Code Grant flow (RFC 6749 Section 4.1.3)
 // Expected: Returns a set of tokens (access, refresh, and OIDC ID token) on successful exchange.
+// Test Case ID: OA2-01
 func TestOAuth2_Service_ExchangeCodeForToken_Success(t *testing.T) {
 	s := &Service{
 		clientRepo: &MockClientRepo{
@@ -186,6 +187,7 @@ func TestOAuth2_Service_ExchangeCodeForToken_Success(t *testing.T) {
 // Scope: Unit Test
 // Security: PKCE enforcement (RFC 7636) to prevent code injection/interception
 // Expected: Returns an error when the PKCE challenge verification fails.
+// Test Case ID: OA2-02
 func TestOAuth2_Service_ExchangeCodeForToken_PKCEFailure(t *testing.T) {
 	s := &Service{
 		clientRepo: &MockClientRepo{
@@ -238,6 +240,8 @@ func TestOAuth2_Service_ExchangeCodeForToken_PKCEFailure(t *testing.T) {
 // Scope: Unit Test
 // Security: Authorization code replay attack prevention
 // Expected: Second exchange attempt with the same code returns an error.
+// Test Case ID: OA2-03
+// RelatedSpecs: RFC 6749 Section 4.1.2 (Replay Prevention)
 func TestOAuth2_Service_ExchangeCodeForToken_Replay(t *testing.T) {
 	s := &Service{
 		clientRepo: &MockClientRepo{
@@ -302,6 +306,8 @@ func TestOAuth2_Service_ExchangeCodeForToken_Replay(t *testing.T) {
 // Scope: Unit Test
 // Security: Temporary credential lifecycle enforcement
 // Expected: Returns an error when attempting to use an expired code.
+// Test Case ID: OA2-04
+// RelatedSpecs: RFC 6749 Section 4.1.2 (Lifecycle Enforcement)
 func TestOAuth2_Service_ExchangeCodeForToken_Expired(t *testing.T) {
 	s := &Service{
 		clientRepo: &MockClientRepo{

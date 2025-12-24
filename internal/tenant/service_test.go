@@ -56,6 +56,7 @@ func (m *mockAudit) Log(ctx context.Context, event audit.Event) {
 // Scope: Unit Test
 // Security: Traceability and unique identification of tenants
 // Expected: A new tenant is created with a valid UUIDv7 ID and the provided name.
+// Test Case ID: TEN-01
 func TestTenant_Service_CreateTenant_UUIDv7(t *testing.T) {
 	repo := new(mockRepo)
 	auditLogger := new(mockAudit)

@@ -72,7 +72,7 @@ test-report-st:
 		-out-md $(TEST_ARTIFACTS)/st-report.md \
 		-out-html $(TEST_ARTIFACTS)/st-report.html \
 		-title "System Test Report" \
-		-filter-categories "System Tests"
+		-filter-categories "SYSTEM Tests"
 	@rm $(TEST_ARTIFACTS)/st-raw.json
 
 test-report-e2e:

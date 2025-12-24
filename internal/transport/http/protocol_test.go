@@ -37,6 +37,7 @@ import (
 // Security: Secure discovery of OIDC endpoints
 // Expected: Returns HTTP 200 with valid OIDC discovery metadata.
 // Test Case ID: PRO-01
+// RelatedSpecs: OIDC Discovery 1.0
 func TestHTTP_Protocol_Discovery(t *testing.T) {
 	// Setup OIDC service
 	issuer := "https://auth.opentrusty.org"
@@ -79,6 +80,7 @@ func TestHTTP_Protocol_Discovery(t *testing.T) {
 // Security: Public key distribution for signature validation
 // Expected: Returns HTTP 200 with a valid JWKS set.
 // Test Case ID: PRO-02
+// RelatedSpecs: RFC 7517 (JWKS Distribution)
 func TestHTTP_Protocol_JWKS(t *testing.T) {
 	oidcService, _ := oidc.NewService("http://localhost")
 	h := &Handler{

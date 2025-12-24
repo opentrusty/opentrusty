@@ -25,6 +25,15 @@ import (
 	"github.com/opentrusty/opentrusty/internal/identity"
 )
 
+// TestPurpose: Validates that the database repository maintains strict tenant isolation, preventing cross-tenant data leakage during user retrieval by email.
+// Scope: Database Integration Test
+// Security: Multi-tenant Data Separation (CWE-284)
+// Expected: A user in Tenant A cannot be retrieved using Tenant B's context, even if they share the same email.
+// Test Case ID: ISO-01
+// Metadata:
+//   - Category: Tenant
+//   - Priority: High
+//   - Tags: multi-tenancy, security, data-isolation
 func TestUserRepository_TenantIsolation(t *testing.T) {
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {

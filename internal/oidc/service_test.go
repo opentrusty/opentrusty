@@ -25,6 +25,8 @@ import (
 // Scope: Unit Test
 // Security: OIDC compliance and cryptographic integrity of ID tokens
 // Expected: A valid, signed JWT with all required OIDC claims.
+// Test Case ID: OID-01
+// RelatedSpecs: OIDC Core Section 2 & RFC 7519
 func TestOIDC_Service_GenerateIDToken(t *testing.T) {
 	issuer := "http://localhost:8080"
 	s, err := NewService(issuer)
@@ -88,6 +90,8 @@ func TestOIDC_Service_GenerateIDToken(t *testing.T) {
 // Scope: Unit Test
 // Security: Exposure of correct OIDC endpoints and supported algorithms
 // Expected: A Metadata struct with correct issuer, JWKS URI and supported signing algorithms.
+// Test Case ID: OID-02
+// RelatedSpecs: OIDC Discovery 1.0 (issuer, jwks_uri)
 func TestOIDC_Service_GetDiscoveryMetadata(t *testing.T) {
 	issuer := "https://auth.opentrusty.org"
 	s, _ := NewService(issuer)
@@ -109,6 +113,8 @@ func TestOIDC_Service_GetDiscoveryMetadata(t *testing.T) {
 // Scope: Unit Test
 // Security: Public key distribution for signature verification
 // Expected: A JWKS document containing the RSA public key components.
+// Test Case ID: OID-03
+// RelatedSpecs: RFC 7517 (JSON Web Key)
 func TestOIDC_Service_GetJWKS(t *testing.T) {
 	s, _ := NewService("http://localhost")
 

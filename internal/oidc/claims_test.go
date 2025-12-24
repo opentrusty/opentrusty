@@ -31,6 +31,8 @@ import (
 // Scope: Unit Test
 // Security: Identity Stability (prevents account fragmentation)
 // Expected: sub1 == sub2 for the same user and tenant.
+// Test Case ID: OIC-01
+// RelatedSpecs: OIDC Core Section 2 (Subject Identifier)
 func TestOIDC_Claims_SubClaimStability_SameTenantAndUserProduceSameSub(t *testing.T) {
 	svc, err := oidc.NewService("https://auth.example.com")
 	require.NoError(t, err)
@@ -57,6 +59,8 @@ func TestOIDC_Claims_SubClaimStability_SameTenantAndUserProduceSameSub(t *testin
 // Scope: Unit Test
 // Security: Multi-tenant Privacy and Isolation
 // Expected: subA != subB for different tenants.
+// Test Case ID: OIC-02
+// RelatedSpecs: OIDC Core Section 2 (Pairwise Identifier Implementation)
 func TestOIDC_Claims_SubClaimStability_DifferentTenantProducesDifferentSub(t *testing.T) {
 	svc, err := oidc.NewService("https://auth.example.com")
 	require.NoError(t, err)
@@ -82,6 +86,7 @@ func TestOIDC_Claims_SubClaimStability_DifferentTenantProducesDifferentSub(t *te
 // Scope: Unit Test
 // Security: Identity Uniqueness
 // Expected: subA != subB for different users.
+// Test Case ID: OIC-03
 func TestOIDC_Claims_SubClaimStability_DifferentUserProducesDifferentSub(t *testing.T) {
 	svc, err := oidc.NewService("https://auth.example.com")
 	require.NoError(t, err)
@@ -107,6 +112,7 @@ func TestOIDC_Claims_SubClaimStability_DifferentUserProducesDifferentSub(t *test
 // Scope: Unit Test
 // Security: Replay Attack Prevention
 // Expected: nonce claim in token matches provided nonce.
+// Test Case ID: OIC-04
 func TestOIDC_Claims_NoncePropagation_NonceIsIncludedWhenProvided(t *testing.T) {
 	svc, err := oidc.NewService("https://auth.example.com")
 	require.NoError(t, err)
@@ -125,6 +131,7 @@ func TestOIDC_Claims_NoncePropagation_NonceIsIncludedWhenProvided(t *testing.T) 
 
 // TestNoncePropagation_NonceIsOmittedWhenEmpty verifies that the nonce claim
 // is NOT included when not provided.
+// Test Case ID: OIC-05
 func TestNoncePropagation_NonceIsOmittedWhenEmpty(t *testing.T) {
 	svc, err := oidc.NewService("https://auth.example.com")
 	require.NoError(t, err)
@@ -149,6 +156,7 @@ func TestNoncePropagation_NonceIsOmittedWhenEmpty(t *testing.T) {
 // Scope: Unit Test
 // Security: Token Binding Verification (OIDC Core Section 3.1.3.6)
 // Expected: at_hash matches the specific OIDC computation.
+// Test Case ID: OIC-06
 func TestOIDC_Claims_AtHashCorrectness_AtHashIsCorrectlyComputed(t *testing.T) {
 	svc, err := oidc.NewService("https://auth.example.com")
 	require.NoError(t, err)
@@ -172,6 +180,7 @@ func TestOIDC_Claims_AtHashCorrectness_AtHashIsCorrectlyComputed(t *testing.T) {
 
 // TestAtHashCorrectness_AtHashIsOmittedWhenNoAccessToken verifies that at_hash is not included
 // when no access token is provided.
+// Test Case ID: OIC-07
 func TestAtHashCorrectness_AtHashIsOmittedWhenNoAccessToken(t *testing.T) {
 	svc, err := oidc.NewService("https://auth.example.com")
 	require.NoError(t, err)
@@ -196,6 +205,8 @@ func TestAtHashCorrectness_AtHashIsOmittedWhenNoAccessToken(t *testing.T) {
 // Scope: Unit Test
 // Security: Trust Root Verification
 // Expected: iss claim matches expected issuer.
+// Test Case ID: OIC-08
+// RelatedSpecs: RFC 7519 Section 4.1.1 (Issuer)
 func TestOIDC_Claims_IssuerMatch(t *testing.T) {
 	expectedIssuer := "https://auth.example.com"
 	svc, err := oidc.NewService(expectedIssuer)
@@ -212,6 +223,8 @@ func TestOIDC_Claims_IssuerMatch(t *testing.T) {
 // Scope: Unit Test
 // Security: Intended Audience Verification
 // Expected: aud claim matches client ID.
+// Test Case ID: OIC-09
+// RelatedSpecs: RFC 7519 Section 4.1.3 (Audience)
 func TestOIDC_Claims_AudienceMatch(t *testing.T) {
 	svc, err := oidc.NewService("https://auth.example.com")
 	require.NoError(t, err)

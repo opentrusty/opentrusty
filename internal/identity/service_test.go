@@ -113,6 +113,7 @@ func (m *MockUserRepository) UpdatePassword(userID string, passwordHash string) 
 // Security: Authentication mechanisms and Brute-force protection (lockout)
 // Expected: Successful login for correct credentials, error for wrong credentials, and account lockout after context threshold.
 // Test Case ID: IDN-01
+// RelatedSpecs: Argon2 (RFC 9106) for safe password verification, NIST SP 800-63B (Identity Guidelines)
 func TestIdentity_Service_Authenticate(t *testing.T) {
 	repo := NewMockUserRepository()
 	hasher := NewPasswordHasher(65536, 3, 4, 16, 32)
@@ -170,6 +171,7 @@ func TestIdentity_Service_Authenticate(t *testing.T) {
 // Security: Data Integrity and Unique Constraint Enforcement
 // Expected: ErrUserAlreadyExists when email is already registered in the same tenant.
 // Test Case ID: IDN-02
+// RelatedSpecs: RFC 5322 (Email uniquely identifying the principal in the tenant scope)
 func TestIdentity_Service_ProvisionIdentity_Conflict(t *testing.T) {
 	repo := NewMockUserRepository()
 	hasher := NewPasswordHasher(65536, 3, 4, 16, 32)

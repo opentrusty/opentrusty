@@ -62,6 +62,8 @@ var ErrInvalidRoleTest = errors.New("invalid role")
 // Scope: Unit Test
 // Security: Multi-tenant boundary enforcement
 // Expected: Returns an error when an empty tenant ID is provided.
+// Test Case ID: TEN-02
+// RelatedSpecs: Multi-tenant Logical Separation (consistent with NIST Cloud model)
 func TestTenant_Isolation_TenantIDMustBePresent(t *testing.T) {
 	repo := new(mockRepo)
 	roleRepo := new(mockRoleRepo)
@@ -84,6 +86,7 @@ func TestTenant_Isolation_TenantIDMustBePresent(t *testing.T) {
 // Scope: Unit Test
 // Security: RBAC data integrity
 // Expected: Assignment succeeds for valid role constants (owner, admin, member).
+// Test Case ID: TEN-03
 func TestTenant_Isolation_AssignValidRole_Succeeds(t *testing.T) {
 	repo := new(mockRepo)
 	roleRepo := new(mockRoleRepo)
@@ -110,6 +113,7 @@ func TestTenant_Isolation_AssignValidRole_Succeeds(t *testing.T) {
 // Scope: Unit Test
 // Security: Unauthorized privilege escalation prevention
 // Expected: Returns an error for role names not in the allowed list.
+// Test Case ID: TEN-04
 func TestTenant_Isolation_AssignInvalidRole_ReturnsError(t *testing.T) {
 	repo := new(mockRepo)
 	roleRepo := new(mockRoleRepo)
@@ -132,6 +136,7 @@ func TestTenant_Isolation_AssignInvalidRole_ReturnsError(t *testing.T) {
 // Scope: Unit Test
 // Security: Revocation enforcement
 // Expected: Role is successfully revoked for the user in the tenant.
+// Test Case ID: TEN-05
 func TestTenant_Isolation_RevokeRole_ValidRole_Succeeds(t *testing.T) {
 	repo := new(mockRepo)
 	roleRepo := new(mockRoleRepo)
@@ -155,6 +160,7 @@ func TestTenant_Isolation_RevokeRole_ValidRole_Succeeds(t *testing.T) {
 // Scope: Unit Test
 // Security: RBAC role transparency
 // Expected: Returns a list of all assigned roles for the user.
+// Test Case ID: TEN-06
 func TestTenant_Isolation_GetUserRoles_ReturnsAllRoles(t *testing.T) {
 	repo := new(mockRepo)
 	roleRepo := new(mockRoleRepo)
@@ -183,6 +189,7 @@ func TestTenant_Isolation_GetUserRoles_ReturnsAllRoles(t *testing.T) {
 // Scope: Unit Test
 // Security: Role name validation logic
 // Expected: Accepts defined constants, rejects anything else.
+// Test Case ID: TEN-07
 func TestTenant_Isolation_RoleValidation_OnlyAcceptsDefinedConstants(t *testing.T) {
 	repo := new(mockRepo)
 	roleRepo := new(mockRoleRepo)
