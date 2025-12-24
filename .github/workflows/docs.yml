@@ -10,6 +10,7 @@ permissions:
   contents: write
   pages: write
   id-token: write
+  actions: read # Required to download artifacts from another workflow run
 
 jobs:
   docs:
@@ -84,26 +85,28 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           run-id: ${{ github.event.workflow_run.id }}
-          path: artifacts/tests
+          path: reports_download
         continue-on-error: true
 
       - name: Prepare reports for build
         run: |
           echo "🔍 Diagnostic: Listing downloaded artifacts..."
-          mkdir -p artifacts/tests
-          ls -R artifacts/tests || echo "No artifacts found"
+          mkdir -p reports_download
+          ls -R reports_download || echo "No artifacts found"
           
           mkdir -p docs/testing
           
           echo "📂 Discovery: Finding and copying reports..."
-          # Use find to be resilient to artifact subdirectory structure (v4 behavior)
-          find artifacts/tests -name "ut-report.md" -exec cp {} docs/testing/ut-report.md \;
-          find artifacts/tests -name "st-report.md" -exec cp {} docs/testing/st-report.md \;
-          find artifacts/tests -name "e2e-report.md" -exec cp {} docs/testing/e2e-report.md \;
+          # v4 download preserves names if multiple artifacts are downloaded.
+          # We search recursively within the download path.
+          find reports_download -name "ut-report.md" -exec cp {} docs/testing/ut-report.md \;
+          find reports_download -name "st-report.md" -exec cp {} docs/testing/st-report.md \;
+          find reports_download -name "e2e-report.md" -exec cp {} docs/testing/e2e-report.md \;
           
-          if [ -f "docs/testing/ut-report.md" ]; then echo "✅ UT report prepared"; else echo "❌ UT report missing"; fi
-          if [ -f "docs/testing/st-report.md" ]; then echo "✅ ST report prepared"; else echo "❌ ST report missing"; fi
-          if [ -f "docs/testing/e2e-report.md" ]; then echo "✅ E2E report prepared"; else echo "❌ E2E report missing"; fi
+          echo "✅ Preparation Status:"
+          [ -f "docs/testing/ut-report.md" ] && echo "  - UT: Found" || echo "  - UT: Missing"
+          [ -f "docs/testing/st-report.md" ] && echo "  - ST: Found" || echo "  - ST: Missing"
+          [ -f "docs/testing/e2e-report.md" ] && echo "  - E2E: Found" || echo "  - E2E: Missing"
 
       - name: Build Premium Documentation Portal
         run: |

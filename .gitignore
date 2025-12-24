@@ -57,3 +57,7 @@ docs/api/swagger.yaml
 # Test artifacts and raw data
 artifacts/
 *-raw.json
+
+# Ensure documentation assets are NOT ignored
+!docs/testing/*.md
+!docs/testing/*.html
