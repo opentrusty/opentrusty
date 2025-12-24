@@ -73,6 +73,7 @@ func (m *mockTenantRepo) List(ctx context.Context, l, o int) ([]*tenant.Tenant, 
 // Security: RBAC enforcement (prevents unauthorized tenant creation)
 // Permissions: platform:manage_tenants
 // Expected: Returns HTTP 201 Created for platform admins, and 403 Forbidden for others.
+// Test Case ID: TEN-07
 func TestTenant_Create_AuthorizationEnforcement(t *testing.T) {
 	// 1. Setup
 	assignRepo := new(mockAssignmentRepo)

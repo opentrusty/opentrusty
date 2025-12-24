@@ -128,6 +128,7 @@ func (m *MockProjectRepository) ListByUser(userID string) ([]*authz.Project, err
 // Security: RBAC Scope Isolation (prevents vertical privilege escalation)
 // Permissions: platform:manage_tenants
 // Expected: Platform Admin has platform permissions, Tenant Admin does not.
+// Test Case ID: AUT-03
 func TestAuthz_Scope_PlatformAdminVsTenantAdmin(t *testing.T) {
 	roleRepo := NewMockRoleRepository()
 	assignmentRepo := NewMockAssignmentRepository()
@@ -180,6 +181,7 @@ func TestAuthz_Scope_PlatformAdminVsTenantAdmin(t *testing.T) {
 // Security: RBAC Permission Enforcement
 // Permissions: tenant:manage_users, tenant:view
 // Expected: Tenant Admin has management permissions, Tenant Member only has view permissions.
+// Test Case ID: AUT-04
 func TestAuthz_Scope_TenantAdminVsTenantMember(t *testing.T) {
 	roleRepo := NewMockRoleRepository()
 	assignmentRepo := NewMockAssignmentRepository()
@@ -242,6 +244,7 @@ func TestAuthz_Scope_TenantAdminVsTenantMember(t *testing.T) {
 // Scope: Unit Test
 // Security: Multi-tenancy Data Isolation (prevents lateral movement / horizontal privilege escalation)
 // Expected: Access to Tenant B resources is denied for Tenant A admin.
+// Test Case ID: AUT-05
 func TestAuthz_Isolation_CrossTenantAccessDenied(t *testing.T) {
 	roleRepo := NewMockRoleRepository()
 	assignmentRepo := NewMockAssignmentRepository()
@@ -285,6 +288,7 @@ func TestAuthz_Isolation_CrossTenantAccessDenied(t *testing.T) {
 // Scope: Unit Test
 // Security: Core logic for permission checking
 // Expected: Returns true if role has permission, false otherwise.
+// Test Case ID: AUT-06
 func TestAuthz_Role_HasPermission(t *testing.T) {
 	tests := []struct {
 		name       string

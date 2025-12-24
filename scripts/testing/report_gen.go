@@ -26,6 +26,7 @@ type TestMetadata struct {
 	TestCaseID  string `json:"test_case_id,omitempty"`
 	Package     string `json:"package"`
 	Category    string `json:"category"`
+	Type        string `json:"type"` // UT, ST, E2E, etc.
 }
 
 // GoTestEvent represents a single event from 'go test -json'
@@ -64,6 +65,10 @@ func main() {
 	outputMD := flag.String("out-md", "", "Path for output Markdown report")
 	outputHTML := flag.String("out-html", "", "Path for output HTML report")
 	title := flag.String("title", "Test Report", "Report title")
+	filterCats := flag.String("filter-categories", "", "Comma-separated list of categories to include")
+	excludeCats := flag.String("exclude-categories", "", "Comma-separated list of categories to exclude")
+	filterType := flag.String("filter-type", "", "Filter by test type (UT, ST, E2E, etc.)")
+	excludeType := flag.String("exclude-type", "", "Exclude by test type (UT, ST, E2E, etc.)")
 	flag.Parse()
 
 	if *inputPath == "" || *outputJSON == "" || *outputMD == "" {
@@ -77,7 +82,60 @@ func main() {
 	// 2. Parse go test -json output
 	results := parseTestOutput(*inputPath, metadataMap)
 
-	// 3. Generate Reports
+	// 3. Filter Results if requested
+	if *filterCats != "" {
+		cats := strings.Split(*filterCats, ",")
+		filtered := []FinalTestResult{}
+		for _, res := range results {
+			for _, cat := range cats {
+				if strings.TrimSpace(cat) == res.Annotations.Category {
+					filtered = append(filtered, res)
+					break
+				}
+			}
+		}
+		results = filtered
+	}
+
+	if *excludeCats != "" {
+		cats := strings.Split(*excludeCats, ",")
+		filtered := []FinalTestResult{}
+		for _, res := range results {
+			excluded := false
+			for _, cat := range cats {
+				if strings.TrimSpace(cat) == res.Annotations.Category {
+					excluded = true
+					break
+				}
+			}
+			if !excluded {
+				filtered = append(filtered, res)
+			}
+		}
+		results = filtered
+	}
+
+	if *filterType != "" {
+		filtered := []FinalTestResult{}
+		for _, res := range results {
+			if strings.EqualFold(res.Annotations.Type, *filterType) {
+				filtered = append(filtered, res)
+			}
+		}
+		results = filtered
+	}
+
+	if *excludeType != "" {
+		filtered := []FinalTestResult{}
+		for _, res := range results {
+			if !strings.EqualFold(res.Annotations.Type, *excludeType) {
+				filtered = append(filtered, res)
+			}
+		}
+		results = filtered
+	}
+
+	// 4. Generate Reports
 	summary := generateSummary(results)
 
 	// 4. Save JSON
@@ -127,6 +185,7 @@ func scanMetadata() map[string]TestMetadata {
 			meta := TestMetadata{
 				Name:     fn.Name.Name,
 				Package:  pkgPath,
+				Type:     determineType(pkgPath),
 				Category: determineCategory(pkgPath, fn.Name.Name),
 			}
 
@@ -168,6 +227,27 @@ func getPackagePath(filePath string) string {
 	return "github.com/opentrusty/opentrusty/" + dir
 }
 
+func determineType(pkgPath string) string {
+	// Root module prefix
+	const prefix = "github.com/opentrusty/opentrusty/"
+	relPath := strings.TrimPrefix(pkgPath, prefix)
+
+	if strings.HasPrefix(relPath, "tests/") {
+		parts := strings.Split(relPath, "/")
+		if len(parts) > 1 {
+			switch parts[1] {
+			case "system":
+				return "ST"
+			case "e2e":
+				return "E2E"
+			default:
+				return strings.ToUpper(parts[1])
+			}
+		}
+	}
+	return "UT"
+}
+
 func determineCategory(pkgPath, testName string) string {
 	if strings.Contains(pkgPath, "authz") {
 		return "AuthZ"
@@ -196,8 +276,9 @@ func determineCategory(pkgPath, testName string) string {
 		}
 		return "API"
 	}
-	if strings.Contains(pkgPath, "tests/system") {
-		return "System Tests"
+	t := determineType(pkgPath)
+	if t != "UT" {
+		return t + " Tests"
 	}
 	return "Other"
 }
@@ -248,6 +329,7 @@ func parseTestOutput(path string, meta map[string]TestMetadata) []FinalTestResul
 							Name:     event.Test,
 							Package:  event.Package,
 							Category: parentMeta.Category,
+							Type:     parentMeta.Type,
 							Purpose:  parentMeta.Purpose + " (Subtest: " + event.Test + ")",
 							Scope:    parentMeta.Scope,
 						},
@@ -260,6 +342,7 @@ func parseTestOutput(path string, meta map[string]TestMetadata) []FinalTestResul
 						Annotations: TestMetadata{
 							Name:     event.Test,
 							Package:  event.Package,
+							Type:     determineType(event.Package),
 							Category: "Other",
 						},
 					}
@@ -272,6 +355,7 @@ func parseTestOutput(path string, meta map[string]TestMetadata) []FinalTestResul
 					Annotations: TestMetadata{
 						Name:     event.Test,
 						Package:  event.Package,
+						Type:     determineType(event.Package),
 						Category: "Other",
 					},
 				}

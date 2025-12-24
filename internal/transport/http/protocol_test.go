@@ -36,6 +36,7 @@ import (
 // Scope: Unit Test
 // Security: Secure discovery of OIDC endpoints
 // Expected: Returns HTTP 200 with valid OIDC discovery metadata.
+// Test Case ID: PRO-01
 func TestHTTP_Protocol_Discovery(t *testing.T) {
 	// Setup OIDC service
 	issuer := "https://auth.opentrusty.org"
@@ -77,6 +78,7 @@ func TestHTTP_Protocol_Discovery(t *testing.T) {
 // Scope: Unit Test
 // Security: Public key distribution for signature validation
 // Expected: Returns HTTP 200 with a valid JWKS set.
+// Test Case ID: PRO-02
 func TestHTTP_Protocol_JWKS(t *testing.T) {
 	oidcService, _ := oidc.NewService("http://localhost")
 	h := &Handler{
@@ -106,6 +108,7 @@ func TestHTTP_Protocol_JWKS(t *testing.T) {
 // Scope: Unit Test
 // Security: Token endpoint protection
 // Expected: Returns HTTP 400 or 401 for malformed or unauthorized token requests.
+// Test Case ID: PRO-03
 func TestHTTP_Protocol_Token_BadRequest(t *testing.T) {
 	h := &Handler{
 		auditLogger: audit.NewSlogLogger(),
@@ -201,6 +204,7 @@ func (m *stubSessionRepo) DeleteByUserID(uid string) error { return nil }
 // Scope: Unit Test
 // Security: End-to-end OAuth2 protocol correctness (RFC 6749)
 // Expected: Successful exchange of a valid code for access, refresh, and ID tokens through the HTTP handler.
+// Test Case ID: PRO-04
 func TestHTTP_Protocol_HappyPath_Flow(t *testing.T) {
 	// Set required encryption key for OAuth2 service
 	os.Setenv("OPENID_KEY_ENCRYPTION_KEY", "01234567890123456789012345678901")
@@ -291,6 +295,7 @@ func TestHTTP_Protocol_HappyPath_Flow(t *testing.T) {
 // Scope: Unit Test
 // Security: Horizontal privilege escalation prevention (Cross-tenant access)
 // Expected: Returns HTTP 403 Forbidden when session tenant does not match request tenant.
+// Test Case ID: PRO-05
 func TestHTTP_Protocol_CrossTenant_Negative(t *testing.T) {
 	// Setup Session Service
 	sessRepo := &stubSessionRepo{sessions: make(map[string]*session.Session)}

@@ -59,7 +59,8 @@ test-report-ut:
 		-out-json $(TEST_ARTIFACTS)/ut-report.json \
 		-out-md $(TEST_ARTIFACTS)/ut-report.md \
 		-out-html $(TEST_ARTIFACTS)/ut-report.html \
-		-title "Unit Test Report"
+		-title "Unit Test Report" \
+		-exclude-categories "System Tests,E2E Tests"
 	@rm $(TEST_ARTIFACTS)/ut-raw.json
 
 test-report-st:
@@ -70,7 +71,8 @@ test-report-st:
 		-out-json $(TEST_ARTIFACTS)/st-report.json \
 		-out-md $(TEST_ARTIFACTS)/st-report.md \
 		-out-html $(TEST_ARTIFACTS)/st-report.html \
-		-title "System Test Report"
+		-title "System Test Report" \
+		-filter-categories "System Tests"
 	@rm $(TEST_ARTIFACTS)/st-raw.json
 
 test-report-e2e:
@@ -81,7 +83,8 @@ test-report-e2e:
 		-out-json $(TEST_ARTIFACTS)/e2e-report.json \
 		-out-md $(TEST_ARTIFACTS)/e2e-report.md \
 		-out-html $(TEST_ARTIFACTS)/e2e-report.html \
-		-title "E2E Test Report"
+		-title "E2E Test Report" \
+		-filter-categories "E2E Tests"
 	@rm $(TEST_ARTIFACTS)/e2e-raw.json
 
 docs-test-reports: test-reports

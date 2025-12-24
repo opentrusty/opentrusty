@@ -8,6 +8,7 @@ import (
 // Scope: Unit Test
 // Security: Data Masking and Leakage Prevention (CWE-532)
 // Expected: Returns true for keys containing 'password', 'token', 'secret', etc., and false for non-sensitive keys.
+// Test Case ID: AUD-01
 func TestAudit_IsSecret(t *testing.T) {
 	tests := []struct {
 		key      string
