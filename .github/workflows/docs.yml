@@ -85,17 +85,29 @@ jobs:
         with:
           run-id: ${{ github.event.workflow_run.id }}
           path: artifacts/tests
+        continue-on-error: true
 
       - name: Prepare reports for build
         run: |
+          echo "🔍 Diagnostic: Listing downloaded artifacts..."
+          ls -R artifacts/tests
+          
           mkdir -p docs/testing
-          cp artifacts/tests/ut-reports/ut-report.md docs/testing/ut-report.md || echo "UT report missing"
-          cp artifacts/tests/st-reports/st-report.md docs/testing/st-report.md || echo "ST report missing"
-          cp artifacts/tests/e2e-reports/e2e-report.md docs/testing/e2e-report.md || echo "E2E report missing"
+          
+          echo "📂 Discovery: Finding and copying reports..."
+          # Use find to be resilient to artifact subdirectory structure (v4 behavior)
+          find artifacts/tests -name "ut-report.md" -exec cp {} docs/testing/ut-report.md \;
+          find artifacts/tests -name "st-report.md" -exec cp {} docs/testing/st-report.md \;
+          find artifacts/tests -name "e2e-report.md" -exec cp {} docs/testing/e2e-report.md \;
+          
+          if [ -f "docs/testing/ut-report.md" ]; then echo "✅ UT report prepared"; else echo "❌ UT report missing"; fi
+          if [ -f "docs/testing/st-report.md" ]; then echo "✅ ST report prepared"; else echo "❌ ST report missing"; fi
+          if [ -f "docs/testing/e2e-report.md" ]; then echo "✅ E2E report prepared"; else echo "❌ E2E report missing"; fi
 
       - name: Build Premium Documentation Portal
         run: |
           export DOCS_VERSION="${{ steps.info.outputs.version }}"
+          rm -rf build_output
           mkdir -p build_output
           if [ -d "public_history/versions" ]; then
             EXISTING=$(ls public_history/versions | paste -sd "," -)

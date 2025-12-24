@@ -53,10 +53,7 @@ public_history/
 docs/api/docs.go
 docs/api/swagger.json
 docs/api/swagger.yaml
-docs/testing/*.html
 
 # Test artifacts and raw data
 artifacts/
 *-raw.json
-*-report.json
-*-report.md
