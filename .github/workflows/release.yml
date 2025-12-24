@@ -40,7 +40,11 @@ jobs:
           else
             LEVEL=$(./scripts/detect-release-level.sh "${{ github.ref_name }}")
             echo "level=$LEVEL" >> $GITHUB_OUTPUT
-            echo "is_tag=${{ github.ref_type == 'tag' }}" >> $GITHUB_OUTPUT
+            if [[ "${{ github.ref_type }}" == "tag" ]]; then
+              echo "is_tag=true" >> $GITHUB_OUTPUT
+            else
+              echo "is_tag=false" >> $GITHUB_OUTPUT
+            fi
             echo "is_pr=false" >> $GITHUB_OUTPUT
             
             # Default gates
@@ -128,7 +132,7 @@ jobs:
   integration-tests:
     name: Integration Tests
     runs-on: ubuntu-latest
-    needs: [detect-level, unit-tests]
+    needs: detect-level
     if: needs.detect-level.outputs.require_integration == 'true' || needs.detect-level.outputs.is_tag == 'true'
     steps:
       - name: Checkout code
@@ -153,7 +157,7 @@ jobs:
 
   docker-e2e:
     name: Docker E2E Tests
-    needs: [detect-level, unit-tests]
+    needs: detect-level
     runs-on: ubuntu-latest
     if: needs.detect-level.outputs.require_e2e == 'true' || needs.detect-level.outputs.is_tag == 'true'
     steps:
@@ -225,7 +229,7 @@ jobs:
 
   security-scan:
     name: Security Scan
-    needs: [detect-level, unit-tests]
+    needs: detect-level
     runs-on: ubuntu-latest
     permissions:
       security-events: write

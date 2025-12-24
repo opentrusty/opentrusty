@@ -1,4 +1,4 @@
-# OpenTrusty API Documentation
+# OpenTrusty Documentation
 
 This directory contains the auto-generated OpenAPI 3.1 specifications for the OpenTrusty API.
 

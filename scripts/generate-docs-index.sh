@@ -23,7 +23,7 @@ cat > "$INDEX_FILE" <<EOF
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OpenTrusty API Documentation</title>
+    <title>OpenTrusty Documentation</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; line-height: 1.6; }
         h1 { border-bottom: 2px solid #eaeaea; padding-bottom: 10px; }
@@ -35,8 +35,8 @@ cat > "$INDEX_FILE" <<EOF
     </style>
 </head>
 <body>
-    <h1>OpenTrusty API Documentation</h1>
-    <p>Select a version below to view the interactive API reference.</p>
+    <h1>OpenTrusty Documentation</h1>
+    <p>Select a version below to view the project documentation.</p>
     <ul class="version-list">
 EOF
 

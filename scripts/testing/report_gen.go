@@ -116,9 +116,17 @@ func main() {
 	}
 
 	if *filterType != "" {
+		allowedTypes := strings.Split(strings.ToUpper(*filterType), ",")
 		filtered := []FinalTestResult{}
 		for _, res := range results {
-			if strings.EqualFold(res.Annotations.Type, *filterType) {
+			match := false
+			for _, t := range allowedTypes {
+				if strings.TrimSpace(t) == strings.ToUpper(res.Annotations.Type) {
+					match = true
+					break
+				}
+			}
+			if match {
 				filtered = append(filtered, res)
 			}
 		}
@@ -185,7 +193,7 @@ func scanMetadata() map[string]TestMetadata {
 			meta := TestMetadata{
 				Name:     fn.Name.Name,
 				Package:  pkgPath,
-				Type:     determineType(pkgPath),
+				Type:     determineType(pkgPath, path),
 				Category: determineCategory(pkgPath, fn.Name.Name),
 			}
 
@@ -227,7 +235,7 @@ func getPackagePath(filePath string) string {
 	return "github.com/opentrusty/opentrusty/" + dir
 }
 
-func determineType(pkgPath string) string {
+func determineType(pkgPath, filePath string) string {
 	// Root module prefix
 	const prefix = "github.com/opentrusty/opentrusty/"
 	relPath := strings.TrimPrefix(pkgPath, prefix)
@@ -237,6 +245,10 @@ func determineType(pkgPath string) string {
 		if len(parts) > 1 {
 			return strings.ToUpper(parts[1])
 		}
+	}
+	// If it's an integration test file anywhere, mark as ST
+	if strings.Contains(filepath.Base(filePath), "integration") {
+		return "ST"
 	}
 	return "UT"
 }
@@ -269,7 +281,7 @@ func determineCategory(pkgPath, testName string) string {
 		}
 		return "API"
 	}
-	t := determineType(pkgPath)
+	t := determineType(pkgPath, "")
 	if t != "UT" {
 		return t + " Tests"
 	}
@@ -283,7 +295,7 @@ func parseTestOutput(path string, meta map[string]TestMetadata) []FinalTestResul
 		testStates[key] = &FinalTestResult{
 			Name:        m.Name,
 			Package:     m.Package,
-			Status:      "not run",
+			Status:      "Skipped",
 			Annotations: m,
 		}
 	}
@@ -339,7 +351,7 @@ func parseTestOutput(path string, meta map[string]TestMetadata) []FinalTestResul
 						Annotations: TestMetadata{
 							Name:     event.Test,
 							Package:  event.Package,
-							Type:     determineType(event.Package),
+							Type:     determineType(event.Package, ""),
 							Category: "Other",
 						},
 					}
@@ -352,7 +364,7 @@ func parseTestOutput(path string, meta map[string]TestMetadata) []FinalTestResul
 					Annotations: TestMetadata{
 						Name:     event.Test,
 						Package:  event.Package,
-						Type:     determineType(event.Package),
+						Type:     determineType(event.Package, ""),
 						Category: "Other",
 					},
 				}
@@ -522,7 +534,7 @@ func saveHTML(summary ReportSummary, path string, title string) {
             --warning: #f59e0b;
             --bg: #f8fafc;
             --text: #1e293b;
-            --border: #e2e8f0;
+            --border: #94a3b8;
         }
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; margin: 0; padding: 2rem; }
         .container { max-width: 1000px; margin: 0 auto; background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
@@ -536,8 +548,8 @@ func saveHTML(summary ReportSummary, path string, title string) {
         .summary-val { display: block; font-size: 1.5rem; font-weight: 700; }
         .summary-label { font-size: 0.75rem; text-transform: uppercase; color: #64748b; letter-spacing: 0.05em; }
         table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
-        th { text-align: left; background: #f1f5f9; padding: 0.75rem; border-bottom: 2px solid var(--border); }
-        td { padding: 0.75rem; border-bottom: 1px solid var(--border); font-size: 0.875rem; vertical-align: top; }
+        th { text-align: left; background: #f1f5f9; padding: 0.75rem; border: 1px solid var(--border); border-bottom: 2px solid #64748b; font-weight: 700; }
+        td { padding: 0.75rem; border: 1px solid var(--border); font-size: 0.875rem; vertical-align: top; }
         .col-id { width: 100px; color: #64748b; font-family: ui-monospace, SFMono-Regular, monospace; font-size: 0.75rem; word-break: break-all; }
         .col-name { width: 250px; font-weight: 500; word-break: break-all; }
         .col-status { width: 80px; text-align: center; }
@@ -601,7 +613,7 @@ func saveHTML(summary ReportSummary, path string, title string) {
 				icon = "❌"
 			} else if t.Status == "skip" {
 				icon = "⏭️"
-			} else if t.Status == "not run" {
+			} else if t.Status == "Skipped" {
 				icon = "⚪"
 			}
 

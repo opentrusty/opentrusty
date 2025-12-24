@@ -64,15 +64,15 @@ test-report-ut:
 	@rm $(TEST_ARTIFACTS)/ut-raw.json
 
 test-report-st:
-	@echo "Running system tests and generating structured reports..."
+	@echo "Running system and integration tests and generating structured reports..."
 	@mkdir -p $(TEST_ARTIFACTS)
-	@INTEGRATION_TEST=true go test -json ./tests/system/... > $(TEST_ARTIFACTS)/st-raw.json || true
+	@INTEGRATION_TEST=true go test -json -tags=integration ./... > $(TEST_ARTIFACTS)/st-raw.json || true
 	@$(REPORT_GEN) -input $(TEST_ARTIFACTS)/st-raw.json \
 		-out-json $(TEST_ARTIFACTS)/st-report.json \
 		-out-md $(TEST_ARTIFACTS)/st-report.md \
 		-out-html $(TEST_ARTIFACTS)/st-report.html \
-		-title "System Test Report" \
-		-filter-categories "SYSTEM Tests"
+		-title "System & Integration Test Report" \
+		-filter-type "ST,SYSTEM"
 	@rm $(TEST_ARTIFACTS)/st-raw.json
 
 test-report-e2e:
