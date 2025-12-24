@@ -228,6 +228,8 @@ jobs:
     name: Security Scan
     needs: [detect-level, unit-tests]
     runs-on: ubuntu-latest
+    permissions:
+      security-events: write
     if: needs.detect-level.outputs.require_security == 'true' || needs.detect-level.outputs.is_tag == 'true'
     steps:
       - name: Checkout code
@@ -239,7 +241,7 @@ jobs:
           args: '-no-fail -fmt sarif -out gosec-results.sarif ./...'
 
       - name: Upload SARIF file
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: gosec-results.sarif
 

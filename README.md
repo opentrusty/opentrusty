@@ -4,8 +4,6 @@
   <img src="docs/assets/logo-full.svg" alt="OpenTrusty - Secure • Open • Identity" width="400"/>
 </p>
 
-[![CI](https://github.com/opentrusty/opentrusty/actions/workflows/ci.yml/badge.svg)](https://github.com/opentrusty/opentrusty/actions/workflows/ci.yml) | [![Publish API Docs](https://github.com/opentrusty/opentrusty/actions/workflows/docs.yml/badge.svg)](https://github.com/opentrusty/opentrusty/actions/workflows/docs.yml) | [![Release Gate](https://github.com/opentrusty/opentrusty/actions/workflows/release.yml/badge.svg)](https://github.com/opentrusty/opentrusty/actions/workflows/release.yml) | [![Promote Release](https://github.com/opentrusty/opentrusty/actions/workflows/promote.yml/badge.svg)](https://github.com/opentrusty/opentrusty/actions/workflows/promote.yml) | [![Dependency Graph](https://github.com/opentrusty/opentrusty/actions/workflows/dependabot/update-graph/badge.svg)](https://github.com/opentrusty/opentrusty/actions/workflows/dependabot/update-graph) | [![Dependabot Updates](https://github.com/opentrusty/opentrusty/actions/workflows/dependabot/dependabot-updates/badge.svg)](https://github.com/opentrusty/opentrusty/actions/workflows/dependabot/dependabot-updates)
-
 **OpenTrusty** is a security-first, open-source Identity Provider (IdP) implementing OAuth 2.0 and OpenID Connect (OIDC), designed for auditability, correctness, and long-term maintainability.
 
 OpenTrusty is developed as a **non-profit, community-oriented project** under the Apache License 2.0, with an emphasis on clear security boundaries, explicit assumptions, and responsible open source governance.
@@ -13,6 +11,9 @@ OpenTrusty is developed as a **non-profit, community-oriented project** under th
 ---
 
 ## Project Status
+
+
+[![CI](https://github.com/opentrusty/opentrusty/actions/workflows/ci.yml/badge.svg)](https://github.com/opentrusty/opentrusty/actions/workflows/ci.yml) | [![Publish API Docs](https://github.com/opentrusty/opentrusty/actions/workflows/docs.yml/badge.svg)](https://github.com/opentrusty/opentrusty/actions/workflows/docs.yml) | [![Release Gate](https://github.com/opentrusty/opentrusty/actions/workflows/release.yml/badge.svg)](https://github.com/opentrusty/opentrusty/actions/workflows/release.yml) | [![Promote Release](https://github.com/opentrusty/opentrusty/actions/workflows/promote.yml/badge.svg)](https://github.com/opentrusty/opentrusty/actions/workflows/promote.yml) | [![Dependency Graph](https://github.com/opentrusty/opentrusty/actions/workflows/dependabot/update-graph/badge.svg)](https://github.com/opentrusty/opentrusty/actions/workflows/dependabot/update-graph) | [![Dependabot Updates](https://github.com/opentrusty/opentrusty/actions/workflows/dependabot/dependabot-updates/badge.svg)](https://github.com/opentrusty/opentrusty/actions/workflows/dependabot/dependabot-updates) | [![Go Report](https://goreportcard.com/badge/github.com/opentrusty/opentrusty)](https://goreportcard.com/report/github.com/opentrusty/opentrusty)
 
 > ⚠️ **Current Status: Pre-Production / Foundation Stage**
 
