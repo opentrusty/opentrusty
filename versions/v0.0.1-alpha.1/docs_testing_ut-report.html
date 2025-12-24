@@ -185,7 +185,7 @@
     </main>
     <script id="md-content" type="text/template"># OpenTrusty Unit Test Report
 
-**Generated:** 2025-12-24 16:42:55 UTC  
+**Generated:** 2025-12-24 16:59:02 UTC  
 **Status:** ✅ PASSED
 
 ## Summary
@@ -200,126 +200,126 @@
 
 | ID | Test Name | Status | Purpose | Security |
 |----|-----------|--------|---------|----------|
-| IDN-01 | TestIdentity_Service_Authenticate | ✅ | Validates the user authentication flow, including success, failure, and account lockout after multiple failed attempts. | **Authentication mechanisms and Brute-force protection (lockout)** |
 | IDN-02 | TestIdentity_Service_ProvisionIdentity_Conflict | ✅ | Validates that provisioning an identity fails if a user with the same email already exists in the same tenant. | **Data Integrity and Unique Constraint Enforcement** |
+| IDN-01 | TestIdentity_Service_Authenticate | ✅ | Validates the user authentication flow, including success, failure, and account lockout after multiple failed attempts. | **Authentication mechanisms and Brute-force protection (lockout)** |
 
 ### AuthZ
 
 | ID | Test Name | Status | Purpose | Security |
 |----|-----------|--------|---------|----------|
+| AUT-06 | TestAuthz_Role_HasPermission/tenant_admin_has_manage_users | ✅ | Validates the HasPermission method on the Role struct for various scenarios (wildcards, direct matches). (Subtest: TestAuthz_Role_HasPermission/tenant_admin_has_manage_users) | **Core logic for permission checking** |
 | AUT-06 | TestAuthz_Role_HasPermission | ✅ | Validates the HasPermission method on the Role struct for various scenarios (wildcards, direct matches). | **Core logic for permission checking** |
 | AUT-03 | TestAuthz_Scope_PlatformAdminVsTenantAdmin | ✅ | Validates that Platform Admin privileges are scoped to the platform and strictly completely isolated from Tenant Admin privileges where appropriate (and vice versa). | **RBAC Scope Isolation (prevents vertical privilege escalation)** |
-| AUT-06 | TestAuthz_Role_HasPermission/tenant_member_does_not_have_manage_users | ✅ | Validates the HasPermission method on the Role struct for various scenarios (wildcards, direct matches). (Subtest: TestAuthz_Role_HasPermission/tenant_member_does_not_have_manage_users) | **Core logic for permission checking** |
-| AUT-06 | TestAuthz_Role_HasPermission/tenant_member_has_view | ✅ | Validates the HasPermission method on the Role struct for various scenarios (wildcards, direct matches). (Subtest: TestAuthz_Role_HasPermission/tenant_member_has_view) | **Core logic for permission checking** |
-| AUT-05 | TestAuthz_Isolation_CrossTenantAccessDenied | ✅ | Validates that a user with admin privileges in Tenant A cannot perform actions in Tenant B. | **Multi-tenancy Data Isolation (prevents lateral movement / horizontal privilege escalation)** |
 | AUT-06 | TestAuthz_Role_HasPermission/platform_admin_has_wildcard | ✅ | Validates the HasPermission method on the Role struct for various scenarios (wildcards, direct matches). (Subtest: TestAuthz_Role_HasPermission/platform_admin_has_wildcard) | **Core logic for permission checking** |
-| AUT-06 | TestAuthz_Role_HasPermission/tenant_admin_has_manage_users | ✅ | Validates the HasPermission method on the Role struct for various scenarios (wildcards, direct matches). (Subtest: TestAuthz_Role_HasPermission/tenant_admin_has_manage_users) | **Core logic for permission checking** |
+| AUT-05 | TestAuthz_Isolation_CrossTenantAccessDenied | ✅ | Validates that a user with admin privileges in Tenant A cannot perform actions in Tenant B. | **Multi-tenancy Data Isolation (prevents lateral movement / horizontal privilege escalation)** |
+| AUT-06 | TestAuthz_Role_HasPermission/tenant_member_has_view | ✅ | Validates the HasPermission method on the Role struct for various scenarios (wildcards, direct matches). (Subtest: TestAuthz_Role_HasPermission/tenant_member_has_view) | **Core logic for permission checking** |
 | AUT-04 | TestAuthz_Scope_TenantAdminVsTenantMember | ✅ | Validates that Tenant Admin privileges are correctly authorized while Tenant Member privileges are restricted within the same tenant. | **RBAC Permission Enforcement** |
+| AUT-06 | TestAuthz_Role_HasPermission/tenant_member_does_not_have_manage_users | ✅ | Validates the HasPermission method on the Role struct for various scenarios (wildcards, direct matches). (Subtest: TestAuthz_Role_HasPermission/tenant_member_does_not_have_manage_users) | **Core logic for permission checking** |
 
 ### Tenant
 
 | ID | Test Name | Status | Purpose | Security |
 |----|-----------|--------|---------|----------|
-| TEN-05 | TestTenant_Isolation_RevokeRole_ValidRole_Succeeds | ✅ | Validates that role revocation works for valid roles. | **Revocation enforcement** |
-| TEN-02 | TestTenant_Isolation_TenantIDMustBePresent | ✅ | Validates that tenant-scoped operations strictly require a non-empty tenant ID to prevent global data exposure. | **Multi-tenant boundary enforcement** |
-| TEN-04 | TestTenant_Isolation_AssignInvalidRole_ReturnsError | ✅ | Validates that non-defined role names are rejected to prevent arbitrary privilege assignment. | **Unauthorized privilege escalation prevention** |
 | TEN-01 | TestTenant_Service_CreateTenant_UUIDv7 | ✅ | Validates that tenant creation correctly generates IDs using UUIDv7 for temporal ordering. | **Traceability and unique identification of tenants** |
-| TEN-03 | TestTenant_Isolation_AssignValidRole_Succeeds | ✅ | Validates that defined role constants are correctly accepted for assignment. | **RBAC data integrity** |
-| TEN-02 | TestTenant_Isolation_TenantIDMustBePresent/GetTenant_EmptyTenantID_ReturnsError | ✅ | Validates that tenant-scoped operations strictly require a non-empty tenant ID to prevent global data exposure. (Subtest: TestTenant_Isolation_TenantIDMustBePresent/GetTenant_EmptyTenantID_ReturnsError) | **Multi-tenant boundary enforcement** |
 | TEN-06 | TestTenant_Isolation_GetUserRoles_ReturnsAllRoles | ✅ | Validates that retrieval of user roles returns all roles assigned to that user in a specific tenant. | **RBAC role transparency** |
+| TEN-02 | TestTenant_Isolation_TenantIDMustBePresent/GetTenant_EmptyTenantID_ReturnsError | ✅ | Validates that tenant-scoped operations strictly require a non-empty tenant ID to prevent global data exposure. (Subtest: TestTenant_Isolation_TenantIDMustBePresent/GetTenant_EmptyTenantID_ReturnsError) | **Multi-tenant boundary enforcement** |
+| TEN-05 | TestTenant_Isolation_RevokeRole_ValidRole_Succeeds | ✅ | Validates that role revocation works for valid roles. | **Revocation enforcement** |
+| TEN-03 | TestTenant_Isolation_AssignValidRole_Succeeds | ✅ | Validates that defined role constants are correctly accepted for assignment. | **RBAC data integrity** |
 | TEN-07 | TestTenant_Isolation_RoleValidation_OnlyAcceptsDefinedConstants | ✅ | Validates that only defined tenant role constants (RoleTenantOwner, RoleTenantAdmin, RoleTenantMember) are accepted. | **Role name validation logic** |
+| TEN-04 | TestTenant_Isolation_AssignInvalidRole_ReturnsError | ✅ | Validates that non-defined role names are rejected to prevent arbitrary privilege assignment. | **Unauthorized privilege escalation prevention** |
+| TEN-02 | TestTenant_Isolation_TenantIDMustBePresent | ✅ | Validates that tenant-scoped operations strictly require a non-empty tenant ID to prevent global data exposure. | **Multi-tenant boundary enforcement** |
 
 ### OAuth2
 
 | ID | Test Name | Status | Purpose | Security |
 |----|-----------|--------|---------|----------|
+| OA2-04 | TestOAuth2_Service_ExchangeCodeForToken_Expired | ✅ | Validates that an expired authorization code cannot be exchanged for tokens. | **Temporary credential lifecycle enforcement** |
 | OA2-02 | TestOAuth2_Service_ExchangeCodeForToken_PKCEFailure | ✅ | Validates that OAuth2 code exchange fails if the PKCE code verifier does not match the challenge. | **PKCE enforcement (RFC 7636) to prevent code injection/interception** |
 | OA2-01 | TestOAuth2_Service_ExchangeCodeForToken_Success | ✅ | Validates a successful OAuth2 authorization code exchange for tokens, including ID token generation. | **OAuth2 Authorization Code Grant flow (RFC 6749 Section 4.1.3)** |
 | OA2-03 | TestOAuth2_Service_ExchangeCodeForToken_Replay | ✅ | Validates that an authorization code cannot be reused for token exchange (replay prevention). | **Authorization code replay attack prevention** |
-| OA2-04 | TestOAuth2_Service_ExchangeCodeForToken_Expired | ✅ | Validates that an expired authorization code cannot be exchanged for tokens. | **Temporary credential lifecycle enforcement** |
 
 ### OIDC
 
 | ID | Test Name | Status | Purpose | Security |
 |----|-----------|--------|---------|----------|
-| OIC-08 | TestOIDC_Claims_IssuerMatch | ✅ | Verifies that the iss claim matches the service issuer configuration. | **Trust Root Verification** |
+| OIC-01 | TestOIDC_Claims_SubClaimStability_SameTenantAndUserProduceSameSub | ✅ | Verifies that the sub (subject) claim is deterministic: the same (tenant, user) pair always produces the same sub value. | **Identity Stability (prevents account fragmentation)** |
 | OIC-06 | TestOIDC_Claims_AtHashCorrectness_AtHashIsCorrectlyComputed | ✅ | Verifies that at_hash is computed as the base64url encoding of the left-most half of the SHA-256 hash of the access token. | **Token Binding Verification (OIDC Core Section 3.1.3.6)** |
+| OIC-09 | TestOIDC_Claims_AudienceMatch | ✅ | Verifies that the aud claim matches the client ID. | **Intended Audience Verification** |
+| OIC-05 | TestNoncePropagation_NonceIsOmittedWhenEmpty | ✅ |  |  |
+| OID-01 | TestOIDC_Service_GenerateIDToken | ✅ | Validates the generation of OIDC ID tokens, ensuring correct claims (iss, aud, sub, at_hash, nonce) and header (kid). | **OIDC compliance and cryptographic integrity of ID tokens** |
 | OIC-03 | TestOIDC_Claims_SubClaimStability_DifferentUserProducesDifferentSub | ✅ | Verifies that different users in the same tenant produce different sub values. | **Identity Uniqueness** |
+| OIC-02 | TestOIDC_Claims_SubClaimStability_DifferentTenantProducesDifferentSub | ✅ | Verifies that different tenants produce different sub values, even for the same user ID (Pairwise ID-like behavior). | **Multi-tenant Privacy and Isolation** |
+| OIC-08 | TestOIDC_Claims_IssuerMatch | ✅ | Verifies that the iss claim matches the service issuer configuration. | **Trust Root Verification** |
+| OIC-04 | TestOIDC_Claims_NoncePropagation_NonceIsIncludedWhenProvided | ✅ | Verifies that the nonce claim is included in the ID token when provided (OIDC Core Section 3.1.2.1). | **Replay Attack Prevention** |
 | OID-03 | TestOIDC_Service_GetJWKS | ✅ | Validates that the JWKS (JSON Web Key Set) correctly exposes the public key for token verification. | **Public key distribution for signature verification** |
 | OIC-07 | TestAtHashCorrectness_AtHashIsOmittedWhenNoAccessToken | ✅ |  |  |
-| OIC-05 | TestNoncePropagation_NonceIsOmittedWhenEmpty | ✅ |  |  |
 | OID-02 | TestOIDC_Service_GetDiscoveryMetadata | ✅ | Validates that the discovery metadata matches the service configuration and OIDC standards. | **Exposure of correct OIDC endpoints and supported algorithms** |
-| OIC-01 | TestOIDC_Claims_SubClaimStability_SameTenantAndUserProduceSameSub | ✅ | Verifies that the sub (subject) claim is deterministic: the same (tenant, user) pair always produces the same sub value. | **Identity Stability (prevents account fragmentation)** |
-| OIC-04 | TestOIDC_Claims_NoncePropagation_NonceIsIncludedWhenProvided | ✅ | Verifies that the nonce claim is included in the ID token when provided (OIDC Core Section 3.1.2.1). | **Replay Attack Prevention** |
-| OID-01 | TestOIDC_Service_GenerateIDToken | ✅ | Validates the generation of OIDC ID tokens, ensuring correct claims (iss, aud, sub, at_hash, nonce) and header (kid). | **OIDC compliance and cryptographic integrity of ID tokens** |
-| OIC-09 | TestOIDC_Claims_AudienceMatch | ✅ | Verifies that the aud claim matches the client ID. | **Intended Audience Verification** |
-| OIC-02 | TestOIDC_Claims_SubClaimStability_DifferentTenantProducesDifferentSub | ✅ | Verifies that different tenants produce different sub values, even for the same user ID (Pairwise ID-like behavior). | **Multi-tenant Privacy and Isolation** |
 
 ### Audit
 
 | ID | Test Name | Status | Purpose | Security |
 |----|-----------|--------|---------|----------|
-| AUD-01 | TestAudit_IsSecret | ✅ | Validates that sensitive keys are correctly identified as secrets to prevent them from being logged in plaintext. | **Data Masking and Leakage Prevention (CWE-532)** |
-| AUD-01 | TestAudit_IsSecret/token | ✅ | Validates that sensitive keys are correctly identified as secrets to prevent them from being logged in plaintext. (Subtest: TestAudit_IsSecret/token) | **Data Masking and Leakage Prevention (CWE-532)** |
-| AUD-01 | TestAudit_IsSecret/api_key | ✅ | Validates that sensitive keys are correctly identified as secrets to prevent them from being logged in plaintext. (Subtest: TestAudit_IsSecret/api_key) | **Data Masking and Leakage Prevention (CWE-532)** |
-| AUD-01 | TestAudit_IsSecret/access_token | ✅ | Validates that sensitive keys are correctly identified as secrets to prevent them from being logged in plaintext. (Subtest: TestAudit_IsSecret/access_token) | **Data Masking and Leakage Prevention (CWE-532)** |
-| AUD-01 | TestAudit_IsSecret/password | ✅ | Validates that sensitive keys are correctly identified as secrets to prevent them from being logged in plaintext. (Subtest: TestAudit_IsSecret/password) | **Data Masking and Leakage Prevention (CWE-532)** |
 | AUD-01 | TestAudit_IsSecret/Password | ✅ | Validates that sensitive keys are correctly identified as secrets to prevent them from being logged in plaintext. (Subtest: TestAudit_IsSecret/Password) | **Data Masking and Leakage Prevention (CWE-532)** |
-| AUD-01 | TestAudit_IsSecret/PASSWORD | ✅ | Validates that sensitive keys are correctly identified as secrets to prevent them from being logged in plaintext. (Subtest: TestAudit_IsSecret/PASSWORD) | **Data Masking and Leakage Prevention (CWE-532)** |
+| AUD-01 | TestAudit_IsSecret/password_hash | ✅ | Validates that sensitive keys are correctly identified as secrets to prevent them from being logged in plaintext. (Subtest: TestAudit_IsSecret/password_hash) | **Data Masking and Leakage Prevention (CWE-532)** |
+| AUD-01 | TestAudit_IsSecret/status | ✅ | Validates that sensitive keys are correctly identified as secrets to prevent them from being logged in plaintext. (Subtest: TestAudit_IsSecret/status) | **Data Masking and Leakage Prevention (CWE-532)** |
+| AUD-01 | TestAudit_IsSecret/user_id | ✅ | Validates that sensitive keys are correctly identified as secrets to prevent them from being logged in plaintext. (Subtest: TestAudit_IsSecret/user_id) | **Data Masking and Leakage Prevention (CWE-532)** |
+| AUD-01 | TestAudit_IsSecret/password | ✅ | Validates that sensitive keys are correctly identified as secrets to prevent them from being logged in plaintext. (Subtest: TestAudit_IsSecret/password) | **Data Masking and Leakage Prevention (CWE-532)** |
+| AUD-01 | TestAudit_IsSecret/token | ✅ | Validates that sensitive keys are correctly identified as secrets to prevent them from being logged in plaintext. (Subtest: TestAudit_IsSecret/token) | **Data Masking and Leakage Prevention (CWE-532)** |
+| AUD-01 | TestAudit_IsSecret | ✅ | Validates that sensitive keys are correctly identified as secrets to prevent them from being logged in plaintext. | **Data Masking and Leakage Prevention (CWE-532)** |
+| AUD-01 | TestAudit_IsSecret/access_token | ✅ | Validates that sensitive keys are correctly identified as secrets to prevent them from being logged in plaintext. (Subtest: TestAudit_IsSecret/access_token) | **Data Masking and Leakage Prevention (CWE-532)** |
+| AUD-01 | TestAudit_IsSecret/hash | ✅ | Validates that sensitive keys are correctly identified as secrets to prevent them from being logged in plaintext. (Subtest: TestAudit_IsSecret/hash) | **Data Masking and Leakage Prevention (CWE-532)** |
 | AUD-01 | TestAudit_IsSecret/secret | ✅ | Validates that sensitive keys are correctly identified as secrets to prevent them from being logged in plaintext. (Subtest: TestAudit_IsSecret/secret) | **Data Masking and Leakage Prevention (CWE-532)** |
+| AUD-01 | TestAudit_IsSecret/email | ✅ | Validates that sensitive keys are correctly identified as secrets to prevent them from being logged in plaintext. (Subtest: TestAudit_IsSecret/email) | **Data Masking and Leakage Prevention (CWE-532)** |
+| AUD-01 | TestAudit_IsSecret/api_key | ✅ | Validates that sensitive keys are correctly identified as secrets to prevent them from being logged in plaintext. (Subtest: TestAudit_IsSecret/api_key) | **Data Masking and Leakage Prevention (CWE-532)** |
+| AUD-01 | TestAudit_IsSecret/credential | ✅ | Validates that sensitive keys are correctly identified as secrets to prevent them from being logged in plaintext. (Subtest: TestAudit_IsSecret/credential) | **Data Masking and Leakage Prevention (CWE-532)** |
+| AUD-01 | TestAudit_IsSecret/PASSWORD | ✅ | Validates that sensitive keys are correctly identified as secrets to prevent them from being logged in plaintext. (Subtest: TestAudit_IsSecret/PASSWORD) | **Data Masking and Leakage Prevention (CWE-532)** |
 | AUD-01 | TestAudit_IsSecret/private_key | ✅ | Validates that sensitive keys are correctly identified as secrets to prevent them from being logged in plaintext. (Subtest: TestAudit_IsSecret/private_key) | **Data Masking and Leakage Prevention (CWE-532)** |
 | AUD-01 | TestAudit_IsSecret/tenant_id | ✅ | Validates that sensitive keys are correctly identified as secrets to prevent them from being logged in plaintext. (Subtest: TestAudit_IsSecret/tenant_id) | **Data Masking and Leakage Prevention (CWE-532)** |
-| AUD-01 | TestAudit_IsSecret/user_id | ✅ | Validates that sensitive keys are correctly identified as secrets to prevent them from being logged in plaintext. (Subtest: TestAudit_IsSecret/user_id) | **Data Masking and Leakage Prevention (CWE-532)** |
-| AUD-01 | TestAudit_IsSecret/email | ✅ | Validates that sensitive keys are correctly identified as secrets to prevent them from being logged in plaintext. (Subtest: TestAudit_IsSecret/email) | **Data Masking and Leakage Prevention (CWE-532)** |
-| AUD-01 | TestAudit_IsSecret/status | ✅ | Validates that sensitive keys are correctly identified as secrets to prevent them from being logged in plaintext. (Subtest: TestAudit_IsSecret/status) | **Data Masking and Leakage Prevention (CWE-532)** |
-| AUD-01 | TestAudit_IsSecret/hash | ✅ | Validates that sensitive keys are correctly identified as secrets to prevent them from being logged in plaintext. (Subtest: TestAudit_IsSecret/hash) | **Data Masking and Leakage Prevention (CWE-532)** |
-| AUD-01 | TestAudit_IsSecret/password_hash | ✅ | Validates that sensitive keys are correctly identified as secrets to prevent them from being logged in plaintext. (Subtest: TestAudit_IsSecret/password_hash) | **Data Masking and Leakage Prevention (CWE-532)** |
-| AUD-01 | TestAudit_IsSecret/credential | ✅ | Validates that sensitive keys are correctly identified as secrets to prevent them from being logged in plaintext. (Subtest: TestAudit_IsSecret/credential) | **Data Masking and Leakage Prevention (CWE-532)** |
 
 ### Auth API
 
 | ID | Test Name | Status | Purpose | Security |
 |----|-----------|--------|---------|----------|
-| TEN-07 | TestTenant_Create_AuthorizationEnforcement | ✅ | Validates authorization rules for creating tenants (only platform admins). | **RBAC enforcement (prevents unauthorized tenant creation)** |
-| LGN-05 | TestAuth_Login_EmptyBody_ReturnsBadRequest | ✅ | Validates that empty request bodies for login are rejected with 400 Bad Request. | **Request body parsing and validation** |
 | REG-02 | TestAuth_Register_EmptyEmail_ReturnsBadRequest | ✅ | Validates that registration fails with a 400 Bad Request if the email is empty. | **Input sanitization boundary check** |
-| TKN-11 | TestOAuth2_Token_UnsupportedGrantType_ReturnsBadRequest | ⏭️ | Validates that unsupported grant types are rejected. | **OAuth2 grant type validation (RFC 6749)** |
-| AUT-02 | TestOAuth2_Authorize_MissingClientID_ReturnsBadRequest | ⏭️ | Validates that the authorize endpoint requires a client_id parameter. | **OAuth2 parameter validation (RFC 6749)** |
-| LGN-06B | TestAuth_Login_MalformedJSON_ReturnsBadRequest | ✅ | Validates that malformed JSON in the login request is rejected safely. | **JSON parsing safety (prevents parser exploits)** |
-| TEN-07 | TestTenant_Create_AuthorizationEnforcement/Success_for_platform_admin | ✅ | Validates authorization rules for creating tenants (only platform admins). (Subtest: TestTenant_Create_AuthorizationEnforcement/Success_for_platform_admin) | **RBAC enforcement (prevents unauthorized tenant creation)** |
-| REG-04 | TestAuth_Register_WeakPassword_ReturnsBadRequest | ✅ | Validates that passwords below the minimum length (8 chars) are rejected. | **Password strength validation (prevents weak credentials)** |
 | TEN-07 | TestTenant_Create_AuthorizationEnforcement/Forbidden_for_non-admin | ✅ | Validates authorization rules for creating tenants (only platform admins). (Subtest: TestTenant_Create_AuthorizationEnforcement/Forbidden_for_non-admin) | **RBAC enforcement (prevents unauthorized tenant creation)** |
+| LGN-06B | TestAuth_Login_MalformedJSON_ReturnsBadRequest | ✅ | Validates that malformed JSON in the login request is rejected safely. | **JSON parsing safety (prevents parser exploits)** |
+| LGN-05 | TestAuth_Login_EmptyBody_ReturnsBadRequest | ✅ | Validates that empty request bodies for login are rejected with 400 Bad Request. | **Request body parsing and validation** |
+| AUT-02 | TestOAuth2_Authorize_MissingClientID_ReturnsBadRequest | ⏭️ | Validates that the authorize endpoint requires a client_id parameter. | **OAuth2 parameter validation (RFC 6749)** |
+| REG-04 | TestAuth_Register_WeakPassword_ReturnsBadRequest | ✅ | Validates that passwords below the minimum length (8 chars) are rejected. | **Password strength validation (prevents weak credentials)** |
+| TEN-07 | TestTenant_Create_AuthorizationEnforcement/Success_for_platform_admin | ✅ | Validates authorization rules for creating tenants (only platform admins). (Subtest: TestTenant_Create_AuthorizationEnforcement/Success_for_platform_admin) | **RBAC enforcement (prevents unauthorized tenant creation)** |
+| TEN-07 | TestTenant_Create_AuthorizationEnforcement | ✅ | Validates authorization rules for creating tenants (only platform admins). | **RBAC enforcement (prevents unauthorized tenant creation)** |
+| TKN-11 | TestOAuth2_Token_UnsupportedGrantType_ReturnsBadRequest | ⏭️ | Validates that unsupported grant types are rejected. | **OAuth2 grant type validation (RFC 6749)** |
 
 ### Tenant API
 
 | ID | Test Name | Status | Purpose | Security |
 |----|-----------|--------|---------|----------|
-| PRO-05 | TestHTTP_Protocol_CrossTenant_Negative | ✅ | Validates that a session for Tenant A cannot be used to access Tenant B resources through the HTTP middleware. | **Horizontal privilege escalation prevention (Cross-tenant access)** |
 | TEN-04 | TestTenant_Create_EmptyName_ReturnsBadRequest | ⏭️ | Validates that creating a tenant requires a non-empty name. | **Input validation** |
 | ROL-03 | TestTenant_AssignRole_EmptyRole_ReturnsBadRequest | ⏭️ | Validates that assigning a role requires a non-empty role name. | **Input validation** |
+| PRO-05 | TestHTTP_Protocol_CrossTenant_Negative | ✅ | Validates that a session for Tenant A cannot be used to access Tenant B resources through the HTTP middleware. | **Horizontal privilege escalation prevention (Cross-tenant access)** |
 
 ### API
 
 | ID | Test Name | Status | Purpose | Security |
 |----|-----------|--------|---------|----------|
-| PRO-03 | TestHTTP_Protocol_Token_BadRequest | ✅ | Validates that the token endpoint rejects invalid requests with a 400 Bad Request or 401 Unauthorized. | **Token endpoint protection** |
-| SEC-02 | TestSecurity_ErrorHandling_NoSensitiveDataIsLeaked | ✅ | Validates that error responses do not leak sensitive internal details (stack traces, paths). | **Information disclosure prevention (CWE-209)** |
 | SEC-10 | TestSecurity_Headers_JSONContentTypeIsSet | ✅ | Validates that JSON responses include the application/json Content-Type header. | **Prevents MIME sniffing attacks** |
-| SEC-05B | TestSecurity_HealthCheck_ReturnsValidJSON | ✅ | Validates that the health check endpoint returns valid JSON with the expected structure. | **Validates safe response format** |
-| PRO-02 | TestHTTP_Protocol_JWKS | ✅ | Validates that the JWKS endpoint correctly serves public keys for token verification. | **Public key distribution for signature validation** |
-| PRO-04 | TestHTTP_Protocol_HappyPath_Flow | ✅ | Validates a full OAuth2 authorization code flow from code creation to token exchange via HTTP. | **End-to-end OAuth2 protocol correctness (RFC 6749)** |
 | PRO-01 | TestHTTP_Protocol_Discovery | ✅ | Validates that the OIDC discovery endpoint returns correct configuration for clients. | **Secure discovery of OIDC endpoints** |
+| SEC-02 | TestSecurity_ErrorHandling_NoSensitiveDataIsLeaked | ✅ | Validates that error responses do not leak sensitive internal details (stack traces, paths). | **Information disclosure prevention (CWE-209)** |
+| PRO-04 | TestHTTP_Protocol_HappyPath_Flow | ✅ | Validates a full OAuth2 authorization code flow from code creation to token exchange via HTTP. | **End-to-end OAuth2 protocol correctness (RFC 6749)** |
+| PRO-02 | TestHTTP_Protocol_JWKS | ✅ | Validates that the JWKS endpoint correctly serves public keys for token verification. | **Public key distribution for signature validation** |
+| PRO-03 | TestHTTP_Protocol_Token_BadRequest | ✅ | Validates that the token endpoint rejects invalid requests with a 400 Bad Request or 401 Unauthorized. | **Token endpoint protection** |
+| SEC-05B | TestSecurity_HealthCheck_ReturnsValidJSON | ✅ | Validates that the health check endpoint returns valid JSON with the expected structure. | **Validates safe response format** |
 
 ### SYSTEM Tests
 
 | ID | Test Name | Status | Purpose | Security |
 |----|-----------|--------|---------|----------|
-| TEN-01 | TestTenant_Isolation_UserFromTenantACannotAccessTenantBResources | ⚪ | Validates cross-tenant isolation ensures users in Tenant A cannot access Tenant B resources. | **Multi-tenancy boundary enforcement (prevents cross-tenant access)** |
-| OID-01 | TestOIDC_TokenExchange_IDTokenOnlyWithOpenIDScope | ⚪ | Validates that an id_token is only issued when the 'openid' scope is explicitly requested. | **Compliance with OIDC Core specification (Issue #3.1.2.1)** |
-| OA2-02 | TestOAuth2_RefreshToken_RevocationPreventsUsage | ⚪ | Validates that revoking a refresh token makes it unusable for obtaining new access tokens. | **Ensures revoked tokens cannot be used (RFC 7009)** |
-| AUT-01 | TestAuthz_TenantAdmin_CanManageUsersInOwnTenant | ⚪ | Validates that a tenant admin can manage users within their own tenant. | **RBAC enforcement at service layer** |
-|  | TestMain | ⚪ |  |  |
 | OA2-01 | TestOAuth2_AuthorizationCode_OneTimeUseEnforced | ⚪ | Validates that authorization codes cannot be used more than once (replay attack prevention). | **Prevents authorization code replay attacks (RFC 6749 Section 4.1.2)** |
+|  | TestMain | ⚪ |  |  |
+| OA2-02 | TestOAuth2_RefreshToken_RevocationPreventsUsage | ⚪ | Validates that revoking a refresh token makes it unusable for obtaining new access tokens. | **Ensures revoked tokens cannot be used (RFC 7009)** |
+| OID-01 | TestOIDC_TokenExchange_IDTokenOnlyWithOpenIDScope | ⚪ | Validates that an id_token is only issued when the 'openid' scope is explicitly requested. | **Compliance with OIDC Core specification (Issue #3.1.2.1)** |
+| TEN-01 | TestTenant_Isolation_UserFromTenantACannotAccessTenantBResources | ⚪ | Validates cross-tenant isolation ensures users in Tenant A cannot access Tenant B resources. | **Multi-tenancy boundary enforcement (prevents cross-tenant access)** |
+| AUT-01 | TestAuthz_TenantAdmin_CanManageUsersInOwnTenant | ⚪ | Validates that a tenant admin can manage users within their own tenant. | **RBAC enforcement at service layer** |
 | AUT-02 | TestAuthz_RoleAssignment_InvalidRoleNameIsRejected | ⚪ | Validates that invalid or malicious role names are rejected during assignment. | **Prevents privilege escalation via role name manipulation (e.g. SQL injection or privilege escalation)** |
 
 ### Other
