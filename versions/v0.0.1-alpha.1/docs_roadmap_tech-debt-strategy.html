@@ -1,0 +1,283 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tech Debt Strategy - OpenTrusty Docs</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/redoc/bundles/redoc.standalone.js"></script>
+    <script>
+        var API_MODE = "false" === "true";
+        var basePath = API_MODE ? ".." : "."; 
+    </script>
+    <style>
+        :root {
+            --primary: #059669; /* Emerald 600 - Reliable Tech */
+            --primary-dark: #065F46; /* Logo Color - Steady */
+            --bg: #f8fafc; /* Content BG - Slate 50 */
+            --sidebar-bg: #041e1a; /* Very Deep Emerald - Tech/Steady */
+            --text: #0f172a; /* Slate 900 */
+            --text-muted: #64748b; /* Slate 500 */
+            --sidebar-text: #f0fdf4; /* Emerald 50 */
+            --sidebar-text-muted: #94a3b8;
+            --border: rgba(6, 95, 70, 0.1);
+        }
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            display: flex;
+            min-height: 100vh;
+        }
+        .sidebar {
+            width: 300px;
+            background: var(--sidebar-bg);
+            border-right: 1px solid rgba(255,255,255,0.05);
+            padding: 2.5rem 2rem;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            color: var(--sidebar-text);
+        }
+        .logo {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 1.25rem;
+            margin-bottom: 3rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            color: #fff;
+            text-decoration: none;
+            font-weight: 700;
+        }
+        .logo svg { flex-shrink: 0; }
+        
+        .nav-section { margin-bottom: 2rem; }
+        .nav-title {
+            text-transform: uppercase;
+            font-size: 0.7rem;
+            letter-spacing: 0.1rem;
+            color: var(--sidebar-text-muted);
+            margin-bottom: 1rem;
+            font-weight: 700;
+        }
+        .nav-link {
+            display: block;
+            padding: 0.6rem 0;
+            color: var(--sidebar-text-muted);
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            border-left: 2px solid transparent;
+            padding-left: 0;
+        }
+        .nav-link:hover { 
+            color: #fff; 
+            padding-left: 0.5rem;
+        }
+        .nav-link.active { 
+            color: var(--primary); 
+            font-weight: 600; 
+            border-left: 2px solid var(--primary);
+            padding-left: 0.75rem;
+        }
+
+        .content-wrapper {
+            margin-left: 300px;
+            flex: 1;
+            padding: 5rem 6rem;
+            max-width: 1200px;
+            min-height: 100vh;
+        }
+        .markdown-body { 
+            line-height: 1.8; 
+            font-size: 1.05rem;
+            color: #334155;
+        }
+        .markdown-body h1 { 
+            font-family: 'Montserrat', sans-serif; 
+            margin-bottom: 2.5rem; 
+            color: var(--primary-dark);
+            font-weight: 700;
+            font-size: 2.5rem;
+            letter-spacing: -0.02em;
+        }
+        .markdown-body h2 {
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 0.5rem;
+            margin-top: 3rem;
+            color: var(--primary-dark);
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 600;
+        }
+        .markdown-body p { margin-bottom: 1.5rem; }
+        .markdown-body pre { 
+            background: #0f172a; 
+            padding: 1.5rem; 
+            border-radius: 12px; 
+            border: 1px solid var(--border); 
+            overflow-x: auto;
+            color: #e2e8f0;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+        }
+        .markdown-body code {
+            background: rgba(5, 150, 105, 0.05);
+            color: var(--primary-dark);
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+        .markdown-body pre code {
+            background: transparent;
+            color: inherit;
+            padding: 0;
+        }
+        
+        .version-selector {
+            margin-top: auto;
+            padding-top: 2rem;
+            border-top: 1px solid rgba(255,255,255,0.05);
+        }
+        select {
+            background: rgba(255,255,255,0.05);
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.1);
+            padding: 0.6rem;
+            border-radius: 8px;
+            width: 100%;
+            cursor: pointer;
+            font-size: 0.85rem;
+            appearance: none;
+            outline: none;
+        }
+        select:hover {
+            background: rgba(255,255,255,0.08);
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <a href="/" class="logo" onclick="event.preventDefault(); window.location.href=basePath + '/index.html'">
+            <svg width="28" height="28" viewBox="0 0 90 90" xmlns="http://www.w3.org/2000/svg">
+                <rect width="90" height="90" rx="20" fill="#065F46" />
+                <path d="M15,25 H75 V40 H53 V70 H37 V40 H15 Z" fill="white" />
+                <rect x="37" y="73" width="16" height="4" rx="1" fill="white" opacity="0.6" />
+            </svg>
+            OpenTrusty
+        </a>
+        <nav><div class="nav-section"><div class="nav-title">Architecture</div><a href="docs_architecture_architecture-rules.html" class="nav-link ">Architecture Rules</a><a href="docs_architecture_domain-model.html" class="nav-link ">Domain Model</a><a href="docs_architecture_runtime-assumptions.html" class="nav-link ">Runtime Assumptions</a><a href="docs_architecture_docs-publication.html" class="nav-link ">Docs Publication</a></div><div class="nav-section"><div class="nav-title">Protocols</div><a href="docs_domain_identity-model.html" class="nav-link ">Identity Model</a><a href="docs_architecture_protocol-boundary.html" class="nav-link ">Protocol Boundary</a><a href="docs_architecture_protocol-error-model.html" class="nav-link ">Error Model</a></div><div class="nav-section"><div class="nav-title">Security</div><a href="docs_security_threat-model.html" class="nav-link ">Threat Model</a><a href="docs_security_security-assumptions.html" class="nav-link ">Security Assumptions</a><a href="docs_system-audit-report.html" class="nav-link ">System Audit Report</a></div><div class="nav-section"><div class="nav-title">Deployment</div><a href="docs_fundamentals_deployment-philosophy.html" class="nav-link ">Deployment Philosophy</a><a href="docs_fundamentals_storage-model.html" class="nav-link ">Storage Model</a><a href="docs_deployment_OPERATIONS.html" class="nav-link ">Operations Guide</a><a href="docs_operations_bootstrap.html" class="nav-link ">Operations Manual</a><a href="deploy_systemd_README.html" class="nav-link ">Systemd Guide</a></div><div class="nav-section"><div class="nav-title">Roadmap</div><a href="docs_roadmap_evolution-roadmap.html" class="nav-link ">Evolution Roadmap</a><a href="docs_roadmap_tech-debt-strategy.html" class="nav-link active">Tech Debt Strategy</a></div><div class="nav-section"><div class="nav-title">API</div><a href="api/index.html" class="nav-link ">Interactive Reference</a></div><div class="nav-section"><div class="nav-title">Testing & Quality</div><a href="docs_testing_ut-report.html" class="nav-link ">Unit Test Report</a><a href="docs_testing_st-report.html" class="nav-link ">System Test Report</a><a href="docs_testing_e2e-report.html" class="nav-link ">E2E Test Report</a><a href="docs_testing_test-annotation-standard.html" class="nav-link ">Annotation Standard</a></div></nav>
+        <div class="version-selector">
+            <div class="nav-title">Release Version</div>
+            <select id="v-select" onchange="window.location.href=this.value"><option value="/versions/v0.0.1-alpha.1/" selected>v0.0.1-alpha.1</option></select>
+        </div>
+    </div>
+    <main class="content-wrapper">
+        <div id="content" class="markdown-body"></div>
+    </main>
+    <script id="md-content" type="text/template"># Tech Debt Strategy
+
+This document classifies identified architectural issues and technical debt based on the critical path of the [Evolution Roadmap](evolution-roadmap.md).
+
+## 1. Must Fix BEFORE OAuth2/OIDC (Phase 1)
+*Issues that compromise the security or correctness of the core protocol implementation.*
+
+### 1.1. Explicit Tenant Context in Transport
+- **Issue**: `getTenantID` defaults to `"default"` if header is missing.
+- **Why it must be fixed**: While acceptable for single-tenant, it violates "Secure by Design". A security protocol should never rely on implicit magic strings. If we are hardening security in Phase 1, we must ensure every request is explicitly scoped, even if only one tenant exists. Implicit defaults mask configuration errors.
+- **Remediation**: Remove default. Return `400 Bad Request` if context is missing.
+
+---
+
+## 2. Must Fix BEFORE Multi-Tenancy (Phase 2)
+*Issues that effectively break isolation or management in a multi-tenant environment.*
+
+### 2.1. Tenant Context in Access Token Validation
+- **Issue**: `UserInfo` endpoint retrieves Tenant ID from the *User* entity, not the *Access Token*.
+- **Why it must be fixed**: In complex multi-tenancy, a user might eventually exist in multiple contexts (or federation). Relying on the User's "home" tenant instead of the "token's" tenant context creates ambiguity.
+- **Remediation**: snapshot `TenantID` into the Access Token claims/table at issuance time.
+
+---
+
+## 3. Can Be Postponed Safely (Phases 3 & 4)
+*Issues that limit flexibility but do not compromise current security or functionality.*
+
+### 3.1. Identity ↔ Password Coupling
+- **Issue**: `CreateUser` requires a password argument.
+- **Postponed Until**: **Phase 3 (Federation)**.
+- **Reasoning**: Phase 1 & 2 rely on standard username/password (plus MFA). We do not need passwordless users until we import users from external IdPs (Federation) or implement pure Passkeys.
+
+### 3.2. OIDC Protocol ↔ Internal Role Storage
+- **Issue**: `GenerateIDToken` directly queries `tenantRoleRepo`.
+- **Postponed Until**: **Phase 3 (Enterprise Integration)**.
+- **Reasoning**: As long as OpenTrusty is the sole source of roles (RBAC), this coupling is efficient and harmless. Abstraction is only needed when roles come from LDAP/SCIM.
+
+### 3.3. Session ↔ Cookie Coupling
+- **Issue**: Login handler only sets cookies, doesn't return Session ID in JSON.
+- **Postponed Until**: **Phase 4 (Developer Experience / CLI)**.
+- **Reasoning**: Browsers (primary target for Phase 1-3) handle cookies natively. CLI/Mobile support is a later concern.
+
+---
+
+## 4. Never Fix (Intentional Constraints)
+*"Fake" issues that are actually design choices.*
+
+### 4.1. Stateful Sessions (No JWT)
+- **Observation**: Primary sessions require a DB lookup.
+- **Decision**: **Keep as is.**
+- **Reasoning**: Immediate revocation is a core security requirement (Rule 5.1). Stateless JWT sessions prevent this.
+
+### 4.2. Lack of "Magic Link" / Proprietary Login APIs
+- **Observation**: Login is strict OAuth2 or Basic Auth.
+- **Decision**: **Keep as is.**
+- **Reasoning**: Adherence to RFC specs (Rule 3.1) prevents vendor lock-in and security drift.
+</script>
+    <script>
+        var raw = document.getElementById('md-content').textContent;
+        if (raw && raw.trim().length > 0) {
+            document.getElementById('content').innerHTML = marked.parse(raw);
+        }
+        if (API_MODE) {
+            var specPath = basePath + '/openapi.json';
+            var contentRoot = document.getElementById('content');
+            
+            Redoc.init(specPath, {
+                expandResponses: '200,201',
+                requiredPropsFirst: true,
+                showExtensions: true,
+                scrollYOffset: 0,
+                hideDownloadButton: false,
+                theme: {
+                    colors: {
+                        primary: { main: '#059669' },
+                        text: { primary: '#334155' }
+                    },
+                    typography: {
+                        fontFamily: 'Inter, sans-serif',
+                        headings: {
+                            fontFamily: 'Montserrat, sans-serif'
+                        }
+                    },
+                    rightPanel: {
+                        backgroundColor: '#0f172a'
+                    }
+                }
+            }, contentRoot);
+            
+            var wrapper = document.querySelector('.content-wrapper');
+            wrapper.style.padding = '0';
+            wrapper.style.maxWidth = 'none';
+            wrapper.style.marginLeft = '300px';
+            wrapper.style.backgroundColor = '#ffffff';
+        }
+    </script>
+</body>
+</html>
