@@ -24,7 +24,8 @@ const docsConfig = {
             path: "security",
             items: [
                 { title: "Threat Model", file: "docs/security/threat-model.md" },
-                { title: "Security Assumptions", file: "docs/security/security-assumptions.md" }
+                { title: "Security Assumptions", file: "docs/security/security-assumptions.md" },
+                { title: "System Audit Report", file: "docs/system-audit-report.md" }
             ]
         },
         {

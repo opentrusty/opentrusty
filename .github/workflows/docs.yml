@@ -90,7 +90,8 @@ jobs:
       - name: Prepare reports for build
         run: |
           echo "🔍 Diagnostic: Listing downloaded artifacts..."
-          ls -R artifacts/tests
+          mkdir -p artifacts/tests
+          ls -R artifacts/tests || echo "No artifacts found"
           
           mkdir -p docs/testing
           
