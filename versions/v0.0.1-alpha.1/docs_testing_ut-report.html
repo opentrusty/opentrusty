@@ -1,0 +1,362 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unit Test Report - OpenTrusty Docs</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/redoc/bundles/redoc.standalone.js"></script>
+    <script>
+        var API_MODE = "false" === "true";
+        var basePath = API_MODE ? ".." : "."; 
+    </script>
+    <style>
+        :root {
+            --primary: #059669; /* Emerald 600 - Reliable Tech */
+            --primary-dark: #065F46; /* Logo Color - Steady */
+            --bg: #f8fafc; /* Content BG - Slate 50 */
+            --sidebar-bg: #041e1a; /* Very Deep Emerald - Tech/Steady */
+            --text: #0f172a; /* Slate 900 */
+            --text-muted: #64748b; /* Slate 500 */
+            --sidebar-text: #f0fdf4; /* Emerald 50 */
+            --sidebar-text-muted: #94a3b8;
+            --border: rgba(6, 95, 70, 0.1);
+        }
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            display: flex;
+            min-height: 100vh;
+        }
+        .sidebar {
+            width: 300px;
+            background: var(--sidebar-bg);
+            border-right: 1px solid rgba(255,255,255,0.05);
+            padding: 2.5rem 2rem;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            color: var(--sidebar-text);
+        }
+        .logo {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 1.25rem;
+            margin-bottom: 3rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            color: #fff;
+            text-decoration: none;
+            font-weight: 700;
+        }
+        .logo svg { flex-shrink: 0; }
+        
+        .nav-section { margin-bottom: 2rem; }
+        .nav-title {
+            text-transform: uppercase;
+            font-size: 0.7rem;
+            letter-spacing: 0.1rem;
+            color: var(--sidebar-text-muted);
+            margin-bottom: 1rem;
+            font-weight: 700;
+        }
+        .nav-link {
+            display: block;
+            padding: 0.6rem 0;
+            color: var(--sidebar-text-muted);
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            border-left: 2px solid transparent;
+            padding-left: 0;
+        }
+        .nav-link:hover { 
+            color: #fff; 
+            padding-left: 0.5rem;
+        }
+        .nav-link.active { 
+            color: var(--primary); 
+            font-weight: 600; 
+            border-left: 2px solid var(--primary);
+            padding-left: 0.75rem;
+        }
+
+        .content-wrapper {
+            margin-left: 300px;
+            flex: 1;
+            padding: 5rem 6rem;
+            max-width: 1200px;
+            min-height: 100vh;
+        }
+        .markdown-body { 
+            line-height: 1.8; 
+            font-size: 1.05rem;
+            color: #334155;
+        }
+        .markdown-body h1 { 
+            font-family: 'Montserrat', sans-serif; 
+            margin-bottom: 2.5rem; 
+            color: var(--primary-dark);
+            font-weight: 700;
+            font-size: 2.5rem;
+            letter-spacing: -0.02em;
+        }
+        .markdown-body h2 {
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 0.5rem;
+            margin-top: 3rem;
+            color: var(--primary-dark);
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 600;
+        }
+        .markdown-body p { margin-bottom: 1.5rem; }
+        .markdown-body pre { 
+            background: #0f172a; 
+            padding: 1.5rem; 
+            border-radius: 12px; 
+            border: 1px solid var(--border); 
+            overflow-x: auto;
+            color: #e2e8f0;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+        }
+        .markdown-body code {
+            background: rgba(5, 150, 105, 0.05);
+            color: var(--primary-dark);
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+        .markdown-body pre code {
+            background: transparent;
+            color: inherit;
+            padding: 0;
+        }
+        
+        .version-selector {
+            margin-top: auto;
+            padding-top: 2rem;
+            border-top: 1px solid rgba(255,255,255,0.05);
+        }
+        select {
+            background: rgba(255,255,255,0.05);
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.1);
+            padding: 0.6rem;
+            border-radius: 8px;
+            width: 100%;
+            cursor: pointer;
+            font-size: 0.85rem;
+            appearance: none;
+            outline: none;
+        }
+        select:hover {
+            background: rgba(255,255,255,0.08);
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <a href="/" class="logo" onclick="event.preventDefault(); window.location.href=basePath + '/index.html'">
+            <svg width="28" height="28" viewBox="0 0 90 90" xmlns="http://www.w3.org/2000/svg">
+                <rect width="90" height="90" rx="20" fill="#065F46" />
+                <path d="M15,25 H75 V40 H53 V70 H37 V40 H15 Z" fill="white" />
+                <rect x="37" y="73" width="16" height="4" rx="1" fill="white" opacity="0.6" />
+            </svg>
+            OpenTrusty
+        </a>
+        <nav><div class="nav-section"><div class="nav-title">Architecture</div><a href="docs_architecture_architecture-rules.html" class="nav-link ">Architecture Rules</a><a href="docs_architecture_domain-model.html" class="nav-link ">Domain Model</a><a href="docs_architecture_runtime-assumptions.html" class="nav-link ">Runtime Assumptions</a><a href="docs_architecture_docs-publication.html" class="nav-link ">Docs Publication</a></div><div class="nav-section"><div class="nav-title">Protocols</div><a href="docs_domain_identity-model.html" class="nav-link ">Identity Model</a><a href="docs_architecture_protocol-boundary.html" class="nav-link ">Protocol Boundary</a><a href="docs_architecture_protocol-error-model.html" class="nav-link ">Error Model</a></div><div class="nav-section"><div class="nav-title">Security</div><a href="docs_security_threat-model.html" class="nav-link ">Threat Model</a><a href="docs_security_security-assumptions.html" class="nav-link ">Security Assumptions</a><a href="docs_system-audit-report.html" class="nav-link ">System Audit Report</a></div><div class="nav-section"><div class="nav-title">Deployment</div><a href="docs_fundamentals_deployment-philosophy.html" class="nav-link ">Deployment Philosophy</a><a href="docs_fundamentals_storage-model.html" class="nav-link ">Storage Model</a><a href="docs_deployment_OPERATIONS.html" class="nav-link ">Operations Guide</a><a href="docs_operations_bootstrap.html" class="nav-link ">Operations Manual</a><a href="deploy_systemd_README.html" class="nav-link ">Systemd Guide</a></div><div class="nav-section"><div class="nav-title">Roadmap</div><a href="docs_roadmap_evolution-roadmap.html" class="nav-link ">Evolution Roadmap</a><a href="docs_roadmap_tech-debt-strategy.html" class="nav-link ">Tech Debt Strategy</a></div><div class="nav-section"><div class="nav-title">API</div><a href="api/index.html" class="nav-link ">Interactive Reference</a></div><div class="nav-section"><div class="nav-title">Testing & Quality</div><a href="docs_testing_ut-report.html" class="nav-link active">Unit Test Report</a><a href="docs_testing_st-report.html" class="nav-link ">System Test Report</a><a href="docs_testing_e2e-report.html" class="nav-link ">E2E Test Report</a><a href="docs_testing_test-annotation-standard.html" class="nav-link ">Annotation Standard</a></div></nav>
+        <div class="version-selector">
+            <div class="nav-title">Release Version</div>
+            <select id="v-select" onchange="window.location.href=this.value"><option value="/versions/v0.0.1-alpha.1/" selected>v0.0.1-alpha.1</option><option value="/versions/v0.0.1-alpha.1/" selected>v0.0.1-alpha.1</option></select>
+        </div>
+    </div>
+    <main class="content-wrapper">
+        <div id="content" class="markdown-body"></div>
+    </main>
+    <script id="md-content" type="text/template"># OpenTrusty Unit Test Report
+
+**Generated:** 2025-12-24 16:01:12 UTC  
+**Status:** ✅ PASSED
+
+## Summary
+
+| Total | Passed | Failed | Skipped | Pass Rate |
+|-------|--------|--------|---------|-----------|
+| 77 | 65 | 0 | 4 | 84.4% |
+
+## Test Results by Category
+
+### AuthN
+
+| ID | Test Name | Status | Purpose | Security |
+|----|-----------|--------|---------|----------|
+| IDN-01 | TestIdentity_Service_Authenticate | ✅ | Validates the user authentication flow, including success, failure, and account lockout after multiple failed attempts. | **Authentication mechanisms and Brute-force protection (lockout)** |
+| IDN-02 | TestIdentity_Service_ProvisionIdentity_Conflict | ✅ | Validates that provisioning an identity fails if a user with the same email already exists in the same tenant. | **Data Integrity and Unique Constraint Enforcement** |
+
+### AuthZ
+
+| ID | Test Name | Status | Purpose | Security |
+|----|-----------|--------|---------|----------|
+|  | TestAuthz_Role_HasPermission/tenant_member_does_not_have_manage_users | ✅ | Validates the HasPermission method on the Role struct for various scenarios (wildcards, direct matches). (Subtest: TestAuthz_Role_HasPermission/tenant_member_does_not_have_manage_users) |  |
+|  | TestAuthz_Role_HasPermission/tenant_admin_has_manage_users | ✅ | Validates the HasPermission method on the Role struct for various scenarios (wildcards, direct matches). (Subtest: TestAuthz_Role_HasPermission/tenant_admin_has_manage_users) |  |
+| AUT-04 | TestAuthz_Scope_TenantAdminVsTenantMember | ✅ | Validates that Tenant Admin privileges are correctly authorized while Tenant Member privileges are restricted within the same tenant. | **RBAC Permission Enforcement** |
+|  | TestAuthz_Role_HasPermission/tenant_member_has_view | ✅ | Validates the HasPermission method on the Role struct for various scenarios (wildcards, direct matches). (Subtest: TestAuthz_Role_HasPermission/tenant_member_has_view) |  |
+| AUT-03 | TestAuthz_Scope_PlatformAdminVsTenantAdmin | ✅ | Validates that Platform Admin privileges are scoped to the platform and strictly completely isolated from Tenant Admin privileges where appropriate (and vice versa). | **RBAC Scope Isolation (prevents vertical privilege escalation)** |
+|  | TestAuthz_Role_HasPermission/platform_admin_has_wildcard | ✅ | Validates the HasPermission method on the Role struct for various scenarios (wildcards, direct matches). (Subtest: TestAuthz_Role_HasPermission/platform_admin_has_wildcard) |  |
+| AUT-06 | TestAuthz_Role_HasPermission | ✅ | Validates the HasPermission method on the Role struct for various scenarios (wildcards, direct matches). | **Core logic for permission checking** |
+| AUT-05 | TestAuthz_Isolation_CrossTenantAccessDenied | ✅ | Validates that a user with admin privileges in Tenant A cannot perform actions in Tenant B. | **Multi-tenancy Data Isolation (prevents lateral movement / horizontal privilege escalation)** |
+
+### Tenant
+
+| ID | Test Name | Status | Purpose | Security |
+|----|-----------|--------|---------|----------|
+|  | TestTenant_Isolation_AssignInvalidRole_ReturnsError | ✅ | Validates that non-defined role names are rejected to prevent arbitrary privilege assignment. | **Unauthorized privilege escalation prevention** |
+|  | TestTenant_Service_CreateTenant_UUIDv7 | ✅ | Validates that tenant creation correctly generates IDs using UUIDv7 for temporal ordering. | **Traceability and unique identification of tenants** |
+|  | TestTenant_Isolation_TenantIDMustBePresent/GetTenant_EmptyTenantID_ReturnsError | ✅ | Validates that tenant-scoped operations strictly require a non-empty tenant ID to prevent global data exposure. (Subtest: TestTenant_Isolation_TenantIDMustBePresent/GetTenant_EmptyTenantID_ReturnsError) |  |
+|  | TestTenant_Isolation_TenantIDMustBePresent | ✅ | Validates that tenant-scoped operations strictly require a non-empty tenant ID to prevent global data exposure. | **Multi-tenant boundary enforcement** |
+|  | TestTenant_Isolation_GetUserRoles_ReturnsAllRoles | ✅ | Validates that retrieval of user roles returns all roles assigned to that user in a specific tenant. | **RBAC role transparency** |
+|  | TestTenant_Isolation_RevokeRole_ValidRole_Succeeds | ✅ | Validates that role revocation works for valid roles. | **Revocation enforcement** |
+|  | TestTenant_Isolation_AssignValidRole_Succeeds | ✅ | Validates that defined role constants are correctly accepted for assignment. | **RBAC data integrity** |
+|  | TestTenant_Isolation_RoleValidation_OnlyAcceptsDefinedConstants | ✅ | Validates that only defined tenant role constants (RoleTenantOwner, RoleTenantAdmin, RoleTenantMember) are accepted. | **Role name validation logic** |
+
+### OAuth2
+
+| ID | Test Name | Status | Purpose | Security |
+|----|-----------|--------|---------|----------|
+|  | TestOAuth2_Service_ExchangeCodeForToken_Success | ✅ | Validates a successful OAuth2 authorization code exchange for tokens, including ID token generation. | **OAuth2 Authorization Code Grant flow (RFC 6749 Section 4.1.3)** |
+|  | TestOAuth2_Service_ExchangeCodeForToken_Replay | ✅ | Validates that an authorization code cannot be reused for token exchange (replay prevention). | **Authorization code replay attack prevention** |
+|  | TestOAuth2_Service_ExchangeCodeForToken_Expired | ✅ | Validates that an expired authorization code cannot be exchanged for tokens. | **Temporary credential lifecycle enforcement** |
+|  | TestOAuth2_Service_ExchangeCodeForToken_PKCEFailure | ✅ | Validates that OAuth2 code exchange fails if the PKCE code verifier does not match the challenge. | **PKCE enforcement (RFC 7636) to prevent code injection/interception** |
+
+### OIDC
+
+| ID | Test Name | Status | Purpose | Security |
+|----|-----------|--------|---------|----------|
+|  | TestOIDC_Claims_AtHashCorrectness_AtHashIsCorrectlyComputed | ✅ | Verifies that at_hash is computed as the base64url encoding of the left-most half of the SHA-256 hash of the access token. | **Token Binding Verification (OIDC Core Section 3.1.3.6)** |
+|  | TestOIDC_Service_GetDiscoveryMetadata | ✅ | Validates that the discovery metadata matches the service configuration and OIDC standards. | **Exposure of correct OIDC endpoints and supported algorithms** |
+|  | TestOIDC_Claims_IssuerMatch | ✅ | Verifies that the iss claim matches the service issuer configuration. | **Trust Root Verification** |
+|  | TestOIDC_Service_GetJWKS | ✅ | Validates that the JWKS (JSON Web Key Set) correctly exposes the public key for token verification. | **Public key distribution for signature verification** |
+|  | TestOIDC_Claims_AudienceMatch | ✅ | Verifies that the aud claim matches the client ID. | **Intended Audience Verification** |
+|  | TestOIDC_Claims_SubClaimStability_DifferentUserProducesDifferentSub | ✅ | Verifies that different users in the same tenant produce different sub values. | **Identity Uniqueness** |
+|  | TestOIDC_Claims_SubClaimStability_SameTenantAndUserProduceSameSub | ✅ | Verifies that the sub (subject) claim is deterministic: the same (tenant, user) pair always produces the same sub value. | **Identity Stability (prevents account fragmentation)** |
+|  | TestNoncePropagation_NonceIsOmittedWhenEmpty | ✅ |  |  |
+|  | TestAtHashCorrectness_AtHashIsOmittedWhenNoAccessToken | ✅ |  |  |
+|  | TestOIDC_Claims_NoncePropagation_NonceIsIncludedWhenProvided | ✅ | Verifies that the nonce claim is included in the ID token when provided (OIDC Core Section 3.1.2.1). | **Replay Attack Prevention** |
+|  | TestOIDC_Claims_SubClaimStability_DifferentTenantProducesDifferentSub | ✅ | Verifies that different tenants produce different sub values, even for the same user ID (Pairwise ID-like behavior). | **Multi-tenant Privacy and Isolation** |
+|  | TestOIDC_Service_GenerateIDToken | ✅ | Validates the generation of OIDC ID tokens, ensuring correct claims (iss, aud, sub, at_hash, nonce) and header (kid). | **OIDC compliance and cryptographic integrity of ID tokens** |
+
+### Audit
+
+| ID | Test Name | Status | Purpose | Security |
+|----|-----------|--------|---------|----------|
+|  | TestAudit_IsSecret/user_id | ✅ | Validates that sensitive keys are correctly identified as secrets to prevent them from being logged in plaintext. (Subtest: TestAudit_IsSecret/user_id) |  |
+|  | TestAudit_IsSecret/tenant_id | ✅ | Validates that sensitive keys are correctly identified as secrets to prevent them from being logged in plaintext. (Subtest: TestAudit_IsSecret/tenant_id) |  |
+|  | TestAudit_IsSecret/email | ✅ | Validates that sensitive keys are correctly identified as secrets to prevent them from being logged in plaintext. (Subtest: TestAudit_IsSecret/email) |  |
+|  | TestAudit_IsSecret/Password | ✅ | Validates that sensitive keys are correctly identified as secrets to prevent them from being logged in plaintext. (Subtest: TestAudit_IsSecret/Password) |  |
+|  | TestAudit_IsSecret/access_token | ✅ | Validates that sensitive keys are correctly identified as secrets to prevent them from being logged in plaintext. (Subtest: TestAudit_IsSecret/access_token) |  |
+|  | TestAudit_IsSecret/hash | ✅ | Validates that sensitive keys are correctly identified as secrets to prevent them from being logged in plaintext. (Subtest: TestAudit_IsSecret/hash) |  |
+|  | TestAudit_IsSecret/credential | ✅ | Validates that sensitive keys are correctly identified as secrets to prevent them from being logged in plaintext. (Subtest: TestAudit_IsSecret/credential) |  |
+|  | TestAudit_IsSecret/secret | ✅ | Validates that sensitive keys are correctly identified as secrets to prevent them from being logged in plaintext. (Subtest: TestAudit_IsSecret/secret) |  |
+|  | TestAudit_IsSecret/token | ✅ | Validates that sensitive keys are correctly identified as secrets to prevent them from being logged in plaintext. (Subtest: TestAudit_IsSecret/token) |  |
+|  | TestAudit_IsSecret/status | ✅ | Validates that sensitive keys are correctly identified as secrets to prevent them from being logged in plaintext. (Subtest: TestAudit_IsSecret/status) |  |
+|  | TestAudit_IsSecret/password_hash | ✅ | Validates that sensitive keys are correctly identified as secrets to prevent them from being logged in plaintext. (Subtest: TestAudit_IsSecret/password_hash) |  |
+|  | TestAudit_IsSecret/PASSWORD | ✅ | Validates that sensitive keys are correctly identified as secrets to prevent them from being logged in plaintext. (Subtest: TestAudit_IsSecret/PASSWORD) |  |
+|  | TestAudit_IsSecret/api_key | ✅ | Validates that sensitive keys are correctly identified as secrets to prevent them from being logged in plaintext. (Subtest: TestAudit_IsSecret/api_key) |  |
+| AUD-01 | TestAudit_IsSecret | ✅ | Validates that sensitive keys are correctly identified as secrets to prevent them from being logged in plaintext. | **Data Masking and Leakage Prevention (CWE-532)** |
+|  | TestAudit_IsSecret/password | ✅ | Validates that sensitive keys are correctly identified as secrets to prevent them from being logged in plaintext. (Subtest: TestAudit_IsSecret/password) |  |
+|  | TestAudit_IsSecret/private_key | ✅ | Validates that sensitive keys are correctly identified as secrets to prevent them from being logged in plaintext. (Subtest: TestAudit_IsSecret/private_key) |  |
+
+### Auth API
+
+| ID | Test Name | Status | Purpose | Security |
+|----|-----------|--------|---------|----------|
+| REG-02 | TestAuth_Register_EmptyEmail_ReturnsBadRequest | ✅ | Validates that registration fails with a 400 Bad Request if the email is empty. | **Input sanitization boundary check** |
+| LGN-06B | TestAuth_Login_MalformedJSON_ReturnsBadRequest | ✅ | Validates that malformed JSON in the login request is rejected safely. | **JSON parsing safety (prevents parser exploits)** |
+| REG-04 | TestAuth_Register_WeakPassword_ReturnsBadRequest | ✅ | Validates that passwords below the minimum length (8 chars) are rejected. | **Password strength validation (prevents weak credentials)** |
+| LGN-05 | TestAuth_Login_EmptyBody_ReturnsBadRequest | ✅ | Validates that empty request bodies for login are rejected with 400 Bad Request. | **Request body parsing and validation** |
+| AUT-02 | TestOAuth2_Authorize_MissingClientID_ReturnsBadRequest | ⏭️ | Validates that the authorize endpoint requires a client_id parameter. | **OAuth2 parameter validation (RFC 6749)** |
+|  | TestTenant_Create_AuthorizationEnforcement/Forbidden_for_non-admin | ✅ | Validates authorization rules for creating tenants (only platform admins). (Subtest: TestTenant_Create_AuthorizationEnforcement/Forbidden_for_non-admin) |  |
+| TEN-07 | TestTenant_Create_AuthorizationEnforcement | ✅ | Validates authorization rules for creating tenants (only platform admins). | **RBAC enforcement (prevents unauthorized tenant creation)** |
+| TKN-11 | TestOAuth2_Token_UnsupportedGrantType_ReturnsBadRequest | ⏭️ | Validates that unsupported grant types are rejected. | **OAuth2 grant type validation (RFC 6749)** |
+|  | TestTenant_Create_AuthorizationEnforcement/Success_for_platform_admin | ✅ | Validates authorization rules for creating tenants (only platform admins). (Subtest: TestTenant_Create_AuthorizationEnforcement/Success_for_platform_admin) |  |
+
+### Tenant API
+
+| ID | Test Name | Status | Purpose | Security |
+|----|-----------|--------|---------|----------|
+| ROL-03 | TestTenant_AssignRole_EmptyRole_ReturnsBadRequest | ⏭️ | Validates that assigning a role requires a non-empty role name. | **Input validation** |
+| TEN-04 | TestTenant_Create_EmptyName_ReturnsBadRequest | ⏭️ | Validates that creating a tenant requires a non-empty name. | **Input validation** |
+| PRO-05 | TestHTTP_Protocol_CrossTenant_Negative | ✅ | Validates that a session for Tenant A cannot be used to access Tenant B resources through the HTTP middleware. | **Horizontal privilege escalation prevention (Cross-tenant access)** |
+
+### API
+
+| ID | Test Name | Status | Purpose | Security |
+|----|-----------|--------|---------|----------|
+| PRO-03 | TestHTTP_Protocol_Token_BadRequest | ✅ | Validates that the token endpoint rejects invalid requests with a 400 Bad Request or 401 Unauthorized. | **Token endpoint protection** |
+| PRO-02 | TestHTTP_Protocol_JWKS | ✅ | Validates that the JWKS endpoint correctly serves public keys for token verification. | **Public key distribution for signature validation** |
+| PRO-01 | TestHTTP_Protocol_Discovery | ✅ | Validates that the OIDC discovery endpoint returns correct configuration for clients. | **Secure discovery of OIDC endpoints** |
+| SEC-10 | TestSecurity_Headers_JSONContentTypeIsSet | ✅ | Validates that JSON responses include the application/json Content-Type header. | **Prevents MIME sniffing attacks** |
+| PRO-04 | TestHTTP_Protocol_HappyPath_Flow | ✅ | Validates a full OAuth2 authorization code flow from code creation to token exchange via HTTP. | **End-to-end OAuth2 protocol correctness (RFC 6749)** |
+| SEC-02 | TestSecurity_ErrorHandling_NoSensitiveDataIsLeaked | ✅ | Validates that error responses do not leak sensitive internal details (stack traces, paths). | **Information disclosure prevention (CWE-209)** |
+| SEC-05B | TestSecurity_HealthCheck_ReturnsValidJSON | ✅ | Validates that the health check endpoint returns valid JSON with the expected structure. | **Validates safe response format** |
+
+### Other
+
+| ID | Test Name | Status | Purpose | Security |
+|----|-----------|--------|---------|----------|
+|  | TestUserRepository_TenantIsolation | ⚪ |  |  |
+
+---
+*Report generated by OpenTrusty Test Infrastructure*
+</script>
+    <script>
+        var raw = document.getElementById('md-content').textContent;
+        if (raw && raw.trim().length > 0) {
+            document.getElementById('content').innerHTML = marked.parse(raw);
+        }
+        if (API_MODE) {
+            var specPath = basePath + '/openapi.json';
+            var contentRoot = document.getElementById('content');
+            
+            Redoc.init(specPath, {
+                expandResponses: '200,201',
+                requiredPropsFirst: true,
+                showExtensions: true,
+                scrollYOffset: 0,
+                hideDownloadButton: false,
+                theme: {
+                    colors: {
+                        primary: { main: '#059669' },
+                        text: { primary: '#334155' }
+                    },
+                    typography: {
+                        fontFamily: 'Inter, sans-serif',
+                        headings: {
+                            fontFamily: 'Montserrat, sans-serif'
+                        }
+                    },
+                    rightPanel: {
+                        backgroundColor: '#0f172a'
+                    }
+                }
+            }, contentRoot);
+            
+            var wrapper = document.querySelector('.content-wrapper');
+            wrapper.style.padding = '0';
+            wrapper.style.maxWidth = 'none';
+            wrapper.style.marginLeft = '300px';
+            wrapper.style.backgroundColor = '#ffffff';
+        }
+    </script>
+</body>
+</html>
