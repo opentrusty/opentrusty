@@ -319,12 +319,16 @@ func parseTestOutput(path string, meta map[string]TestMetadata) []FinalTestResul
 						Name:    event.Test,
 						Package: event.Package,
 						Annotations: TestMetadata{
-							Name:     event.Test,
-							Package:  event.Package,
-							Category: parentMeta.Category,
-							Type:     parentMeta.Type,
-							Purpose:  parentMeta.Purpose + " (Subtest: " + event.Test + ")",
-							Scope:    parentMeta.Scope,
+							Name:        event.Test,
+							Package:     event.Package,
+							Category:    parentMeta.Category,
+							Type:        parentMeta.Type,
+							Purpose:     parentMeta.Purpose + " (Subtest: " + event.Test + ")",
+							Scope:       parentMeta.Scope,
+							Security:    parentMeta.Security,
+							Expected:    parentMeta.Expected,
+							Permissions: parentMeta.Permissions,
+							TestCaseID:  parentMeta.TestCaseID,
 						},
 					}
 					testStates[key] = res

@@ -78,6 +78,11 @@ func (c *TestClient) Do(method, path string, body any) (*http.Response, error) {
 	return c.httpClient.Do(req)
 }
 
+// TestPurpose: Validates complete end-to-end workflows including platform bootstrapping, tenant creation, user provisioning, and OIDC token exchange.
+// Scope: E2E Test
+// Security: Full System Integration and Security Boundary Validation
+// Expected: Successful completion of admin and end-user OIDC flows across all system components.
+// Test Case ID: E2E-01
 func TestE2E_Workflows(t *testing.T) {
 	ctx := context.Background()
 	_ = ctx

@@ -47,9 +47,8 @@ jobs:
             RI="false"; RE2E="false"; RS="false"; RSEC="false"
             
             case "$LEVEL" in
-              alpha) RI="false"; RE2E="false"; RS="false"; RSEC="false" ;;
-              beta)  RI="true";  RE2E="true";  RS="false"; RSEC="false" ;;
-              rc|ga) RI="true";  RE2E="true";  RS="true";  RSEC="true"  ;;
+              alpha|beta) RI="false"; RE2E="false"; RS="false"; RSEC="false" ;;
+              rc|ga)      RI="true";  RE2E="true";  RS="true";  RSEC="true"  ;;
             esac
             
             echo "require_integration=$RI" >> $GITHUB_OUTPUT
