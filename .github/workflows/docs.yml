@@ -86,13 +86,25 @@ jobs:
         with:
           run-id: ${{ github.event.workflow_run.id }}
           path: reports_download
+          github-token: ${{ github.token }}
         continue-on-error: true
 
       - name: Prepare reports for build
         run: |
-          echo "🔍 Diagnostic: Listing downloaded artifacts..."
+          echo "🔍 Diagnostic: Introspecting Workflow Run..."
+          echo "  Run ID: ${{ github.event.workflow_run.id }}"
+          echo "  Run Conclusion: ${{ github.event.workflow_run.conclusion }}"
+          echo "  Head Branch: ${{ github.event.workflow_run.head_branch }}"
+          
+          echo "🔍 Diagnostic: Verifying artifacts via API..."
+          curl -H "Authorization: Bearer ${{ github.token }}" \
+               -H "Accept: application/vnd.github+json" \
+               "https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.event.workflow_run.id }}/artifacts" \
+               | jq '.artifacts[]? | .name + " (" + (.size_in_bytes|string) + " bytes)"' || echo "Failed to list artifacts via API"
+
+          echo "🔍 Diagnostic: Listing downloaded directory..."
           mkdir -p reports_download
-          ls -R reports_download || echo "No artifacts found"
+          ls -R reports_download || echo "No artifacts found locally"
           
           mkdir -p docs/testing
           
