@@ -39,3 +39,21 @@ Any code change that violates these invariants is **forbidden**.
 -   **MUST NOT** assume UI visibility equals authorization.
 -   **MUST NOT** rely on client-side validation for security decisions.
 
+## 6. Repository Scope Invariants
+
+-   **AI MUST** recognize this repository represents ONLY:
+    -   Authentication Plane (OIDC/OAuth2 endpoints, login pages)
+    -   Management API Plane (REST admin APIs)
+-   **AI MUST NOT** add Control Panel UI code, SPA assets, or frontend build systems to this repository.
+-   **AI MUST NOT** add admin SPA routes or static file serving.
+-   **AI MUST** treat any reference to UI as an external, untrusted client.
+-   **AI MUST** ensure all UI interactions occur ONLY via Management API.
+
+## 7. Protocol Surface Invariants
+
+Login pages are **NOT** UI components. They are protocol surfaces.
+
+-   **MUST** be server-rendered within the core binary.
+-   **MUST** belong to the Authentication Plane.
+-   **MUST NOT** be served from or delegated to the Control Panel UI.
+-   **MAY** be customized via tenant branding configuration.

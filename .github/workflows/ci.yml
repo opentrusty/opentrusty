@@ -78,9 +78,8 @@ jobs:
   # 3. E2E Tests - Full Docker environment
   test-e2e:
     name: Docker E2E Tests
-    # Only run E2E on main merge or tags to save CI time, 
-    # but could be run on PRs if requested.
-    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    # Only run E2E on main merge to save CI time.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: test-st
     runs-on: ubuntu-latest
     steps:

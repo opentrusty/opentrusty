@@ -50,5 +50,44 @@ This repository is the **Core Identity Provider** (headless backend).
 The **Control Panel UI** lives in a separate repository (`opentrusty-control-panel`).
 It is an **untrusted API client**. All enforcement happens server-side.
 
+## 5. System Planes
+
+This repository represents **TWO** logical planes ONLY:
+
+### 5.1. Authentication Plane (`auth.*`)
+-   OIDC/OAuth2 protocol endpoints
+-   Server-rendered login, consent, and error pages
+-   Session cookie management
+-   AI MUST treat login pages as **protocol surfaces**, NOT as UI components
+
+### 5.2. Management API Plane (`api.*`)
+-   REST APIs for tenant, user, client, and policy management
+-   Consumed by Control Panel UI, CLI tools, and automation
+-   AI MUST treat all consumers as **untrusted external clients**
+
+### 5.3. Control Panel UI (`console.*`) — NOT IN THIS REPO
+-   Lives in `opentrusty-control-panel` repository
+-   AI MUST NOT add any Control Panel UI code to this repository
+-   AI MUST interact with UI ONLY via Management API references
+
+## 6. Cross-Repo Contract Awareness
+
+**AI MUST** be aware of the `docs/_ai/integration-contract.md` which binds this repository to `opentrusty-control-panel`.
+
+-   **Constraint**: Changes to the Management API (`api.*`) MUST be backward compatible or coordinated with Control Panel updates.
+-   **Constraint**: If you modify `auth.*` session logic, you MUST check if it breaks Control Panel's cookie assumption.
+
+## 7. Documentation Update Triggers
+
+**AI MUST update relevant `docs/_ai/` files when a change affects:**
+
+| Change Type | Files to Update |
+|-------------|-----------------|
+| Domain boundaries | `architecture-map.md` |
+| Tenant resolution logic | `invariants.md`, `authority-model.md` |
+| Protocol surface (endpoints, flows) | `protocol-scope.md` |
+| RBAC roles or scopes | `authority-model.md` |
+| New API endpoints | `update-matrix.md` |
+
 > **Status**: ACTIVE
 > **Last Updated**: 2025-12-26

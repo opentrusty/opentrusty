@@ -72,3 +72,41 @@ Documents defining the "rules of the game" and project management.
 Working documents, internal plans, and historical context that are not part of the public product.
 - **Location**: `docs/_internal/`.
 - **Policy**: Never published to the public documentation site. Used for developer context and audit trails of decision-making.
+
+## 9. System Planes & Deployment Boundaries
+
+OpenTrusty consists of three logical planes, each with distinct responsibilities and deployment characteristics.
+
+### 9.1. Authentication Plane (`auth.*`)
+The user-facing authentication surface.
+- **Endpoints**: OIDC/OAuth2 protocol endpoints (`/oauth2/authorize`, `/oauth2/token`, `/.well-known/*`)
+- **Pages**: End-user login, consent, and error pages (server-rendered)
+- **Security Domain**: Highest sensitivity; handles credentials and session cookies
+- **Deployment**: Part of the core binary
+
+### 9.2. Management API Plane (`api.*`)
+The programmatic administration surface.
+- **Endpoints**: REST APIs for tenant, user, client, and policy management
+- **Consumers**: Control Panel UI, CLI tools, automation scripts
+- **Security Domain**: Admin-scoped; requires authenticated sessions
+- **Deployment**: Part of the core binary
+
+### 9.3. Control Panel UI (`console.*`)
+The human-facing administrative interface.
+- **Technology**: Static SPA (React + TypeScript)
+- **Repository**: Separate repository (`opentrusty-control-panel`)
+- **Security Domain**: Untrusted client; all enforcement via Management API
+- **Deployment**: Separate artifact; NOT embedded in core binary
+
+### 9.4. Normative Constraints
+
+The following constraints are **binding** and MUST be enforced:
+
+| Constraint | Rule |
+|------------|------|
+| **UI Embedding** | The core repository MUST NOT contain SPA build pipelines, UI routing logic, or static admin UI assets |
+| **Binary Scope** | The core binary MUST expose only Authentication Plane and Management API Plane entrypoints |
+| **Login Pages** | Login, consent, and brand pages are part of the Authentication Plane and MUST remain server-rendered within the core binary |
+| **UI Separation** | The Control Panel UI MUST be deployed as a separate artifact from a separate repository |
+| **API Contract** | The Control Panel UI MUST interact with the core ONLY via documented Management API endpoints |
+

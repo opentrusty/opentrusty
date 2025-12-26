@@ -6,6 +6,12 @@ This document defines the **ONLY** allowed order of feature evolution for the Op
 1. **Security before Convenience**: Hardening takes precedence over ease of use.
 2. **Multi-tenancy before Federation**: Isolation must be perfect before external integrations are added.
 3. **Protocol before Experience**: The API must be standard-compliant before SDKs or UIs are built.
+4. **API before UI**: Management API endpoints MUST be stable before Control Panel UI depends on them.
+
+**Architectural Boundaries:**
+- **Authentication Plane**: OIDC/OAuth2 endpoints and server-rendered login pages (part of core binary)
+- **Management API Plane**: Admin REST APIs for tenant/user/client management (part of core binary)
+- **Control Panel UI**: Separate repository (`opentrusty-control-panel`), NOT embedded in core
 
 ---
 
@@ -21,9 +27,11 @@ This document defines the **ONLY** allowed order of feature evolution for the Op
 
 ### ❌ Explicitly Forbidden
 - **Social Login / Federation**: No "Login with Google" or upstream IdPs.
-- **Admin UI**: No graphical interface for management; API only.
+- **Control Panel UI**: No graphical admin interface in this repo; Management API only.
 - **SDKs**: No client libraries (Go/JS/Python clients); raw HTTP usage only.
 - **Registration APIs**: Public sign-up flows (invite-only for now).
+
+**Clarification**: Server-rendered login/consent pages belong to the **Authentication Plane** and are part of core. They are NOT "Admin UI".
 
 ---
 
@@ -40,7 +48,11 @@ This document defines the **ONLY** allowed order of feature evolution for the Op
 ### ❌ Explicitly Forbidden
 - **Cross-Tenant Sharing**: No "shared" users or roles (except System Super-Admin).
 - **Federation**: Still no upstream Identity Providers.
-- **Frontend Libraries**: No UI component kits.
+- **Control Panel UI Features**: No UI work until Management API is stable.
+
+**Phase 2 Enables**:
+- **Branding Metadata API**: Endpoints for tenant-customizable login page branding.
+- Login page branding is **Authentication Plane** (server-rendered), not Control Panel.
 
 ---
 
@@ -54,8 +66,13 @@ This document defines the **ONLY** allowed order of feature evolution for the Op
 - **Enterprise Features**: LDAP/Active Directory connectors, Group syncing.
 
 ### ❌ Explicitly Forbidden
-- **Proprietary UI**: No "Hosted Login Page" logic that isn't purely template-driven.
+- **Proprietary UI Logic**: No hosted login page logic that isn't template-driven.
 - **Convenience SDKs**: Still relying on standard OIDC libraries.
+- **Control Panel UI Coupling**: UI remains separate artifact; no embedding.
+
+**Phase 3 Enables**:
+- **Branding Templates**: Server-side templates for login/consent pages.
+- **Management API Stability**: API surface considered stable for UI consumption.
 
 ---
 
@@ -65,9 +82,14 @@ This document defines the **ONLY** allowed order of feature evolution for the Op
 
 ### ✅ Allowed work
 - **Official SDKs**: Thin wrappers around standard OIDC flows for major languages.
-- **UI Kits**: React/Vue/Web Component libraries for login forms.
-- **Admin Dashboard**: A canonical web interface for managing tenants and users.
+- **Control Panel UI**: Full admin dashboard in `opentrusty-control-panel` repository.
+- **UI DX Improvements**: React/Vue/Web Component libraries for login forms (in UI repo).
 - **CLI Tool**: A developer CLI for managing the instance.
+
+### Dependencies
+- Control Panel UI MUST consume stable Management API (Phase 3+).
+- Control Panel UI is a **separate deployment artifact**, never embedded in core.
 
 ### ❌ Explicitly Forbidden
 - **Non-Standard Protocol Extensions**: No "magic" proprietary APIs that bypass OAuth2 flows for convenience.
+- **UI in Core**: Control Panel code MUST NOT be added to `opentrusty` repository.

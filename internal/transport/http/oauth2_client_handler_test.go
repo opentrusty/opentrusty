@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -16,6 +17,10 @@ import (
 
 // TestListClients_Integration tests the client listing with proper tenant scoping
 func TestListClients_Integration(t *testing.T) {
+	// Set required encryption key for OAuth2 service
+	os.Setenv("OPENID_KEY_ENCRYPTION_KEY", "01234567890123456789012345678901")
+	defer os.Unsetenv("OPENID_KEY_ENCRYPTION_KEY")
+
 	// Setup repositories
 	mockClientRepo := &stubClientRepo{
 		clients: map[string]*oauth2.Client{
@@ -98,6 +103,10 @@ func TestListClients_Integration(t *testing.T) {
 
 // TestRegisterClient_Integration tests the client registration flow
 func TestRegisterClient_Integration(t *testing.T) {
+	// Set required encryption key for OAuth2 service
+	os.Setenv("OPENID_KEY_ENCRYPTION_KEY", "01234567890123456789012345678901")
+	defer os.Unsetenv("OPENID_KEY_ENCRYPTION_KEY")
+
 	mockClientRepo := &stubClientRepo{clients: make(map[string]*oauth2.Client)}
 
 	assignmentRepo := &stubAssignmentRepo{assignments: make(map[string]*authz.Assignment)}
@@ -157,6 +166,10 @@ func TestRegisterClient_Integration(t *testing.T) {
 
 // TestDeleteClient_Integration tests the client deletion flow
 func TestDeleteClient_Integration(t *testing.T) {
+	// Set required encryption key for OAuth2 service
+	os.Setenv("OPENID_KEY_ENCRYPTION_KEY", "01234567890123456789012345678901")
+	defer os.Unsetenv("OPENID_KEY_ENCRYPTION_KEY")
+
 	client := &oauth2.Client{ID: "c1", ClientID: "cid1", TenantID: "t1", ClientName: "Test Client"}
 	mockClientRepo := &stubClientRepo{
 		clients: map[string]*oauth2.Client{

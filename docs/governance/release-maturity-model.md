@@ -104,6 +104,10 @@ This document defines the formal Release Maturity Model for OpenTrusty. All rele
 
 **Failure Tolerance**: Beta releases MUST NOT be published with critical test failures. Non-critical failures require explicit acknowledgment in release notes.
 
+**Architectural Invariant**:
+- **No Embedded UI**: From Beta onwards, the auth binary MUST NOT embed the Admin UI.
+- **Separate Processes**: Deployment instructions MUST document multi-process setup.
+
 ### 2.3 RC Requirements (Full Gates + Checklist)
 
 | Gate | Status | Enforcement |

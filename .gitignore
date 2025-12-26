@@ -54,9 +54,6 @@ docs/api/docs.go
 docs/api/swagger.json
 docs/api/swagger.yaml
 
-AI_CONTRACT.md
-docs/_ai/
-
 # Test artifacts and raw data
 artifacts/
 *-raw.json

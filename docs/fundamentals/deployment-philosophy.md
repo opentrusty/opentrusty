@@ -36,5 +36,31 @@ OpenTrusty explicitly does **NOT** require the following:
 - **Kubernetes**: OpenTrusty is designed to be easy to manage without the overhead of heavy orchestration.
 - **Baked-in Configuration**: The system is configured via environment variables, allowing it to fit into any deployment secret management system (vault, cloud-init, etc.) without modification.
 
-## 5. Summary
+## 5. Control Panel Separation
+
+The **Control Panel UI** is **NOT** part of the core binary or this repository.
+
+### Normative Constraints
+
+| Rule | Description |
+|------|-------------|
+| **Separate Repository** | The Control Panel UI resides in `opentrusty-control-panel`, a distinct repository with its own release lifecycle |
+| **Separate Artifact** | The UI is deployed as a static SPA (React + TypeScript) serving on a distinct subdomain (e.g., `console.*`) |
+| **No Embedding** | The core binary MUST NOT embed, serve, or bundle UI assets, SPA build pipelines, or frontend routing logic |
+| **API-Only Interaction** | The Control Panel communicates with the core ONLY via the Management API (`api.*`) |
+
+### What the Core Binary MAY Expose
+
+The core binary MAY expose multiple entrypoints via configuration or subcommands:
+- **Authentication Entrypoint** (`auth.*`): OIDC/OAuth2 endpoints and server-rendered login pages
+- **Management API Entrypoint** (`api.*`): REST APIs for administration
+
+### Login / Brand Pages
+
+Login, consent, and error pages belong to the **Authentication Plane**. They:
+- MUST remain server-rendered within the core binary
+- MAY be customized via tenant branding configuration
+- MUST NOT be served from the Control Panel UI
+
+## 6. Summary
 Architecture is intent. OpenTrusty's intent is to be a fast, light, and independent piece of software that respects the host system and the operator's choice of environment.

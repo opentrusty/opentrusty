@@ -50,7 +50,6 @@ import (
 	"github.com/opentrusty/opentrusty/internal/oidc"
 	"github.com/opentrusty/opentrusty/internal/session"
 	"github.com/opentrusty/opentrusty/internal/tenant"
-	adminUI "github.com/opentrusty/opentrusty/ui/admin"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
@@ -110,7 +109,7 @@ func NewHandler(
 }
 
 // NewRouter creates a new HTTP router
-func NewRouter(h *Handler, rateLimiter *RateLimiter) *chi.Mux {
+func NewRouter(h *Handler, rateLimiter *RateLimiter, mode string) *chi.Mux {
 	r := chi.NewRouter()
 
 	// Middleware
@@ -127,102 +126,92 @@ func NewRouter(h *Handler, rateLimiter *RateLimiter) *chi.Mux {
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Timeout(60 * time.Second))
 
-	// Health check
+	// Health check (Available in all modes)
 	r.Get("/health", h.HealthCheck)
 
-	// Admin UI (Embedded)
-	adminFS, err := adminUI.GetDistFS()
-	if err != nil {
-		slog.Error("failed to load admin ui filesystem", logger.Error(err))
-	} else {
-		// Serve at /admin/
-		// We use http.StripPrefix because the SPAHandler expects paths relative to the root of dist.
-		r.Mount("/admin", http.StripPrefix("/admin", SPAHandler{StaticFS: adminFS}))
+	// Auth Mode Routes (OIDC, OAuth2, Login Pages)
+	if mode == "auth" || mode == "all" {
+		// OIDC Discovery & JWKS (Phase II.2)
+		r.Get("/.well-known/openid-configuration", h.Discovery)
+		r.Get("/jwks.json", h.JWKS)
+
+		// OAuth2 routes (Tenant-Scoped)
+		r.Route("/oauth2", func(r chi.Router) {
+			r.Use(TenantMiddleware)
+			r.With(h.AuthMiddleware).Get("/authorize", h.Authorize)
+			r.Post("/token", h.Token)
+			r.Post("/revoke", h.Revoke)
+		})
+
+		// Auth Plane Endpoints
+		r.Route("/api/v1", func(r chi.Router) {
+			r.Group(func(r chi.Router) {
+				r.Use(TenantMiddleware)
+				r.Post("/auth/login", h.Login)
+				r.Post("/auth/logout", h.Logout)
+				// Note: /auth/register is DISABLED but would be here
+				r.Post("/auth/register", h.Register)
+			})
+		})
 	}
 
-	// OIDC Discovery & JWKS (Phase II.2)
-	// RFC OIDC Discovery Section 4
-	r.Get("/.well-known/openid-configuration", h.Discovery)
-	r.Get("/jwks.json", h.JWKS)
-
-	// OAuth2 routes (Tenant-Scoped)
-	r.Route("/oauth2", func(r chi.Router) {
-		r.Use(TenantMiddleware)
-
-		// Authorize endpoint requires user authentication (session)
-		// RFC 6749 Section 4.1.1
-		r.With(h.AuthMiddleware).Get("/authorize", h.Authorize)
-
-		// Token endpoint uses client authentication
-		// RFC 6749 Section 4.1.3
-		r.Post("/token", h.Token)
-
-		// Revoke endpoint (RFC 7009)
-		r.Post("/revoke", h.Revoke)
-	})
-
-	// API routes
-	r.Route("/api/v1", func(r chi.Router) {
-		// Public (Tenant-Agnostic) Endpoints
-		// None currently in this group.
-
-		// Tenant-Scoped Endpoints (FAIL-CLOSED)
-		r.Group(func(r chi.Router) {
-			r.Use(TenantMiddleware)
-
-			// Authentication (Tenant-Scoped)
-			r.Post("/auth/register", h.Register)
-			r.Post("/auth/login", h.Login)
-			r.Post("/auth/logout", h.Logout)
-
-			// Protected routes
+	// Admin Mode Routes (Management API)
+	if mode == "admin" || mode == "all" {
+		// API routes
+		r.Route("/api/v1", func(r chi.Router) {
 			r.Group(func(r chi.Router) {
-				r.Use(h.AuthMiddleware)
+				r.Use(TenantMiddleware)
 
-				// Get current user
-				r.Get("/auth/me", h.GetCurrentUser)
+				// Session Check (Required for Console)
+				// Available in Admin mode so Console can check if cookie is valid
+				r.With(h.AuthMiddleware).Get("/auth/me", h.GetCurrentUser)
 
-				// User profile
-				r.Get("/user/profile", h.GetProfile)
-				r.Put("/user/profile", h.UpdateProfile)
-				r.Post("/user/change-password", h.ChangePassword)
+				// Protected Admin routes
+				r.Group(func(r chi.Router) {
+					r.Use(h.AuthMiddleware)
 
-				// Tenant management (Platform & Tenant assignments)
-				r.Route("/tenants", func(r chi.Router) {
-					// List/Create tenants are Platform-level actions (Contextual tenant optional)
-					r.Get("/", h.ListTenants)
-					r.Post("/", h.CreateTenant)
+					// User profile (Self) - Available in Admin for "My Profile" page
+					r.Get("/user/profile", h.GetProfile)
+					r.Put("/user/profile", h.UpdateProfile)
+					r.Post("/user/change-password", h.ChangePassword)
 
-					// Specific tenant operations require identification
-					r.Route("/{tenantID}", func(r chi.Router) {
-						r.Use(func(next http.Handler) http.Handler {
-							return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-								tid := chi.URLParam(r, "tenantID")
-								ctx := context.WithValue(r.Context(), tenantIDKey, tid)
-								next.ServeHTTP(w, r.WithContext(ctx))
+					// Tenant management (Platform & Tenant assignments)
+					r.Route("/tenants", func(r chi.Router) {
+						// List/Create tenants are Platform-level actions
+						r.Get("/", h.ListTenants)
+						r.Post("/", h.CreateTenant)
+
+						// Specific tenant operations
+						r.Route("/{tenantID}", func(r chi.Router) {
+							r.Use(func(next http.Handler) http.Handler {
+								return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+									tid := chi.URLParam(r, "tenantID")
+									ctx := context.WithValue(r.Context(), tenantIDKey, tid)
+									next.ServeHTTP(w, r.WithContext(ctx))
+								})
 							})
-						})
-						r.Post("/users", h.ProvisionTenantUser)
-						r.Get("/users", h.ListTenantUsers)
-						r.Route("/users/{userID}/roles", func(r chi.Router) {
-							r.Post("/", h.AssignTenantRole)
-							r.Delete("/{role}", h.RevokeTenantRole)
-						})
-						// OAuth2 Client Management
-						r.Route("/clients", func(r chi.Router) {
-							r.Get("/", h.ListClients)
-							r.Post("/", h.RegisterClient)
-							r.Route("/{clientID}", func(r chi.Router) {
-								r.Get("/", h.GetClient)
-								r.Delete("/", h.DeleteClient)
-								r.Post("/secret", h.RegenerateClientSecret)
+							r.Post("/users", h.ProvisionTenantUser)
+							r.Get("/users", h.ListTenantUsers)
+							r.Route("/users/{userID}/roles", func(r chi.Router) {
+								r.Post("/", h.AssignTenantRole)
+								r.Delete("/{role}", h.RevokeTenantRole)
+							})
+							// OAuth2 Client Management
+							r.Route("/clients", func(r chi.Router) {
+								r.Get("/", h.ListClients)
+								r.Post("/", h.RegisterClient)
+								r.Route("/{clientID}", func(r chi.Router) {
+									r.Get("/", h.GetClient)
+									r.Delete("/", h.DeleteClient)
+									r.Post("/secret", h.RegenerateClientSecret)
+								})
 							})
 						})
 					})
 				})
 			})
 		})
-	})
+	}
 
 	return r
 }

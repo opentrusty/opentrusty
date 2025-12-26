@@ -56,22 +56,41 @@ func main() {
 	})
 	slog.Info("starting opentrusty identity provider")
 
-	// Phase: CLI Commands
-	if len(os.Args) > 1 && os.Args[1] == "bootstrap" {
-		if err := runBootstrap(cfg); err != nil {
-			fmt.Printf("Bootstrap failed: %v", err)
-			os.Exit(1)
+	// Phase: CLI Commands & Modes
+	mode := "all" // Default to all for simple invocation (backwards compat for dev)
+	if len(os.Args) > 1 {
+		cmd := os.Args[1]
+		switch cmd {
+		case "bootstrap":
+			if err := runBootstrap(cfg); err != nil {
+				fmt.Printf("Bootstrap failed: %v", err)
+				os.Exit(1)
+			}
+			os.Exit(0)
+		case "migrate":
+			if err := runMigrate(cfg); err != nil {
+				fmt.Printf("Migration failed: %v", err)
+				os.Exit(1)
+			}
+			os.Exit(0)
+		case "serve":
+			if len(os.Args) > 2 {
+				subCmd := os.Args[2]
+				switch subCmd {
+				case "auth":
+					mode = "auth"
+				case "admin":
+					mode = "admin"
+				case "all":
+					mode = "all"
+				default:
+					fmt.Printf("Unknown serve mode: %s. Use 'auth', 'admin', or 'all'\n", subCmd)
+					os.Exit(1)
+				}
+			}
 		}
-		os.Exit(0)
 	}
-
-	if len(os.Args) > 1 && os.Args[1] == "migrate" {
-		if err := runMigrate(cfg); err != nil {
-			fmt.Printf("Migration failed: %v", err)
-			os.Exit(1)
-		}
-		os.Exit(0)
-	}
+	slog.Info("running in mode", "mode", mode)
 
 	// Initialize context
 	ctx := context.Background()
@@ -215,7 +234,7 @@ func main() {
 	)
 
 	// Create router
-	router := transportHTTP.NewRouter(handler, rateLimiter)
+	router := transportHTTP.NewRouter(handler, rateLimiter, mode)
 
 	// Create HTTP server
 	addr := fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port)
