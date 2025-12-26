@@ -29,5 +29,26 @@ This file defines the strict contract between the AI and the OpenTrusty project.
 2.  You encounter ambiguity in the `authority-model.md`.
 3.  You find that the current code contradicts `docs/_ai/` documentation.
 
+## 4. Repository Scope
+
+This repository is the **Core Identity Provider** (headless backend).
+
+### Allowed
+-   OAuth2 / OIDC protocol implementation
+-   Session management (server-side only)
+-   Admin API endpoints consumed by external clients
+-   Database migrations and domain logic
+
+### FORBIDDEN (AI Agents MUST NOT)
+-   Add UI components, templates, or frontend assets
+-   Add static file serving or frontend routing
+-   Import React, Vue, Tailwind, or any frontend framework
+-   Assume any client (including Control Panel) is trusted
+-   Embed UI code or assets into the core binary
+
+### External Consumer Note
+The **Control Panel UI** lives in a separate repository (`opentrusty-control-panel`).
+It is an **untrusted API client**. All enforcement happens server-side.
+
 > **Status**: ACTIVE
-> **Last Updated**: 2025-12-25
+> **Last Updated**: 2025-12-26

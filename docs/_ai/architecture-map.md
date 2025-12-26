@@ -31,3 +31,15 @@ The application is structured by domain. Cross-domain dependencies should be min
 -   **OAuth2** logic resides strictly in `internal/oauth2`.
 -   **OIDC** logic resides strictly in `internal/oidc`.
 -   **Session** handling resides in `internal/session`.
+
+## External Consumers
+
+The following systems consume this core's APIs but are **NOT part of this repository**:
+
+| Consumer | Repository | Relationship |
+| :--- | :--- | :--- |
+| Control Panel UI | `opentrusty-control-panel` | **Untrusted API client** |
+
+**Critical Rule**: The core binary contains **NO UI, NO templates, NO frontend assets**.
+All administrative UIs are external consumers that interact via documented HTTP APIs.
+

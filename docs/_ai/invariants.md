@@ -30,3 +30,12 @@ Any code change that violates these invariants is **forbidden**.
 -   **MUST NOT** log secrets (passwords, tokens, keys) in plain text.
 -   **MUST NOT** return hashed passwords in API responses.
 -   **MUST** store client secrets as hashes, never in plain text.
+
+## 5. Client Trust Invariants
+
+-   **MUST** treat all HTTP clients (including Control Panel UI) as untrusted.
+-   **MUST** enforce authorization server-side for every API request.
+-   **MUST NOT** expose internal state or secrets to any client.
+-   **MUST NOT** assume UI visibility equals authorization.
+-   **MUST NOT** rely on client-side validation for security decisions.
+
