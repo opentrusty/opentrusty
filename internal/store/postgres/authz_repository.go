@@ -485,7 +485,7 @@ func (r *AssignmentRepository) ListForUser(userID string) ([]*authz.Assignment, 
 	ctx := context.Background()
 
 	rows, err := r.db.pool.Query(ctx, `
-		SELECT id, user_id, role_id, scope, scope_context_id, granted_at, COALESCE(granted_by, '')
+		SELECT id, user_id, role_id, scope, scope_context_id, granted_at, COALESCE(granted_by::text, '')
 		FROM rbac_assignments
 		WHERE user_id = $1
 	`, userID)

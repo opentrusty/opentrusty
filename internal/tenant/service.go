@@ -17,48 +17,82 @@ package tenant
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/opentrusty/opentrusty/internal/audit"
+	"github.com/opentrusty/opentrusty/internal/authz"
 	"github.com/opentrusty/opentrusty/internal/id"
+	"github.com/opentrusty/opentrusty/internal/rbac"
 )
 
 // Service provides tenant management business logic
 type Service struct {
 	repo        Repository
 	roleRepo    RoleRepository
+	authzRepo   authz.AssignmentRepository
 	auditLogger audit.Logger
 }
 
 // NewService creates a new tenant service
-func NewService(repo Repository, roleRepo RoleRepository, auditLogger audit.Logger) *Service {
+func NewService(repo Repository, roleRepo RoleRepository, authzRepo authz.AssignmentRepository, auditLogger audit.Logger) *Service {
 	return &Service{
 		repo:        repo,
 		roleRepo:    roleRepo,
+		authzRepo:   authzRepo,
 		auditLogger: auditLogger,
 	}
 }
 
-// CreateTenant creates a new tenant with a system-generated UUID v7
-func (s *Service) CreateTenant(ctx context.Context, name string) (*Tenant, error) {
+// CreateTenant creates a new tenant with a system-generated UUID v7 and assigns tenant_admin role to creator
+func (s *Service) CreateTenant(ctx context.Context, name string, creatorUserID string) (*Tenant, error) {
+	// 1. Validate name
+	name = strings.TrimSpace(name)
 	if name == "" {
-		return nil, fmt.Errorf("tenant name is required")
+		return nil, ErrInvalidTenantName
+	}
+	if len(name) < 3 || len(name) > 100 {
+		return nil, ErrInvalidTenantName
 	}
 
-	// Generate UUID v7 (RFC 9562)
-	id := id.NewUUIDv7()
+	// 2. Check for duplicate name
+	existing, err := s.repo.GetByName(ctx, name)
+	if err == nil && existing != nil {
+		return nil, ErrTenantAlreadyExists
+	}
+
+	// 3. Generate UUID v7 (RFC 9562)
+	tenantID := id.NewUUIDv7()
 
 	now := time.Now()
 	tenant := &Tenant{
-		ID:        id,
+		ID:        tenantID,
 		Name:      name,
 		Status:    StatusActive,
 		CreatedAt: now,
 		UpdatedAt: now,
 	}
 
+	// 4. Create tenant (repository should handle transaction if supported)
 	if err := s.repo.Create(ctx, tenant); err != nil {
 		return nil, fmt.Errorf("failed to create tenant: %w", err)
+	}
+
+	// 5. Auto-provision tenant_admin role for creator
+	assignment := &authz.Assignment{
+		ID:             id.NewUUIDv7(),
+		UserID:         creatorUserID,
+		RoleID:         rbac.RoleIDTenantAdmin,
+		Scope:          authz.ScopeTenant,
+		ScopeContextID: &tenantID,
+		GrantedAt:      now,
+		GrantedBy:      audit.ActorSystemBootstrap, // System-granted during creation
+	}
+
+	if err := s.authzRepo.Grant(assignment); err != nil {
+		// Note: In a true transaction, we'd rollback tenant creation here
+		// For MVP, we log and continue
+		return nil, fmt.Errorf("failed to assign tenant admin role: %w", err)
 	}
 
 	return tenant, nil

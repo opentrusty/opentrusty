@@ -63,6 +63,36 @@ func (s *Service) GetUserRoles(ctx context.Context, userID string) ([]string, er
 	return roleNames, nil
 }
 
+// UserRoleAssignment represents a role assigned to a user with scope
+type UserRoleAssignment struct {
+	RoleName string  `json:"role_name"`
+	Scope    string  `json:"scope"`
+	Context  *string `json:"context,omitempty"`
+}
+
+// GetUserRoleAssignments retrieves all role assignments for a user with details
+func (s *Service) GetUserRoleAssignments(ctx context.Context, userID string) ([]UserRoleAssignment, error) {
+	assignments, err := s.assignmentRepo.ListForUser(userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user assignments: %w", err)
+	}
+
+	var result []UserRoleAssignment
+	for _, a := range assignments {
+		role, err := s.roleRepo.GetByID(a.RoleID)
+		if err != nil {
+			continue
+		}
+		result = append(result, UserRoleAssignment{
+			RoleName: role.Name,
+			Scope:    string(a.Scope),
+			Context:  a.ScopeContextID,
+		})
+	}
+
+	return result, nil
+}
+
 // GetUserProjects retrieves all projects a user has access to (deprecated/legacy support)
 func (s *Service) GetUserProjects(ctx context.Context, userID string) ([]*Project, error) {
 	return s.projectRepo.ListByUser(userID)

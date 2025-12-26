@@ -12,7 +12,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./internal/store/postgres/migrations:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U opentrusty"]
+      test: [ "CMD-SHELL", "pg_isready -U opentrusty" ]
       interval: 10s
       timeout: 5s
       retries: 5

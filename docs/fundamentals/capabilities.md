@@ -54,6 +54,8 @@ Multi-tenancy is a **core domain invariant**.
 - **Cross-Tenant Access**: Impossible by design. A session from Tenant A cannot access resources in Tenant B.
 - **Resolution**: Tenant ID is resolved via `X-Tenant-ID` header or URL query parameter.
 
+> **Note**: OpenTrusty UI login is tenant-agnostic at request time; tenant context is established post-authentication. See `architecture/tenant-context-resolution.md` for control plane login specifics.
+
 ## Security Model
 ### Authentication
 - **Session Management**: Server-side sessions backed by `HttpOnly`, `Secure`, `SameSite=Lax` cookies.

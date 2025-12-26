@@ -50,6 +50,7 @@ import (
 	"github.com/opentrusty/opentrusty/internal/oidc"
 	"github.com/opentrusty/opentrusty/internal/session"
 	"github.com/opentrusty/opentrusty/internal/tenant"
+	adminUI "github.com/opentrusty/opentrusty/ui/admin"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
@@ -129,6 +130,16 @@ func NewRouter(h *Handler, rateLimiter *RateLimiter) *chi.Mux {
 	// Health check
 	r.Get("/health", h.HealthCheck)
 
+	// Admin UI (Embedded)
+	adminFS, err := adminUI.GetDistFS()
+	if err != nil {
+		slog.Error("failed to load admin ui filesystem", logger.Error(err))
+	} else {
+		// Serve at /admin/
+		// We use http.StripPrefix because the SPAHandler expects paths relative to the root of dist.
+		r.Mount("/admin", http.StripPrefix("/admin", SPAHandler{StaticFS: adminFS}))
+	}
+
 	// OIDC Discovery & JWKS (Phase II.2)
 	// RFC OIDC Discovery Section 4
 	r.Get("/.well-known/openid-configuration", h.Discovery)
@@ -137,7 +148,6 @@ func NewRouter(h *Handler, rateLimiter *RateLimiter) *chi.Mux {
 	// OAuth2 routes (Tenant-Scoped)
 	r.Route("/oauth2", func(r chi.Router) {
 		r.Use(TenantMiddleware)
-		r.Use(RequireTenant)
 
 		// Authorize endpoint requires user authentication (session)
 		// RFC 6749 Section 4.1.1
@@ -161,7 +171,6 @@ func NewRouter(h *Handler, rateLimiter *RateLimiter) *chi.Mux {
 			r.Use(TenantMiddleware)
 
 			// Authentication (Tenant-Scoped)
-			r.Use(RequireTenant)
 			r.Post("/auth/register", h.Register)
 			r.Post("/auth/login", h.Login)
 			r.Post("/auth/logout", h.Logout)
@@ -181,6 +190,7 @@ func NewRouter(h *Handler, rateLimiter *RateLimiter) *chi.Mux {
 				// Tenant management (Platform & Tenant assignments)
 				r.Route("/tenants", func(r chi.Router) {
 					// List/Create tenants are Platform-level actions (Contextual tenant optional)
+					r.Get("/", h.ListTenants)
 					r.Post("/", h.CreateTenant)
 
 					// Specific tenant operations require identification
@@ -199,7 +209,15 @@ func NewRouter(h *Handler, rateLimiter *RateLimiter) *chi.Mux {
 							r.Delete("/{role}", h.RevokeTenantRole)
 						})
 						// OAuth2 Client Management
-						r.Post("/oauth2/clients", h.RegisterClient)
+						r.Route("/clients", func(r chi.Router) {
+							r.Get("/", h.ListClients)
+							r.Post("/", h.RegisterClient)
+							r.Route("/{clientID}", func(r chi.Router) {
+								r.Get("/", h.GetClient)
+								r.Delete("/", h.DeleteClient)
+								r.Post("/secret", h.RegenerateClientSecret)
+							})
+						})
 					})
 				})
 			})
@@ -244,87 +262,26 @@ type RegisterRequest struct {
 }
 
 // Register handles user registration
-// @Summary Register a new user
-// @Description Register a new user in the current tenant
+// @Summary Register a new user (DISABLED)
+// @Description Anonymous registration is disabled for security; admins must be provisioned by platform admins
 // @Tags Auth
 // @Accept json
 // @Produce json
-// @Param X-Tenant-ID header string true "Tenant ID" example("tenant_12345")
 // @Param request body RegisterRequest true "Registration Data"
 // @Success 201 {object} map[string]any
-// @Failure 400 {object} map[string]string
-// @Failure 409 {object} map[string]string
+// @Failure 403 {object} map[string]string
 // @Router /auth/register [post]
 func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
-	var req RegisterRequest
+	// SECURITY: Anonymous registration is disabled in the control plane model.
+	// Admin accounts must be provisioned by existing platform admins.
+	// See: docs/architecture/tenant-context-resolution.md (Anonymous Registration Status)
 
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
+	slog.WarnContext(r.Context(), "anonymous registration attempt blocked",
+		"ip_address", getIPAddress(r),
+		"user_agent", r.UserAgent(),
+	)
 
-	profile := identity.Profile{
-		GivenName:  req.GivenName,
-		FamilyName: req.FamilyName,
-		FullName:   req.GivenName + " " + req.FamilyName,
-	}
-
-	tenantID := GetTenantID(r.Context())
-	if tenantID == "" {
-		respondError(w, http.StatusBadRequest, "tenant context required")
-		return
-	}
-
-	// 0. Validate Tenant
-	if _, err := h.tenantService.GetTenant(r.Context(), tenantID); err != nil {
-		slog.WarnContext(r.Context(), "registration attempt for invalid tenant", "tenant_id", tenantID)
-		respondError(w, http.StatusBadRequest, "invalid tenant")
-		return
-	}
-
-	user, err := h.identityService.ProvisionIdentity(r.Context(), tenantID, req.Email, profile)
-	if err != nil {
-		slog.ErrorContext(r.Context(), "failed to provision user",
-			logger.Error(err),
-			logger.Email(req.Email),
-		)
-
-		switch err {
-		case identity.ErrUserAlreadyExists:
-			respondError(w, http.StatusConflict, "user already exists")
-		case identity.ErrInvalidEmail:
-			respondError(w, http.StatusBadRequest, "invalid email address")
-		default:
-			respondError(w, http.StatusInternalServerError, "failed to create user")
-		}
-		return
-	}
-
-	// 2. Set password
-	if err := h.identityService.AddPassword(r.Context(), user.ID, req.Password); err != nil {
-		slog.ErrorContext(r.Context(), "failed to set password",
-			logger.Error(err),
-			JSONKeyEmail, user.Email,
-		)
-		// TODO: Systematic cleanup if identity exists but password failed?
-		// For now, identity exists but passwordless.
-		respondError(w, http.StatusBadRequest, "failed to set password: "+err.Error())
-		return
-	}
-
-	h.auditLogger.Log(r.Context(), audit.Event{
-		Type:      audit.TypeUserCreated,
-		TenantID:  tenantID,
-		ActorID:   user.ID, // Self-registration
-		Resource:  audit.ResourceUser,
-		IPAddress: getIPAddress(r),
-		Metadata:  map[string]any{"email": user.Email},
-	})
-
-	respondJSON(w, http.StatusCreated, map[string]any{
-		JSONKeyUserID: user.ID,
-		JSONKeyEmail:  user.Email,
-	})
+	respondError(w, http.StatusForbidden, "anonymous registration is disabled; admin accounts must be provisioned by platform administrators")
 }
 
 // LoginRequest represents login credentials
@@ -335,40 +292,88 @@ type LoginRequest struct {
 
 // Login handles user login
 // @Summary Login
-// @Description Authenticate user and create a session
+// @Description Authenticate admin user and create a session (tenant derived from user record)
 // @Tags Auth
 // @Accept json
 // @Produce json
-// @Param X-Tenant-ID header string true "Tenant ID" example("tenant_12345")
 // @Param request body LoginRequest true "Credentials"
 // @Success 200 {object} map[string]any
 // @Failure 400 {object} map[string]string
 // @Failure 401 {object} map[string]string
+// @Failure 403 {object} map[string]string "non-admin user"
 // @Router /auth/login [post]
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
-	var req LoginRequest
-
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "invalid request body")
+	// Security Hardening: Reject tenant context from client
+	// Per docs/architecture/tenant-context-resolution.md Rule D
+	if r.Header.Get("X-Tenant-ID") != "" || r.URL.Query().Get("tenant_id") != "" {
+		slog.WarnContext(r.Context(), "tenant context spoofing attempt on /auth/login",
+			"ip_address", getIPAddress(r),
+			"user_agent", r.UserAgent(),
+		)
+		respondError(w, http.StatusBadRequest, "tenant context must not be provided; derived from user record post-authentication")
 		return
 	}
 
-	tenantID := GetTenantID(r.Context())
-	user, err := h.identityService.Authenticate(r.Context(), tenantID, req.Email, req.Password)
+	var req LoginRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "invalid request")
+		return
+	}
+
+	// Control Plane Login Model (Rule D):
+	// - Authenticate by email + password globally (no tenant filtering)
+	// - Derive tenant_id from authenticated user record
+	// - Only allow admin-capable roles
+
+	// Use Authenticate with empty string tenant for global lookup
+	user, err := h.identityService.Authenticate(r.Context(), "", req.Email, req.Password)
 	if err != nil {
 		h.auditLogger.Log(r.Context(), audit.Event{
-			Type:      audit.TypeLoginFailed,
-			TenantID:  tenantID,
-			Resource:  req.Email,
-			IPAddress: getIPAddress(r),
-			UserAgent: r.UserAgent(),
-			Metadata:  map[string]any{"reason": "invalid_credentials"},
+			Type:     audit.TypeLoginFailed,
+			Resource: req.Email,
+			Metadata: map[string]any{audit.AttrReason: "invalid_credentials"},
 		})
 		respondError(w, http.StatusUnauthorized, "invalid credentials")
 		return
 	}
 
-	// Create session
+	// Extract tenant for audit and permission checks
+	userTenantID := ""
+	if user.TenantID != nil {
+		userTenantID = *user.TenantID
+	}
+
+	// Control Plane Authorization: Only admin-capable users can login to UI
+	// Members authenticate via OAuth2 flows to external applications
+	hasAdminRole := false
+
+	// Check platform-level admin permissions
+	isPlatformAdmin, err := h.authzService.HasPermission(r.Context(), user.ID, authz.ScopePlatform, nil, authz.PermPlatformManageTenants)
+	if err == nil && isPlatformAdmin {
+		hasAdminRole = true
+	}
+
+	// Check tenant-level admin permissions
+	if !hasAdminRole && userTenantID != "" {
+		isTenantAdmin, err := h.authzService.HasPermission(r.Context(), user.ID, authz.ScopeTenant, &userTenantID, authz.PermTenantManageUsers)
+		if err == nil && isTenantAdmin {
+			hasAdminRole = true
+		}
+	}
+
+	if !hasAdminRole {
+		h.auditLogger.Log(r.Context(), audit.Event{
+			Type:     audit.TypeLoginFailed,
+			TenantID: userTenantID,
+			ActorID:  user.ID,
+			Resource: req.Email,
+			Metadata: map[string]any{audit.AttrReason: "insufficient_privileges"},
+		})
+		respondError(w, http.StatusForbidden, "access denied: admin role required for UI login")
+		return
+	}
+
+	// Create session with immutable tenant_id from user record
 	sess, err := h.sessionService.Create(
 		r.Context(),
 		user.TenantID,
@@ -382,17 +387,16 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Set session cookie
 	h.setSessionCookie(w, sess.ID)
 
 	h.auditLogger.Log(r.Context(), audit.Event{
 		Type:      audit.TypeLoginSuccess,
-		TenantID:  tenantID,
+		TenantID:  userTenantID,
 		ActorID:   user.ID,
 		Resource:  audit.ResourceSession,
 		IPAddress: getIPAddress(r),
 		UserAgent: r.UserAgent(),
-		Metadata:  map[string]any{"session_id": sess.ID},
+		Metadata:  map[string]any{audit.AttrSessionID: sess.ID},
 	})
 
 	respondJSON(w, http.StatusOK, map[string]any{
@@ -444,17 +448,18 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// GetCurrentUser returns the current authenticated user identity
-// @Summary Get Current User
-// @Description Retrieve details of the currently logged-in user
-// @Tags User
+// GetCurrentUser returns the current user's information
+// @Summary Get current user
+// @Description Get the current authenticated user's information
+// @Tags Auth
 // @Produce json
-// @Param X-Tenant-ID header string true "Tenant ID" example("tenant_12345")
-// @Security CookieAuth
 // @Success 200 {object} map[string]any
-// @Failure 404 {object} map[string]string
+// @Failure 401 {object} map[string]string
 // @Router /auth/me [get]
+// @Security SessionCookie
 func (h *Handler) GetCurrentUser(w http.ResponseWriter, r *http.Request) {
+	// Tenant context is derived from session by AuthMiddleware
+	// See: docs/architecture/tenant-context-resolution.md
 	userID := GetUserID(r.Context())
 
 	// Authorization Check: PermUserReadProfile required (Self)
@@ -470,25 +475,49 @@ func (h *Handler) GetCurrentUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	assignments, _ := h.authzService.GetUserRoleAssignments(r.Context(), userID)
+
+	// Derive tenant context from role assignments
+	// Platform admins should NOT have tenant context
+	var currentTenant map[string]any
+	for _, assignment := range assignments {
+		// Only set tenant context if user has tenant-scoped roles and NOT platform admin
+		if assignment.Scope == "tenant" && assignment.Context != nil && *assignment.Context != "" {
+			// Fetch tenant info to include name
+			tenant, err := h.tenantService.GetTenant(r.Context(), *assignment.Context)
+			if err == nil {
+				currentTenant = map[string]any{
+					"tenant_id":   tenant.ID,
+					"tenant_name": tenant.Name,
+				}
+				break // Use first tenant found
+			}
+		}
+	}
+
 	respondJSON(w, http.StatusOK, map[string]any{
-		"user_id":        user.ID,
-		"email":          user.Email,
-		"email_verified": user.EmailVerified,
-		"profile":        user.Profile,
+		"user": map[string]any{
+			"user_id":        user.ID,
+			"email":          user.Email,
+			"email_verified": user.EmailVerified,
+			"profile":        user.Profile,
+		},
+		"role_assignments": assignments,
+		"current_tenant":   currentTenant, // null for platform admins
 	})
 }
 
-// GetProfile returns the user profile
-// @Summary Get User Profile
-// @Description Retrieve the profile of the current user
+// GetProfile returns the user's profile
+// @Summary Get user profile
+// @Description Get the current user's profile information
 // @Tags User
 // @Produce json
-// @Param X-Tenant-ID header string true "Tenant ID" example("tenant_12345")
-// @Security CookieAuth
 // @Success 200 {object} map[string]any
-// @Failure 404 {object} map[string]string
+// @Failure 401 {object} map[string]string
 // @Router /user/profile [get]
+// @Security SessionCookie
 func (h *Handler) GetProfile(w http.ResponseWriter, r *http.Request) {
+	// Tenant context from session
 	userID := GetUserID(r.Context())
 
 	// Authorization Check: PermUserReadProfile required
@@ -512,19 +541,23 @@ func (h *Handler) GetProfile(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// UpdateProfile updates the user profile
-// @Summary Update Profile
-// @Description Update the profile information
+// UpdateProfileRequest represents the profile data for update
+type UpdateProfileRequest = identity.Profile
+
+// UpdateProfile updates the user's profile
+// @Summary Update user profile
+// @Description Update the current user's profile information
 // @Tags User
 // @Accept json
 // @Produce json
-// @Param X-Tenant-ID header string true "Tenant ID" example("tenant_12345")
-// @Security CookieAuth
-// @Param request body identity.Profile true "New Profile"
-// @Success 200 {object} map[string]string
+// @Param request body UpdateProfileRequest true "Profile Data"
+// @Success 200 {object} map[string]any
 // @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
 // @Router /user/profile [put]
+// @Security SessionCookie
 func (h *Handler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
+	// Tenant context from session
 	userID := GetUserID(r.Context())
 
 	// Authorization Check: PermUserWriteProfile required
@@ -556,20 +589,20 @@ type ChangePasswordRequest struct {
 	NewPassword string `json:"new_password" binding:"required"`
 }
 
-// ChangePassword changes the user password
-// @Summary Change Password
-// @Description Update the password for the current user
+// ChangePassword handles password change requests
+// @Summary Change password
+// @Description Change the current user's password
 // @Tags User
 // @Accept json
 // @Produce json
-// @Param X-Tenant-ID header string true "Tenant ID" example("tenant_12345")
-// @Security CookieAuth
 // @Param request body ChangePasswordRequest true "Password Change Data"
 // @Success 200 {object} map[string]string
 // @Failure 400 {object} map[string]string
 // @Failure 401 {object} map[string]string
 // @Router /user/change-password [post]
+// @Security SessionCookie
 func (h *Handler) ChangePassword(w http.ResponseWriter, r *http.Request) {
+	// Tenant context from session
 	userID := GetUserID(r.Context())
 
 	// Authorization Check: PermUserChangePassword required

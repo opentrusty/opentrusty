@@ -16,6 +16,8 @@ package identity
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"fmt"
 	"os"
 	"time"
@@ -23,6 +25,7 @@ import (
 	"github.com/opentrusty/opentrusty/internal/audit"
 	"github.com/opentrusty/opentrusty/internal/authz"
 	"github.com/opentrusty/opentrusty/internal/id"
+	"github.com/opentrusty/opentrusty/internal/rbac"
 )
 
 const (
@@ -63,7 +66,7 @@ func (s *BootstrapService) Bootstrap(ctx context.Context) error {
 	}
 
 	// 1. Check if ANY platform admin already exists
-	roleID := "20000000-0000-0000-0000-000000000001" // hardcoded platform_admin UUID from migrations
+	roleID := rbac.RoleIDPlatformAdmin
 	exists, err := s.authzRepo.CheckExists(roleID, authz.ScopePlatform, nil)
 	if err != nil {
 		return fmt.Errorf("failed to check for existing platform admin: %w", err)
@@ -81,7 +84,35 @@ func (s *BootstrapService) Bootstrap(ctx context.Context) error {
 	}
 	user, err := s.identityService.repo.GetByEmail(tID, email)
 	if err != nil {
-		return fmt.Errorf("bootstrap user not found (tenant: %s, email: %s): %w", tenantID, email, err)
+		// User not found, create it
+		fmt.Printf("Bootstrap user not found, creating new platform admin: %s\n", email)
+
+		// Generate random password
+		pwBytes := make([]byte, 16)
+		if _, randErr := rand.Read(pwBytes); randErr != nil {
+			return fmt.Errorf("failed to generate random password: %w", randErr)
+		}
+		password := base64.RawURLEncoding.EncodeToString(pwBytes) + "!" // Ensure complexity often requires special char depending on rules, adding '!' just in case
+
+		// Provision Identity
+		profile := Profile{
+			GivenName:  "Platform",
+			FamilyName: "Admin",
+			FullName:   "Platform Admin",
+		}
+		// We call ProvisionIdentity on Service? ProvisionIdentity expects Profile struct which is in identity package.
+		// bootstrap.go is in identity package, so Profile is available.
+		user, err = s.identityService.ProvisionIdentity(ctx, tenantID, email, profile)
+		if err != nil {
+			return fmt.Errorf("failed to provision bootstrap user: %w", err)
+		}
+
+		// Set Password
+		if err := s.identityService.AddPassword(ctx, user.ID, password); err != nil {
+			return fmt.Errorf("failed to set bootstrap user password: %w", err)
+		}
+
+		fmt.Printf("\n\n=== BOOTSTRAP ADMIN CREDENTIALS ===\nEmail: %s\nPassword: %s\n===================================\n\n", email, password)
 	}
 
 	// 3. Assign the platform admin role

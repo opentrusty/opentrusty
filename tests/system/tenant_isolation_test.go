@@ -113,16 +113,27 @@ func TestTenant_Isolation_UserFromTenantACannotAccessTenantBResources(t *testing
 	// Setup repositories
 	tenantRepo := postgres.NewTenantRepository(testDB)
 	roleRepo := postgres.NewTenantRoleRepository(testDB)
+	authzRepo := postgres.NewAssignmentRepository(testDB)
 	auditLogger := audit.NewSlogLogger()
 
-	tenantService := tenant.NewService(tenantRepo, roleRepo, auditLogger)
+	tenantService := tenant.NewService(tenantRepo, roleRepo, authzRepo, auditLogger)
+
+	// Create creator users (required for RBAC assignment constraint)
+	identityRepo := postgres.NewUserRepository(testDB)
+	identityService := identity.NewService(identityRepo, nil, auditLogger, 5, time.Hour)
+
+	creatorA, err := identityService.ProvisionIdentity(ctx, "", "creator-a-"+id.NewUUIDv7()[:8]+"@example.com", identity.Profile{FullName: "Creator A"})
+	require.NoError(t, err)
 
 	// Create Tenant A
-	tenantA, err := tenantService.CreateTenant(ctx, "Tenant A - "+id.NewUUIDv7()[:8])
+	tenantA, err := tenantService.CreateTenant(ctx, "Tenant A - "+id.NewUUIDv7()[:8], creatorA.ID)
 	require.NoError(t, err, "TEN-01: Failed to create Tenant A")
 
+	creatorB, err := identityService.ProvisionIdentity(ctx, "", "creator-b-"+id.NewUUIDv7()[:8]+"@example.com", identity.Profile{FullName: "Creator B"})
+	require.NoError(t, err)
+
 	// Create Tenant B
-	tenantB, err := tenantService.CreateTenant(ctx, "Tenant B - "+id.NewUUIDv7()[:8])
+	tenantB, err := tenantService.CreateTenant(ctx, "Tenant B - "+id.NewUUIDv7()[:8], creatorB.ID)
 	require.NoError(t, err, "TEN-01: Failed to create Tenant B")
 
 	// Verify tenants are different
@@ -130,10 +141,7 @@ func TestTenant_Isolation_UserFromTenantACannotAccessTenantBResources(t *testing
 		"TEN-01: Tenants must have unique IDs")
 
 	// Create user and assign role in Tenant A
-	identityRepo := postgres.NewUserRepository(testDB)
-	identityService := identity.NewService(identityRepo, nil, auditLogger, 5, time.Hour)
-
-	user, err := identityService.ProvisionIdentity(ctx, tenantA.ID, "user-a@example.com", identity.Profile{FullName: "User A"})
+	user, err := identityService.ProvisionIdentity(ctx, tenantA.ID, "user-a-"+id.NewUUIDv7()[:8]+"@example.com", identity.Profile{FullName: "User A"})
 	require.NoError(t, err)
 
 	err = tenantService.AssignRole(ctx, tenantA.ID, user.ID, tenant.RoleTenantMember, "")
@@ -172,21 +180,24 @@ func TestAuthz_TenantAdmin_CanManageUsersInOwnTenant(t *testing.T) {
 	// Setup
 	tenantRepo := postgres.NewTenantRepository(testDB)
 	roleRepo := postgres.NewTenantRoleRepository(testDB)
+	authzRepo := postgres.NewAssignmentRepository(testDB)
 	auditLogger := audit.NewSlogLogger()
 
-	tenantService := tenant.NewService(tenantRepo, roleRepo, auditLogger)
+	tenantService := tenant.NewService(tenantRepo, roleRepo, authzRepo, auditLogger)
 
-	// Create tenant
-	testTenant, err := tenantService.CreateTenant(ctx, "Test Tenant - "+id.NewUUIDv7()[:8])
+	// Create creator and tenant
+	identityRepo := postgres.NewUserRepository(testDB)
+	identityService := identity.NewService(identityRepo, nil, auditLogger, 5, time.Hour)
+	creator, err := identityService.ProvisionIdentity(ctx, "", "admin-creator-"+id.NewUUIDv7()[:8]+"@example.com", identity.Profile{FullName: "Admin Creator"})
+	require.NoError(t, err)
+
+	testTenant, err := tenantService.CreateTenant(ctx, "Test Tenant - "+id.NewUUIDv7()[:8], creator.ID)
 	require.NoError(t, err)
 
 	// Create admin and member
-	identityRepo := postgres.NewUserRepository(testDB)
-	identityService := identity.NewService(identityRepo, nil, auditLogger, 5, time.Hour)
-
-	admin, err := identityService.ProvisionIdentity(ctx, testTenant.ID, "admin@example.com", identity.Profile{FullName: "Admin"})
+	admin, err := identityService.ProvisionIdentity(ctx, testTenant.ID, "admin-"+id.NewUUIDv7()[:8]+"@example.com", identity.Profile{FullName: "Admin"})
 	require.NoError(t, err)
-	member, err := identityService.ProvisionIdentity(ctx, testTenant.ID, "member@example.com", identity.Profile{FullName: "Member"})
+	member, err := identityService.ProvisionIdentity(ctx, testTenant.ID, "member-"+id.NewUUIDv7()[:8]+"@example.com", identity.Profile{FullName: "Member"})
 	require.NoError(t, err)
 
 	// Assign admin role (granted by system)
@@ -218,15 +229,20 @@ func TestAuthz_RoleAssignment_InvalidRoleNameIsRejected(t *testing.T) {
 
 	tenantRepo := postgres.NewTenantRepository(testDB)
 	roleRepo := postgres.NewTenantRoleRepository(testDB)
+	authzRepo := postgres.NewAssignmentRepository(testDB)
 	auditLogger := audit.NewSlogLogger()
 
-	tenantService := tenant.NewService(tenantRepo, roleRepo, auditLogger)
-
-	testTenant, _ := tenantService.CreateTenant(ctx, "Role Test - "+id.NewUUIDv7()[:8])
+	tenantService := tenant.NewService(tenantRepo, roleRepo, authzRepo, auditLogger)
 
 	identityRepo := postgres.NewUserRepository(testDB)
 	identityService := identity.NewService(identityRepo, nil, auditLogger, 5, time.Hour)
-	user, err := identityService.ProvisionIdentity(ctx, testTenant.ID, "invalid-role@example.com", identity.Profile{})
+	creator, err := identityService.ProvisionIdentity(ctx, "", "role-creator-"+id.NewUUIDv7()[:8]+"@example.com", identity.Profile{FullName: "Role Creator"})
+	require.NoError(t, err)
+
+	testTenant, err := tenantService.CreateTenant(ctx, "Role Test - "+id.NewUUIDv7()[:8], creator.ID)
+	require.NoError(t, err)
+
+	user, err := identityService.ProvisionIdentity(ctx, testTenant.ID, "invalid-role-"+id.NewUUIDv7()[:8]+"@example.com", identity.Profile{})
 	require.NoError(t, err)
 
 	// Attempt to assign invalid roles
@@ -273,12 +289,18 @@ func TestOAuth2_AuthorizationCode_OneTimeUseEnforced(t *testing.T) {
 	codeRepo := postgres.NewAuthorizationCodeRepository(testDB)
 	accessRepo := postgres.NewAccessTokenRepository(testDB)
 	refreshRepo := postgres.NewRefreshTokenRepository(testDB)
+	authzRepo := postgres.NewAssignmentRepository(testDB)
 	auditLogger := audit.NewSlogLogger()
 
-	tenantService := tenant.NewService(tenantRepo, roleRepo, auditLogger)
+	tenantService := tenant.NewService(tenantRepo, roleRepo, authzRepo, auditLogger)
+
+	identityRepo := postgres.NewUserRepository(testDB)
+	identityService := identity.NewService(identityRepo, nil, auditLogger, 5, time.Hour)
+	creator, err := identityService.ProvisionIdentity(ctx, "", "oauth-creator-"+id.NewUUIDv7()[:8]+"@example.com", identity.Profile{FullName: "OAuth Creator"})
+	require.NoError(t, err)
 
 	// Create tenant
-	testTenant, err := tenantService.CreateTenant(ctx, "OAuth2 Test - "+id.NewUUIDv7()[:8])
+	testTenant, err := tenantService.CreateTenant(ctx, "OAuth2 Test - "+id.NewUUIDv7()[:8], creator.ID)
 	require.NoError(t, err)
 
 	// Create client
@@ -312,9 +334,7 @@ func TestOAuth2_AuthorizationCode_OneTimeUseEnforced(t *testing.T) {
 	)
 
 	// Create user
-	identityRepo := postgres.NewUserRepository(testDB)
-	identityService := identity.NewService(identityRepo, nil, auditLogger, 5, time.Hour)
-	user, err := identityService.ProvisionIdentity(ctx, testTenant.ID, "oa2-01@example.com", identity.Profile{})
+	user, err := identityService.ProvisionIdentity(ctx, testTenant.ID, "oa2-01-"+id.NewUUIDv7()[:8]+"@example.com", identity.Profile{})
 	require.NoError(t, err)
 
 	// Create authorization code
@@ -372,12 +392,19 @@ func TestOAuth2_RefreshToken_RevocationPreventsUsage(t *testing.T) {
 	codeRepo := postgres.NewAuthorizationCodeRepository(testDB)
 	accessRepo := postgres.NewAccessTokenRepository(testDB)
 	refreshRepo := postgres.NewRefreshTokenRepository(testDB)
+	authzRepo := postgres.NewAssignmentRepository(testDB)
 	auditLogger := audit.NewSlogLogger()
 
-	tenantService := tenant.NewService(tenantRepo, roleRepo, auditLogger)
+	tenantService := tenant.NewService(tenantRepo, roleRepo, authzRepo, auditLogger)
+
+	identityRepo := postgres.NewUserRepository(testDB)
+	identityService := identity.NewService(identityRepo, nil, auditLogger, 5, time.Hour)
+	creator, err := identityService.ProvisionIdentity(ctx, "", "revoke-creator-"+id.NewUUIDv7()[:8]+"@example.com", identity.Profile{FullName: "Revoke Creator"})
+	require.NoError(t, err)
 
 	// Create tenant and client
-	testTenant, _ := tenantService.CreateTenant(ctx, "Revoke Test - "+id.NewUUIDv7()[:8])
+	testTenant, err := tenantService.CreateTenant(ctx, "Revoke Test - "+id.NewUUIDv7()[:8], creator.ID)
+	require.NoError(t, err)
 
 	client := &oauth2.Client{
 		ID:                      id.NewUUIDv7(),
@@ -395,7 +422,7 @@ func TestOAuth2_RefreshToken_RevocationPreventsUsage(t *testing.T) {
 		IDTokenLifetime:         3600,
 		IsActive:                true,
 	}
-	err := clientRepo.Create(client)
+	err = clientRepo.Create(client)
 	require.NoError(t, err)
 
 	oidcService, err := oidc.NewService("https://auth.example.com")
@@ -406,9 +433,7 @@ func TestOAuth2_RefreshToken_RevocationPreventsUsage(t *testing.T) {
 	)
 
 	// Create user
-	identityRepo := postgres.NewUserRepository(testDB)
-	identityService := identity.NewService(identityRepo, nil, auditLogger, 5, time.Hour)
-	user, err := identityService.ProvisionIdentity(ctx, testTenant.ID, "oa2-02@example.com", identity.Profile{})
+	user, err := identityService.ProvisionIdentity(ctx, testTenant.ID, "oa2-02-"+id.NewUUIDv7()[:8]+"@example.com", identity.Profile{})
 	require.NoError(t, err)
 
 	// Get tokens via code exchange
@@ -475,11 +500,18 @@ func TestOIDC_TokenExchange_IDTokenOnlyWithOpenIDScope(t *testing.T) {
 	codeRepo := postgres.NewAuthorizationCodeRepository(testDB)
 	accessRepo := postgres.NewAccessTokenRepository(testDB)
 	refreshRepo := postgres.NewRefreshTokenRepository(testDB)
+	authzRepo := postgres.NewAssignmentRepository(testDB)
 	auditLogger := audit.NewSlogLogger()
 
-	tenantService := tenant.NewService(tenantRepo, roleRepo, auditLogger)
+	tenantService := tenant.NewService(tenantRepo, roleRepo, authzRepo, auditLogger)
 
-	testTenant, _ := tenantService.CreateTenant(ctx, "OIDC Test - "+id.NewUUIDv7()[:8])
+	identityRepo := postgres.NewUserRepository(testDB)
+	identityService := identity.NewService(identityRepo, nil, auditLogger, 5, time.Hour)
+	creator, err := identityService.ProvisionIdentity(ctx, "", "oidc-creator-"+id.NewUUIDv7()[:8]+"@example.com", identity.Profile{FullName: "OIDC Creator"})
+	require.NoError(t, err)
+
+	testTenant, err := tenantService.CreateTenant(ctx, "OIDC Test - "+id.NewUUIDv7()[:8], creator.ID)
+	require.NoError(t, err)
 
 	client := &oauth2.Client{
 		ID:                      id.NewUUIDv7(),
@@ -497,7 +529,7 @@ func TestOIDC_TokenExchange_IDTokenOnlyWithOpenIDScope(t *testing.T) {
 		IDTokenLifetime:         3600,
 		IsActive:                true,
 	}
-	err := clientRepo.Create(client)
+	err = clientRepo.Create(client)
 	require.NoError(t, err)
 
 	oidcService, err := oidc.NewService("https://auth.example.com")
@@ -508,9 +540,7 @@ func TestOIDC_TokenExchange_IDTokenOnlyWithOpenIDScope(t *testing.T) {
 	)
 
 	// Create user
-	identityRepo := postgres.NewUserRepository(testDB)
-	identityService := identity.NewService(identityRepo, nil, auditLogger, 5, time.Hour)
-	user, err := identityService.ProvisionIdentity(ctx, testTenant.ID, "oidc@example.com", identity.Profile{})
+	user, err := identityService.ProvisionIdentity(ctx, testTenant.ID, "oidc-"+id.NewUUIDv7()[:8]+"@example.com", identity.Profile{})
 	require.NoError(t, err)
 
 	// Test WITH openid scope - id_token must be present

@@ -29,6 +29,7 @@ This document outlines the canonical domain entities derived from the system's c
 - **Belongs To**: **User**.
 - **Scope**: **Tenant-Scoped**.
 - **Mutability**: **Mutable** (Last Seen timestamp updates, Expiry extensions).
+- **Tenant Context**: See `tenant-context-resolution.md` for how tenant is derived from session.
 
 ## 5. OAuthClient
 

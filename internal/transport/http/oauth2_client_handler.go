@@ -18,6 +18,8 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/go-chi/chi/v5"
+	"github.com/opentrusty/opentrusty/internal/audit"
 	"github.com/opentrusty/opentrusty/internal/authz"
 	"github.com/opentrusty/opentrusty/internal/oauth2"
 )
@@ -111,5 +113,134 @@ func (h *Handler) RegisterClient(w http.ResponseWriter, r *http.Request) {
 		ClientID:     client.ClientID,
 		ClientSecret: clientSecret,
 		ClientName:   client.ClientName,
+	})
+}
+
+// ListClients handles listing OAuth2 clients for a tenant
+func (h *Handler) ListClients(w http.ResponseWriter, r *http.Request) {
+	tenantID := GetTenantID(r.Context())
+
+	clients, err := h.oauth2Service.ListClients(r.Context(), tenantID)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to list clients: "+err.Error())
+		return
+	}
+
+	// Permission check is already done by route wrapper in handlers.go if we moved it there,
+	// but currently handlers.go routes are under AuthMiddleware and TenantMiddleware.
+	// Actually, I should check permission here to be safe and specific.
+	userID := GetUserID(r.Context())
+	allowed, err := h.authzService.HasPermission(r.Context(), userID, authz.ScopeTenant, &tenantID, authz.PermTenantManageClients)
+	if err != nil || !allowed {
+		respondError(w, http.StatusForbidden, "client management access required")
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]any{
+		"clients": clients,
+		"total":   len(clients),
+	})
+}
+
+// GetClient handles retrieving a specific OAuth2 client
+func (h *Handler) GetClient(w http.ResponseWriter, r *http.Request) {
+	tenantID := GetTenantID(r.Context())
+	clientID := chi.URLParam(r, "clientID")
+
+	client, err := h.oauth2Service.GetClient(r.Context(), clientID)
+	if err != nil {
+		respondError(w, http.StatusNotFound, "client not found")
+		return
+	}
+
+	if client.TenantID != tenantID {
+		respondError(w, http.StatusForbidden, "access denied")
+		return
+	}
+
+	respondJSON(w, http.StatusOK, client)
+}
+
+// DeleteClient handles deleting an OAuth2 client
+func (h *Handler) DeleteClient(w http.ResponseWriter, r *http.Request) {
+	tenantID := GetTenantID(r.Context())
+	clientID := chi.URLParam(r, "clientID")
+
+	// Authorization check
+	userID := GetUserID(r.Context())
+	allowed, err := h.authzService.HasPermission(r.Context(), userID, authz.ScopeTenant, &tenantID, authz.PermTenantManageClients)
+	if err != nil || !allowed {
+		respondError(w, http.StatusForbidden, "client management access required")
+		return
+	}
+
+	client, err := h.oauth2Service.GetClient(r.Context(), clientID)
+	if err != nil {
+		respondError(w, http.StatusNotFound, "client not found")
+		return
+	}
+
+	if client.TenantID != tenantID {
+		respondError(w, http.StatusForbidden, "access denied")
+		return
+	}
+
+	if err := h.oauth2Service.DeleteClient(r.Context(), clientID); err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to delete client")
+		return
+	}
+
+	if h.auditLogger != nil {
+		h.auditLogger.Log(r.Context(), audit.Event{
+			Type:     "client_deleted",
+			TenantID: tenantID,
+			ActorID:  GetUserID(r.Context()),
+			Resource: "oauth2_client",
+			Metadata: map[string]any{"client_id": clientID},
+		})
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// RegenerateClientSecret handles regenerating a client secret
+func (h *Handler) RegenerateClientSecret(w http.ResponseWriter, r *http.Request) {
+	tenantID := GetTenantID(r.Context())
+	clientID := chi.URLParam(r, "clientID")
+
+	client, err := h.oauth2Service.GetClient(r.Context(), clientID)
+	if err != nil {
+		respondError(w, http.StatusNotFound, "client not found")
+		return
+	}
+
+	if client.TenantID != tenantID {
+		respondError(w, http.StatusForbidden, "access denied")
+		return
+	}
+
+	if client.TokenEndpointAuthMethod == "none" {
+		respondError(w, http.StatusBadRequest, "cannot regenerate secret for public client")
+		return
+	}
+
+	newSecret := oauth2.GenerateClientSecret()
+	client.ClientSecretHash = oauth2.HashClientSecret(newSecret)
+
+	if err := h.oauth2Service.UpdateClient(r.Context(), client); err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to update client secret")
+		return
+	}
+
+	h.auditLogger.Log(r.Context(), audit.Event{
+		Type:     "client_secret_regenerated",
+		TenantID: tenantID,
+		ActorID:  GetUserID(r.Context()),
+		Resource: "oauth2_client",
+		Metadata: map[string]any{"client_id": clientID},
+	})
+
+	respondJSON(w, http.StatusOK, map[string]string{
+		"client_secret": newSecret,
 	})
 }

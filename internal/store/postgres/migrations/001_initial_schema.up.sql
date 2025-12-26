@@ -112,7 +112,7 @@ CREATE TABLE IF NOT EXISTS credentials (
 -- Sessions Table
 -- NOTE: tenant_id is NULLABLE for Platform sessions.
 CREATE TABLE IF NOT EXISTS sessions (
-    id UUID PRIMARY KEY,
+    id TEXT PRIMARY KEY,
     tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     ip_address VARCHAR(45),
@@ -269,13 +269,23 @@ CREATE TRIGGER update_oauth2_clients_updated_at BEFORE UPDATE ON oauth2_clients
 
 -- Seed Permissions
 INSERT INTO rbac_permissions (id, name, description) VALUES
-    ('10000000-0000-0000-0000-000000000001', 'tenant:create', 'Create new tenants'),
-    ('10000000-0000-0000-0000-000000000002', 'tenant:delete', 'Delete tenants'),
-    ('10000000-0000-0000-0000-000000000003', 'tenant:list', 'List all tenants'),
-    ('10000000-0000-0000-0000-000000000004', 'user:provision', 'Provision users in a tenant'),
-    ('10000000-0000-0000-0000-000000000005', 'user:manage', 'Manage users in a tenant'),
-    ('10000000-0000-0000-0000-000000000006', 'client:register', 'Register OAuth2 clients')
-ON CONFLICT (id) DO NOTHING;
+    ('10000000-0000-0000-0000-000000000001', 'platform:manage_tenants', 'Create, update, and delete tenants'),
+    ('10000000-0000-0000-0000-000000000002', 'platform:manage_admins', 'Manage platform administrators'),
+    ('10000000-0000-0000-0000-000000000003', 'platform:view_audit', 'View platform audit logs'),
+    ('10000000-0000-0000-0000-000000000004', 'platform:bootstrap', 'Execute bootstrap operations'),
+    ('10000000-0000-0000-0000-000000000005', 'tenant:manage_users', 'Manage users in a tenant'),
+    ('10000000-0000-0000-0000-000000000006', 'tenant:manage_clients', 'Manage OAuth2 clients'),
+    ('10000000-0000-0000-0000-000000000007', 'tenant:manage_settings', 'Manage tenant settings'),
+    ('10000000-0000-0000-0000-000000000008', 'tenant:view_users', 'View users in a tenant'),
+    ('10000000-0000-0000-0000-000000000009', 'tenant:view', 'View tenant metadata'),
+    ('10000000-0000-0000-0000-000000000010', 'tenant:view_audit', 'View tenant audit logs'),
+    ('10000000-0000-0000-0000-000000000011', 'user:read_profile', 'Read own profile'),
+    ('10000000-0000-0000-0000-000000000012', 'user:write_profile', 'Update own profile'),
+    ('10000000-0000-0000-0000-000000000013', 'user:change_password', 'Change own password'),
+    ('10000000-0000-0000-0000-000000000014', 'user:manage_sessions', 'Manage own sessions'),
+    ('10000000-0000-0000-0000-000000000015', 'client:token_introspect', 'Introspect tokens'),
+    ('10000000-0000-0000-0000-000000000016', 'client:token_revoke', 'Revoke tokens')
+ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, description = EXCLUDED.description;
 
 -- Seed Scoped Roles
 INSERT INTO rbac_roles (id, name, scope, description) VALUES
@@ -291,7 +301,10 @@ SELECT '20000000-0000-0000-0000-000000000001', id FROM rbac_permissions ON CONFL
 
 -- Tenant Admin: Tenant-level management
 INSERT INTO rbac_role_permissions (role_id, permission_id) VALUES
-    ('20000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000004'),
     ('20000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000005'),
-    ('20000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000006')
+    ('20000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000006'),
+    ('20000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000007'),
+    ('20000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000008'),
+    ('20000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000009'),
+    ('20000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000010')
 ON CONFLICT DO NOTHING;

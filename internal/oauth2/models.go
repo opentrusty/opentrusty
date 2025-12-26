@@ -43,27 +43,27 @@ const (
 
 // Client represents an OAuth2 client application
 type Client struct {
-	ID                      string
-	ClientID                string
-	TenantID                string
-	ClientSecretHash        string
-	ClientName              string
-	ClientURI               string
-	LogoURI                 string
-	RedirectURIs            []string
-	AllowedScopes           []string
-	GrantTypes              []string
-	ResponseTypes           []string
-	TokenEndpointAuthMethod string
-	AccessTokenLifetime     int
-	RefreshTokenLifetime    int
-	IDTokenLifetime         int
-	OwnerID                 string
-	IsTrusted               bool
-	IsActive                bool
-	CreatedAt               time.Time
-	UpdatedAt               time.Time
-	DeletedAt               *time.Time
+	ID                      string     `json:"id"`
+	ClientID                string     `json:"client_id"`
+	TenantID                string     `json:"tenant_id"`
+	ClientSecretHash        string     `json:"-"`
+	ClientName              string     `json:"client_name"`
+	ClientURI               string     `json:"client_uri,omitempty"`
+	LogoURI                 string     `json:"logo_uri,omitempty"`
+	RedirectURIs            []string   `json:"redirect_uris"`
+	AllowedScopes           []string   `json:"allowed_scopes"`
+	GrantTypes              []string   `json:"grant_types"`
+	ResponseTypes           []string   `json:"response_types"`
+	TokenEndpointAuthMethod string     `json:"token_endpoint_auth_method"`
+	AccessTokenLifetime     int        `json:"access_token_lifetime"`
+	RefreshTokenLifetime    int        `json:"refresh_token_lifetime"`
+	IDTokenLifetime         int        `json:"id_token_lifetime"`
+	OwnerID                 string     `json:"owner_id,omitempty"`
+	IsTrusted               bool       `json:"is_trusted"`
+	IsActive                bool       `json:"is_active"`
+	CreatedAt               time.Time  `json:"created_at"`
+	UpdatedAt               time.Time  `json:"updated_at"`
+	DeletedAt               *time.Time `json:"deleted_at,omitempty"`
 }
 
 // ValidateRedirectURI checks if the redirect URI is allowed for this client
@@ -182,8 +182,11 @@ type ClientRepository interface {
 	// Delete soft-deletes a client
 	Delete(id string) error
 
-	// List retrieves all clients for an owner
+	// ListByOwner retrieves all clients for an owner
 	ListByOwner(ownerID string) ([]*Client, error)
+
+	// ListByTenant retrieves all clients for a tenant
+	ListByTenant(tenantID string) ([]*Client, error)
 }
 
 // AuthorizationCodeRepository defines the interface for authorization code persistence

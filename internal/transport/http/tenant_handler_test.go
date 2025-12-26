@@ -81,7 +81,7 @@ func TestTenant_Create_AuthorizationEnforcement(t *testing.T) {
 	authzSvc := authz.NewService(nil, authzRoleRepo, assignRepo)
 
 	tenantRepo := new(mockTenantRepo)
-	tenantSvc := tenant.NewService(tenantRepo, nil, audit.NewSlogLogger())
+	tenantSvc := tenant.NewService(tenantRepo, nil, assignRepo, audit.NewSlogLogger())
 
 	h := &Handler{
 		authzService:  authzSvc,

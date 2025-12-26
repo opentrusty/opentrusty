@@ -67,31 +67,17 @@ func LoggingMiddleware() func(next http.Handler) http.Handler {
 	}
 }
 
-// TenantMiddleware resolves tenant identification from the request.
-// It is optional at this layer; downstream handlers or RequireTenant middleware
-// will enforce existence if the resource is tenant-scoped.
+// TenantMiddleware is a no-op passthrough in the control plane model.
+// Tenant context is derived EXCLUSIVELY from:
+// - Session (AuthMiddleware sets tenant_id from session.TenantID)
+// - OAuth2 client_id (OAuth2 handlers resolve client → tenant)
+//
+// X-Tenant-ID header is FORBIDDEN and will be rejected by AuthMiddleware if present.
+// See: docs/architecture/tenant-context-resolution.md
 func TenantMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var tenantID string
-
-		// 1. Check Header
-		if tid := r.Header.Get("X-Tenant-ID"); tid != "" {
-			tenantID = tid
-		}
-
-		// 2. Check Query Parameter
-		if tenantID == "" {
-			if tid := r.URL.Query().Get("tenant_id"); tid != "" {
-				tenantID = tid
-			}
-		}
-
-		// Inject into context if found
-		if tenantID != "" {
-			ctx := context.WithValue(r.Context(), tenantIDKey, tenantID)
-			r = r.WithContext(ctx)
-		}
-
+		// No tenant resolution from headers or query parameters.
+		// This middleware exists for routing compatibility but performs no action.
 		next.ServeHTTP(w, r)
 	})
 }
@@ -129,34 +115,29 @@ func (h *Handler) AuthMiddleware(next http.Handler) http.Handler {
 			slog.ErrorContext(r.Context(), "failed to refresh session", logger.Error(err))
 		}
 
+		// Security hardening: Reject X-Tenant-ID header on authenticated requests
+		// Tenant context MUST be derived exclusively from session.
+		// See: docs/architecture/tenant-context-resolution.md
+		if r.Header.Get("X-Tenant-ID") != "" {
+			slog.WarnContext(r.Context(), "tenant header spoofing attempt detected on authenticated route",
+				"session_id", slog.StringValue(sess.ID[:8]+"..."),
+				"user_id", slog.StringValue(sess.UserID[:8]+"..."),
+			)
+			respondError(w, http.StatusBadRequest, "X-Tenant-ID header is not allowed on authenticated requests; tenant is derived from session")
+			return
+		}
+
 		// Add user_id to context
 		ctx := context.WithValue(r.Context(), userIDKey, sess.UserID)
 		ctx = context.WithValue(ctx, sessionIDKey, sess.ID)
 
-		// Authorization principles:
-		// - All sessions have a tenant_id (NOT NULL in schema)
-		// - Platform admin privileges are derived from rbac_assignments, NOT from tenant_id
-		// - Empty tenantID DOES NOT imply platform privileges
-
-		requestTenant := GetTenantID(r.Context())
-
-		// Tenant isolation: session tenant must match request tenant if specified
+		// Inject session tenant as authoritative tenant context
+		// Platform admins may have NULL tenant_id; tenant-scoped admins have a tenant_id.
+		// Authorization privileges are derived from rbac_assignments, NOT from tenant_id presence.
 		sessionTenant := ""
 		if sess.TenantID != nil {
 			sessionTenant = *sess.TenantID
 		}
-
-		if requestTenant != "" && sessionTenant != requestTenant {
-			slog.WarnContext(r.Context(), "cross-tenant access attempt detected",
-				"actor_id", sess.UserID,
-				"session_tenant", sessionTenant,
-				"request_tenant", requestTenant,
-			)
-			respondError(w, http.StatusForbidden, "session does not belong to this tenant")
-			return
-		}
-
-		// Use session tenant (nullable) as the authoritative tenant context
 		ctx = context.WithValue(ctx, tenantIDKey, sessionTenant)
 
 		next.ServeHTTP(w, r.WithContext(ctx))

@@ -35,3 +35,5 @@ Strict resolution may be bypassed ONLY for:
 
 ---
 **Rule Citation**: This contract satisfies **Rule 2.1 (Isolation)** and **Rule 2.3 (No Cross-Talk)** by ensuring tenant context is a hard requirement for all tenant-scoped business logic.
+
+> **Note**: OpenTrusty UI login (`/auth/login`) is tenant-agnostic at request time; tenant context is established post-authentication from the user record. See `tenant-context-resolution.md` Rule D for details.

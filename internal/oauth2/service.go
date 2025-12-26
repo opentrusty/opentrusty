@@ -135,6 +135,27 @@ func (s *Service) CreateClient(ctx context.Context, client *Client) error {
 	return s.clientRepo.Create(client)
 }
 
+// ListClients retrieves all OAuth2 clients for a tenant
+func (s *Service) ListClients(ctx context.Context, tenantID string) ([]*Client, error) {
+	return s.clientRepo.ListByTenant(tenantID)
+}
+
+// GetClient retrieves an OAuth2 client by ID
+func (s *Service) GetClient(ctx context.Context, id string) (*Client, error) {
+	return s.clientRepo.GetByID(id)
+}
+
+// DeleteClient deletes an OAuth2 client
+func (s *Service) DeleteClient(ctx context.Context, id string) error {
+	return s.clientRepo.Delete(id)
+}
+
+// UpdateClient updates an existing OAuth2 client
+func (s *Service) UpdateClient(ctx context.Context, client *Client) error {
+	client.UpdatedAt = time.Now()
+	return s.clientRepo.Update(client)
+}
+
 // ValidateAuthorizeRequest validates an authorization request (RFC 6749 Section 4.1.1)
 func (s *Service) ValidateAuthorizeRequest(ctx context.Context, req *AuthorizeRequest) (*Client, error) {
 	// 1. Validate Client (RFC 6749 Section 4.1.1)

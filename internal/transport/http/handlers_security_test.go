@@ -52,9 +52,9 @@ func TestAuth_Register_EmptyEmail_ReturnsBadRequest(t *testing.T) {
 
 	h.Register(w, req)
 
-	// Note: With minimal handler (no identity service), returns 400 for validation
-	assert.Equal(t, http.StatusBadRequest, w.Code,
-		"REG-02: Empty email should return 400 Bad Request")
+	// Note: Anonymous registration is disabled, so it returns 403 Forbidden regardless of input.
+	assert.Equal(t, http.StatusForbidden, w.Code,
+		"REG-02: Registration should return 403 Forbidden as it is disabled")
 }
 
 // TestPurpose: Validates that passwords below the minimum length (8 chars) are rejected.
@@ -79,8 +79,8 @@ func TestAuth_Register_WeakPassword_ReturnsBadRequest(t *testing.T) {
 
 	h.Register(w, req)
 
-	assert.Equal(t, http.StatusBadRequest, w.Code,
-		"REG-04: Password < 8 chars should return 400 Bad Request")
+	assert.Equal(t, http.StatusForbidden, w.Code,
+		"REG-04: Registration should return 403 Forbidden as it is disabled")
 }
 
 // TestPurpose: Validates that empty request bodies for login are rejected with 400 Bad Request.

@@ -166,7 +166,7 @@ func main() {
 		cfg.OAuth2.RefreshTokenLifetime,
 	)
 	authzService := authz.NewService(projectRepo, roleRepo, assignmentRepo)
-	tenantService := tenant.NewService(tenantRepo, tenantRoleRepo, auditLogger)
+	tenantService := tenant.NewService(tenantRepo, tenantRoleRepo, assignmentRepo, auditLogger)
 
 	// Initialize Bootstrap Service
 	bootstrapService := identity.NewBootstrapService(

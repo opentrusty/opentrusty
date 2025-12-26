@@ -59,9 +59,18 @@ func (h *Handler) CreateTenant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	t, err := h.tenantService.CreateTenant(r.Context(), req.Name)
+	t, err := h.tenantService.CreateTenant(r.Context(), req.Name, userID)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, err.Error())
+		// Map domain errors to HTTP status codes
+		if err == tenant.ErrInvalidTenantName {
+			respondError(w, http.StatusBadRequest, "invalid tenant name")
+			return
+		}
+		if err == tenant.ErrTenantAlreadyExists {
+			respondError(w, http.StatusConflict, "tenant with this name already exists")
+			return
+		}
+		respondError(w, http.StatusInternalServerError, "failed to create tenant")
 		return
 	}
 

@@ -15,7 +15,14 @@
 package tenant
 
 import (
+	"errors"
 	"time"
+)
+
+// Domain errors (ErrTenantNotFound is defined in repository.go)
+var (
+	ErrTenantAlreadyExists = errors.New("tenant already exists")
+	ErrInvalidTenantName   = errors.New("invalid tenant name")
 )
 
 // Tenant represents an isolated environment or customer account

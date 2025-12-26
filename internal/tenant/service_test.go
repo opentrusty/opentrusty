@@ -6,6 +6,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/opentrusty/opentrusty/internal/audit"
+	"github.com/opentrusty/opentrusty/internal/authz"
+	"github.com/opentrusty/opentrusty/internal/rbac"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -44,6 +46,38 @@ func (m *mockRepo) List(ctx context.Context, limit, offset int) ([]*Tenant, erro
 	return args.Get(0).([]*Tenant), args.Error(1)
 }
 
+type mockAssignmentRepo struct {
+	mock.Mock
+}
+
+func (m *mockAssignmentRepo) Grant(assignment *authz.Assignment) error {
+	args := m.Called(assignment)
+	return args.Error(0)
+}
+
+func (m *mockAssignmentRepo) Revoke(userID, roleID string, scope authz.Scope, scopeContextID *string) error {
+	args := m.Called(userID, roleID, scope, scopeContextID)
+	return args.Error(0)
+}
+
+func (m *mockAssignmentRepo) ListForUser(userID string) ([]*authz.Assignment, error) {
+	args := m.Called(userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*authz.Assignment), args.Error(1)
+}
+
+func (m *mockAssignmentRepo) ListByRole(roleID string, scope authz.Scope, scopeContextID *string) ([]string, error) {
+	args := m.Called(roleID, scope, scopeContextID)
+	return args.Get(0).([]string), args.Error(1)
+}
+
+func (m *mockAssignmentRepo) CheckExists(roleID string, scope authz.Scope, scopeContextID *string) (bool, error) {
+	args := m.Called(roleID, scope, scopeContextID)
+	return args.Get(0).(bool), args.Error(1)
+}
+
 type mockAudit struct {
 	mock.Mock
 }
@@ -59,11 +93,15 @@ func (m *mockAudit) Log(ctx context.Context, event audit.Event) {
 // Test Case ID: TEN-01
 func TestTenant_Service_CreateTenant_UUIDv7(t *testing.T) {
 	repo := new(mockRepo)
+	authzRepo := new(mockAssignmentRepo)
 	auditLogger := new(mockAudit)
-	service := NewService(repo, nil, auditLogger)
+	service := NewService(repo, nil, authzRepo, auditLogger)
 
 	name := "Test Tenant"
+	creatorID := "user-123"
 	ctx := context.Background()
+
+	repo.On("GetByName", ctx, name).Return((*Tenant)(nil), nil)
 
 	repo.On("Create", ctx, mock.MatchedBy(func(t *Tenant) bool {
 		// Verify it's a valid UUID
@@ -76,7 +114,11 @@ func TestTenant_Service_CreateTenant_UUIDv7(t *testing.T) {
 		return uid.Version() == 7 && t.Name == name
 	})).Return(nil)
 
-	tenant, err := service.CreateTenant(ctx, name)
+	authzRepo.On("Grant", mock.MatchedBy(func(a *authz.Assignment) bool {
+		return a.UserID == creatorID && a.RoleID == rbac.RoleIDTenantAdmin && a.Scope == "tenant"
+	})).Return(nil)
+
+	tenant, err := service.CreateTenant(ctx, name, creatorID)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, tenant)
@@ -87,4 +129,5 @@ func TestTenant_Service_CreateTenant_UUIDv7(t *testing.T) {
 	assert.Equal(t, byte(7), byte(uid.Version()))
 
 	repo.AssertExpectations(t)
+	authzRepo.AssertExpectations(t)
 }

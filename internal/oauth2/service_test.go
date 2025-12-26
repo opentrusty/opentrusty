@@ -48,6 +48,15 @@ func (m *MockClientRepo) Create(client *Client) error                   { return
 func (m *MockClientRepo) Update(client *Client) error                   { return nil }
 func (m *MockClientRepo) Delete(id string) error                        { return nil }
 func (m *MockClientRepo) ListByOwner(ownerID string) ([]*Client, error) { return nil, nil }
+func (m *MockClientRepo) ListByTenant(tenantID string) ([]*Client, error) {
+	var res []*Client
+	for _, c := range m.clients {
+		if c.TenantID == tenantID {
+			res = append(res, c)
+		}
+	}
+	return res, nil
+}
 
 type MockCodeRepo struct {
 	codes map[string]*AuthorizationCode

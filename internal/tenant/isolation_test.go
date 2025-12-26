@@ -67,10 +67,11 @@ var ErrInvalidRoleTest = errors.New("invalid role")
 func TestTenant_Isolation_TenantIDMustBePresent(t *testing.T) {
 	repo := new(mockRepo)
 	roleRepo := new(mockRoleRepo)
+	authzRepo := new(mockAssignmentRepo)
 	auditLogger := &mockAudit{}
 	auditLogger.On("Log", mock.Anything, mock.Anything).Return()
 
-	service := NewService(repo, roleRepo, auditLogger)
+	service := NewService(repo, roleRepo, authzRepo, auditLogger)
 	ctx := context.Background()
 
 	// Test case: Empty tenant ID should fail
@@ -90,10 +91,11 @@ func TestTenant_Isolation_TenantIDMustBePresent(t *testing.T) {
 func TestTenant_Isolation_AssignValidRole_Succeeds(t *testing.T) {
 	repo := new(mockRepo)
 	roleRepo := new(mockRoleRepo)
+	authzRepo := new(mockAssignmentRepo)
 	auditLogger := &mockAudit{}
 	auditLogger.On("Log", mock.Anything, mock.Anything).Return()
 
-	service := NewService(repo, roleRepo, auditLogger)
+	service := NewService(repo, roleRepo, authzRepo, auditLogger)
 	ctx := context.Background()
 
 	tenantID := id.NewUUIDv7()
@@ -117,10 +119,11 @@ func TestTenant_Isolation_AssignValidRole_Succeeds(t *testing.T) {
 func TestTenant_Isolation_AssignInvalidRole_ReturnsError(t *testing.T) {
 	repo := new(mockRepo)
 	roleRepo := new(mockRoleRepo)
+	authzRepo := new(mockAssignmentRepo)
 	auditLogger := &mockAudit{}
 	auditLogger.On("Log", mock.Anything, mock.Anything).Return()
 
-	service := NewService(repo, roleRepo, auditLogger)
+	service := NewService(repo, roleRepo, authzRepo, auditLogger)
 	ctx := context.Background()
 
 	tenantID := id.NewUUIDv7()
@@ -140,10 +143,11 @@ func TestTenant_Isolation_AssignInvalidRole_ReturnsError(t *testing.T) {
 func TestTenant_Isolation_RevokeRole_ValidRole_Succeeds(t *testing.T) {
 	repo := new(mockRepo)
 	roleRepo := new(mockRoleRepo)
+	authzRepo := new(mockAssignmentRepo)
 	auditLogger := &mockAudit{}
 	auditLogger.On("Log", mock.Anything, mock.Anything).Return()
 
-	service := NewService(repo, roleRepo, auditLogger)
+	service := NewService(repo, roleRepo, authzRepo, auditLogger)
 	ctx := context.Background()
 
 	tenantID := id.NewUUIDv7()
@@ -164,9 +168,10 @@ func TestTenant_Isolation_RevokeRole_ValidRole_Succeeds(t *testing.T) {
 func TestTenant_Isolation_GetUserRoles_ReturnsAllRoles(t *testing.T) {
 	repo := new(mockRepo)
 	roleRepo := new(mockRoleRepo)
+	authzRepo := new(mockAssignmentRepo)
 	auditLogger := &mockAudit{}
 
-	service := NewService(repo, roleRepo, auditLogger)
+	service := NewService(repo, roleRepo, authzRepo, auditLogger)
 	ctx := context.Background()
 
 	tenantID := id.NewUUIDv7()
@@ -193,10 +198,11 @@ func TestTenant_Isolation_GetUserRoles_ReturnsAllRoles(t *testing.T) {
 func TestTenant_Isolation_RoleValidation_OnlyAcceptsDefinedConstants(t *testing.T) {
 	repo := new(mockRepo)
 	roleRepo := new(mockRoleRepo)
+	authzRepo := new(mockAssignmentRepo)
 	auditLogger := &mockAudit{}
 	auditLogger.On("Log", mock.Anything, mock.Anything).Return()
 
-	service := NewService(repo, roleRepo, auditLogger)
+	service := NewService(repo, roleRepo, authzRepo, auditLogger)
 	ctx := context.Background()
 
 	tenantID := id.NewUUIDv7()

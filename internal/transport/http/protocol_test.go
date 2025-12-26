@@ -140,11 +140,25 @@ func (m *stubClientRepo) GetByClientID(id string) (*oauth2.Client, error) {
 	}
 	return nil, oauth2.ErrClientNotFound
 }
-func (m *stubClientRepo) GetByID(id string) (*oauth2.Client, error)       { return nil, nil }
+func (m *stubClientRepo) GetByID(id string) (*oauth2.Client, error) {
+	if c, ok := m.clients[id]; ok {
+		return c, nil
+	}
+	return nil, oauth2.ErrClientNotFound
+}
 func (m *stubClientRepo) Create(c *oauth2.Client) error                   { return nil }
 func (m *stubClientRepo) Update(c *oauth2.Client) error                   { return nil }
 func (m *stubClientRepo) Delete(id string) error                          { return nil }
 func (m *stubClientRepo) ListByOwner(id string) ([]*oauth2.Client, error) { return nil, nil }
+func (m *stubClientRepo) ListByTenant(id string) ([]*oauth2.Client, error) {
+	var res []*oauth2.Client
+	for _, c := range m.clients {
+		if c.TenantID == id {
+			res = append(res, c)
+		}
+	}
+	return res, nil
+}
 
 type stubCodeRepo struct {
 	codes map[string]*oauth2.AuthorizationCode
@@ -305,7 +319,7 @@ func TestHTTP_Protocol_CrossTenant_Negative(t *testing.T) {
 
 	// Create Session for Tenant A
 	ctx := context.Background()
-	sess, _ := sessSvc.Create(ctx, strPtr("tenant-A"), "user-A", "127.0.0.1", "test-agent")
+	sess, _ := sessSvc.Create(ctx, strPtr("tenant-A"), "user-A-uuid-12345678", "127.0.0.1", "test-agent")
 	sessRepo.sessions[sess.ID].TenantID = strPtr("tenant-A")
 
 	h := NewHandler(nil, sessSvc, nil, nil, nil, nil, audit.NewSlogLogger(), SessionConfig{CookieName: "session_id"})
@@ -328,8 +342,8 @@ func TestHTTP_Protocol_CrossTenant_Negative(t *testing.T) {
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
-	if w.Code != http.StatusForbidden {
-		t.Errorf("expected 403 Forbidden for cross-tenant access, got %d", w.Code)
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected 400 Bad Request for cross-tenant access, got %d", w.Code)
 	}
 }
 func strPtr(s string) *string {

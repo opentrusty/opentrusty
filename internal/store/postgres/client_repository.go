@@ -345,3 +345,71 @@ func (r *ClientRepository) ListByOwner(ownerID string) ([]*oauth2.Client, error)
 
 	return clients, nil
 }
+
+// ListByTenant retrieves all clients for a tenant
+func (r *ClientRepository) ListByTenant(tenantID string) ([]*oauth2.Client, error) {
+	ctx := context.Background()
+
+	rows, err := r.db.pool.Query(ctx, `
+		SELECT 
+			id, client_id, tenant_id, client_secret_hash, client_name, client_uri, logo_uri,
+			redirect_uris, allowed_scopes, grant_types, response_types,
+			token_endpoint_auth_method, access_token_lifetime, refresh_token_lifetime, id_token_lifetime,
+			owner_id, is_trusted, is_active, created_at, updated_at, deleted_at
+		FROM oauth2_clients
+		WHERE tenant_id = $1 AND deleted_at IS NULL
+		ORDER BY created_at DESC
+	`, tenantID)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to query clients: %w", err)
+	}
+	defer rows.Close()
+
+	var clients []*oauth2.Client
+
+	for rows.Next() {
+		var client oauth2.Client
+		var redirectURIsJSON, allowedScopesJSON, grantTypesJSON, responseTypesJSON []byte
+		var ownerID sql.NullString
+		var deletedAt sql.NullTime
+
+		err := rows.Scan(
+			&client.ID, &client.ClientID, &client.TenantID, &client.ClientSecretHash, &client.ClientName, &client.ClientURI, &client.LogoURI,
+			&redirectURIsJSON, &allowedScopesJSON, &grantTypesJSON, &responseTypesJSON,
+			&client.TokenEndpointAuthMethod, &client.AccessTokenLifetime, &client.RefreshTokenLifetime, &client.IDTokenLifetime,
+			&ownerID, &client.IsTrusted, &client.IsActive, &client.CreatedAt, &client.UpdatedAt, &deletedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan client: %w", err)
+		}
+
+		if err := json.Unmarshal(redirectURIsJSON, &client.RedirectURIs); err != nil {
+			continue
+		}
+		if err := json.Unmarshal(allowedScopesJSON, &client.AllowedScopes); err != nil {
+			continue
+		}
+		if err := json.Unmarshal(grantTypesJSON, &client.GrantTypes); err != nil {
+			continue
+		}
+		if err := json.Unmarshal(responseTypesJSON, &client.ResponseTypes); err != nil {
+			continue
+		}
+
+		if ownerID.Valid {
+			client.OwnerID = ownerID.String
+		}
+		if deletedAt.Valid {
+			client.DeletedAt = &deletedAt.Time
+		}
+
+		clients = append(clients, &client)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows error: %w", err)
+	}
+
+	return clients, nil
+}
