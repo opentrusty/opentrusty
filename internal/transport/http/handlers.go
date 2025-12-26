@@ -72,7 +72,9 @@ type Handler struct {
 	tenantService   *tenant.Service
 	oidcService     *oidc.Service
 	auditLogger     audit.Logger
-	sessionConfig   SessionConfig
+	// Configuration
+	sessionConfig SessionConfig
+	mode          string // "auth", "admin", or "all"
 }
 
 // SessionConfig holds session cookie configuration
@@ -87,24 +89,26 @@ type SessionConfig struct {
 
 // NewHandler creates a new HTTP handler
 func NewHandler(
-	identityService *identity.Service,
-	sessionService *session.Service,
-	oauth2Service *oauth2.Service,
-	authzService *authz.Service,
-	tenantService *tenant.Service,
-	oidcService *oidc.Service,
+	identSvc *identity.Service,
+	sessSvc *session.Service,
+	oauthSvc *oauth2.Service,
+	authzSvc *authz.Service,
+	tenantSvc *tenant.Service,
+	oidcSvc *oidc.Service,
 	auditLogger audit.Logger,
-	sessionConfig SessionConfig,
+	sessConfig SessionConfig,
+	mode string,
 ) *Handler {
 	return &Handler{
-		identityService: identityService,
-		sessionService:  sessionService,
-		oauth2Service:   oauth2Service,
-		authzService:    authzService,
-		tenantService:   tenantService,
-		oidcService:     oidcService,
+		identityService: identSvc,
+		sessionService:  sessSvc,
+		oauth2Service:   oauthSvc,
+		authzService:    authzSvc,
+		tenantService:   tenantSvc,
+		oidcService:     oidcSvc,
 		auditLogger:     auditLogger,
-		sessionConfig:   sessionConfig,
+		sessionConfig:   sessConfig,
+		mode:            mode,
 	}
 }
 
@@ -129,7 +133,7 @@ func NewRouter(h *Handler, rateLimiter *RateLimiter, mode string) *chi.Mux {
 	// Health check (Available in all modes)
 	r.Get("/health", h.HealthCheck)
 
-	// Auth Mode Routes (OIDC, OAuth2, Login Pages)
+	// Auth Mode: Top-level Routes (OIDC, OAuth2)
 	if mode == "auth" || mode == "all" {
 		// OIDC Discovery & JWKS (Phase II.2)
 		r.Get("/.well-known/openid-configuration", h.Discovery)
@@ -142,76 +146,73 @@ func NewRouter(h *Handler, rateLimiter *RateLimiter, mode string) *chi.Mux {
 			r.Post("/token", h.Token)
 			r.Post("/revoke", h.Revoke)
 		})
+	}
+
+	// Consolidate /api/v1 routes to avoid double-mount panic in "all" mode
+	r.Route("/api/v1", func(r chi.Router) {
+		r.Use(TenantMiddleware)
 
 		// Auth Plane Endpoints
-		r.Route("/api/v1", func(r chi.Router) {
+		if mode == "auth" || mode == "all" {
 			r.Group(func(r chi.Router) {
-				r.Use(TenantMiddleware)
+				r.Use(h.CSRFMiddleware) // Enforce CSRF protection for Auth Plane (Login/Logout)
 				r.Post("/auth/login", h.Login)
 				r.Post("/auth/logout", h.Logout)
 				// Note: /auth/register is DISABLED but would be here
 				r.Post("/auth/register", h.Register)
 			})
-		})
-	}
+		}
 
-	// Admin Mode Routes (Management API)
-	if mode == "admin" || mode == "all" {
-		// API routes
-		r.Route("/api/v1", func(r chi.Router) {
+		// Admin Plane Endpoints
+		if mode == "admin" || mode == "all" {
+			// Session Check (Required for Console)
+			// Available in Admin mode so Console can check if cookie is valid
+			r.With(h.AuthMiddleware).Get("/auth/me", h.GetCurrentUser)
+
+			// Protected Admin routes
 			r.Group(func(r chi.Router) {
-				r.Use(TenantMiddleware)
+				r.Use(h.AuthMiddleware)
+				r.Use(h.CSRFMiddleware) // Enforce CSRF protection for Admin Plane
 
-				// Session Check (Required for Console)
-				// Available in Admin mode so Console can check if cookie is valid
-				r.With(h.AuthMiddleware).Get("/auth/me", h.GetCurrentUser)
+				// User profile (Self) - Available in Admin for "My Profile" page
+				r.Get("/user/profile", h.GetProfile)
+				r.Put("/user/profile", h.UpdateProfile)
+				r.Post("/user/change-password", h.ChangePassword)
 
-				// Protected Admin routes
-				r.Group(func(r chi.Router) {
-					r.Use(h.AuthMiddleware)
+				// Tenant management (Platform & Tenant assignments)
+				r.Route("/tenants", func(r chi.Router) {
+					// List/Create tenants are Platform-level actions
+					r.Get("/", h.ListTenants)
+					r.Post("/", h.CreateTenant)
 
-					// User profile (Self) - Available in Admin for "My Profile" page
-					r.Get("/user/profile", h.GetProfile)
-					r.Put("/user/profile", h.UpdateProfile)
-					r.Post("/user/change-password", h.ChangePassword)
-
-					// Tenant management (Platform & Tenant assignments)
-					r.Route("/tenants", func(r chi.Router) {
-						// List/Create tenants are Platform-level actions
-						r.Get("/", h.ListTenants)
-						r.Post("/", h.CreateTenant)
-
-						// Specific tenant operations
-						r.Route("/{tenantID}", func(r chi.Router) {
-							r.Use(func(next http.Handler) http.Handler {
-								return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-									tid := chi.URLParam(r, "tenantID")
-									ctx := context.WithValue(r.Context(), tenantIDKey, tid)
-									next.ServeHTTP(w, r.WithContext(ctx))
-								})
+					// Specific tenant operations
+					r.Route("/{tenantID}", func(r chi.Router) {
+						r.Use(func(next http.Handler) http.Handler {
+							return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+								tid := chi.URLParam(r, "tenantID")
+								ctx := context.WithValue(r.Context(), tenantIDKey, tid)
+								next.ServeHTTP(w, r.WithContext(ctx))
 							})
-							r.Post("/users", h.ProvisionTenantUser)
-							r.Get("/users", h.ListTenantUsers)
-							r.Route("/users/{userID}/roles", func(r chi.Router) {
-								r.Post("/", h.AssignTenantRole)
-								r.Delete("/{role}", h.RevokeTenantRole)
-							})
-							// OAuth2 Client Management
-							r.Route("/clients", func(r chi.Router) {
-								r.Get("/", h.ListClients)
-								r.Post("/", h.RegisterClient)
-								r.Route("/{clientID}", func(r chi.Router) {
-									r.Get("/", h.GetClient)
-									r.Delete("/", h.DeleteClient)
-									r.Post("/secret", h.RegenerateClientSecret)
-								})
+						})
+						r.Route("/users/{userID}/roles", func(r chi.Router) {
+							r.Post("/", h.AssignTenantRole)
+							r.Delete("/{role}", h.RevokeTenantRole)
+						})
+						// OAuth2 Client Management
+						r.Route("/clients", func(r chi.Router) {
+							r.Get("/", h.ListClients)
+							r.Post("/", h.RegisterClient)
+							r.Route("/{clientID}", func(r chi.Router) {
+								r.Get("/", h.GetClient)
+								r.Delete("/", h.DeleteClient)
+								r.Post("/secret", h.RegenerateClientSecret)
 							})
 						})
 					})
 				})
 			})
-		})
-	}
+		}
+	})
 
 	return r
 }
@@ -362,6 +363,18 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Session Rotation (Hardening Step): Destroy old session if it exists
+	if oldSessionID := h.getSessionFromCookie(r); oldSessionID != "" {
+		_ = h.sessionService.Destroy(r.Context(), oldSessionID)
+	}
+
+	// Determine session namespace based on mode
+	// If in "all" or "admin" mode, we treat this as an admin session
+	namespace := "admin"
+	if h.mode == "auth" {
+		namespace = "auth"
+	}
+
 	// Create session with immutable tenant_id from user record
 	sess, err := h.sessionService.Create(
 		r.Context(),
@@ -369,6 +382,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		user.ID,
 		getIPAddress(r),
 		r.UserAgent(),
+		namespace,
 	)
 	if err != nil {
 		slog.ErrorContext(r.Context(), "failed to create session", logger.Error(err))

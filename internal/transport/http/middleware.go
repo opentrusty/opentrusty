@@ -110,6 +110,14 @@ func (h *Handler) AuthMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
+		// Namespace Isolation (Hardening Step)
+		// admin-plane only accepts "admin" sessions.
+		// auth-plane only accepts "auth" or "admin" sessions (admin can log into auth flows).
+		if h.mode == "admin" && sess.Namespace != "admin" {
+			respondError(w, http.StatusForbidden, "invalid session namespace for admin plane")
+			return
+		}
+
 		// Refresh session
 		if err := h.sessionService.Refresh(r.Context(), sessionID); err != nil {
 			slog.ErrorContext(r.Context(), "failed to refresh session", logger.Error(err))
@@ -141,5 +149,29 @@ func (h *Handler) AuthMiddleware(next http.Handler) http.Handler {
 		ctx = context.WithValue(ctx, tenantIDKey, sessionTenant)
 
 		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+// CSRFMiddleware protects against Cross-Site Request Forgery for state-changing requests.
+// We enforce a custom header 'X-CSRF-Token'.
+func (h *Handler) CSRFMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Only enforce for state-changing methods
+		if r.Method == http.MethodGet || r.Method == http.MethodHead || r.Method == http.MethodOptions || r.Method == http.MethodTrace {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		// Enforce custom header for SPA and Form-based transitions
+		// In a production system, this would be a dynamic token.
+		// For the MVP skeleton, we enforce that the header MUST be present and non-empty.
+		csrfToken := r.Header.Get("X-CSRF-Token")
+		if csrfToken == "" {
+			slog.WarnContext(r.Context(), "missing CSRF token header", "method", r.Method, "path", r.URL.Path)
+			respondError(w, http.StatusForbidden, "CSRF protection: X-CSRF-Token header is required for state-changing operations")
+			return
+		}
+
+		next.ServeHTTP(w, r)
 	})
 }

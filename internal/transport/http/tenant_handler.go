@@ -298,3 +298,58 @@ func (h *Handler) ListTenantUsers(w http.ResponseWriter, r *http.Request) {
 
 	respondJSON(w, http.StatusOK, roles)
 }
+
+// AssignOwnerRequest represents tenant owner assignment data
+type AssignOwnerRequest struct {
+	UserID string `json:"user_id" binding:"required" example:"uuid"`
+}
+
+// AssignTenantOwner handles assigning a primary owner (tenant_owner role) to a tenant
+// @Summary Assign Tenant Owner
+// @Description Assign the 'tenant_owner' role to a user (Platform Admin Only)
+// @Tags Tenant
+// @Accept json
+// @Produce json
+// @Security CookieAuth
+// @Param tenantID path string true "Tenant ID"
+// @Param request body AssignOwnerRequest true "Owner Data"
+// @Success 200 {object} map[string]string
+// @Router /tenants/{tenantID}/owners [post]
+func (h *Handler) AssignTenantOwner(w http.ResponseWriter, r *http.Request) {
+	tenantID := chi.URLParam(r, "tenantID")
+
+	// 1. Authorization: Platform Admin only
+	actorID := GetUserID(r.Context())
+	allowed, err := h.authzService.HasPermission(r.Context(), actorID, authz.ScopePlatform, nil, authz.PermPlatformManageTenants)
+	if err != nil || !allowed {
+		respondError(w, http.StatusForbidden, "platform administrative access required")
+		return
+	}
+
+	var req AssignOwnerRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	// 2. Assign 'tenant_owner' role
+	err = h.tenantService.AssignRole(r.Context(), tenantID, req.UserID, tenant.RoleTenantOwner, actorID)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to assign tenant owner: "+err.Error())
+		return
+	}
+
+	// 3. Audit Log
+	h.auditLogger.Log(r.Context(), audit.Event{
+		Type:     audit.TypeRoleAssigned,
+		TenantID: tenantID,
+		ActorID:  actorID,
+		Resource: audit.ResourceTenant,
+		Metadata: map[string]any{
+			audit.AttrRoleID: tenant.RoleTenantOwner,
+			"target_user_id": req.UserID,
+		},
+	})
+
+	respondJSON(w, http.StatusOK, map[string]string{"status": "owner_assigned"})
+}

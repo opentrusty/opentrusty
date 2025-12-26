@@ -60,12 +60,17 @@ This document defines the integration responsibilities between OpenTrusty compon
 
 ## Session Flow
 
-1. **Admin authenticates** via `auth.*` login page
-2. **Auth issues** HttpOnly session cookie
+1. **Admin authenticates** via `auth.*` login page (Port 8080)
+2. **Auth issues** HttpOnly session cookie (Scoped to `.opentrusty.org`)
 3. **Browser loads** Control Panel from `console.*`
-4. **Console calls** `api.*` with cookie attached
-5. **API validates** session via shared session store
-6. **API enforces** RBAC and returns data
+4. **Console calls** `api.*` (Port 8081) with cookie attached
+5. **Load Balancer / Proxy** routes requests based on path:
+    - `/api/v1/auth/*` -> Auth Plane (Port 8080)
+    - `/oauth2/*` -> Auth Plane (Port 8080)
+    - `/.well-known/*` -> Auth Plane (Port 8080)
+    - `/api/v1/*` (Management) -> Admin Plane (Port 8081)
+6. **API validates** session via shared session store
+7. **API enforces** RBAC and returns data
 
 ## Contract Violations
 

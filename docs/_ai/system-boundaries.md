@@ -6,7 +6,8 @@ This document defines what this repository owns and explicitly does NOT own.
 
 **Repository**: `opentrusty`  
 **Purpose**: Core Auth Engine + Management API  
-**Domains**: `auth.opentrusty.org`, `api.opentrusty.org`
+**Domains**: `auth.opentrusty.org` (Port 8080), `api.opentrusty.org` (Port 8081)
+**Enforcement**: Strict router segregation via `opentrusty serve [auth|admin]`
 
 ## What This Repository Owns
 
@@ -14,8 +15,8 @@ This document defines what this repository owns and explicitly does NOT own.
 - OIDC/OAuth2 protocol endpoints
 - Server-rendered login, consent, and error pages
 - Session cookie issuance and validation
-- Tenant-branded login page templates
 - Token generation and signing
+- **Constraint**: MUST NOT expose Management APIs (404 enforced)
 
 ### Management API Plane (`api.*`)
 - Tenant lifecycle (create, read, update, delete)
@@ -23,6 +24,7 @@ This document defines what this repository owns and explicitly does NOT own.
 - OAuth client registration
 - RBAC role and assignment management
 - Audit log access
+- **Constraint**: MUST NOT expose Login/OIDC endpoints (404 enforced)
 
 ### Shared Domain Core
 - Identity service (user management)

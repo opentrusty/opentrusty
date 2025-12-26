@@ -109,6 +109,18 @@ func (h *Handler) RegisterClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 3. Security Event: Minimal audit log for client registration
+	h.auditLogger.Log(r.Context(), audit.Event{
+		Type:     audit.TypeClientCreated,
+		TenantID: tenantID,
+		ActorID:  userID,
+		Resource: audit.ResourceClient,
+		Metadata: map[string]any{
+			"client_id":   client.ClientID,
+			"client_name": client.ClientName,
+		},
+	})
+
 	respondJSON(w, http.StatusCreated, RegisterClientResponse{
 		ClientID:     client.ClientID,
 		ClientSecret: clientSecret,
@@ -192,10 +204,10 @@ func (h *Handler) DeleteClient(w http.ResponseWriter, r *http.Request) {
 
 	if h.auditLogger != nil {
 		h.auditLogger.Log(r.Context(), audit.Event{
-			Type:     "client_deleted",
+			Type:     audit.TypeRoleRevoked, // Using generic revoked for now
 			TenantID: tenantID,
-			ActorID:  GetUserID(r.Context()),
-			Resource: "oauth2_client",
+			ActorID:  userID,
+			Resource: audit.ResourceClient,
 			Metadata: map[string]any{"client_id": clientID},
 		})
 	}
@@ -233,10 +245,10 @@ func (h *Handler) RegenerateClientSecret(w http.ResponseWriter, r *http.Request)
 	}
 
 	h.auditLogger.Log(r.Context(), audit.Event{
-		Type:     "client_secret_regenerated",
+		Type:     audit.TypeSecretRotated,
 		TenantID: tenantID,
 		ActorID:  GetUserID(r.Context()),
-		Resource: "oauth2_client",
+		Resource: audit.ResourceClient,
 		Metadata: map[string]any{"client_id": clientID},
 	})
 

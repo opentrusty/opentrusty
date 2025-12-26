@@ -36,6 +36,7 @@ type Session struct {
 	ExpiresAt  time.Time
 	CreatedAt  time.Time
 	LastSeenAt time.Time
+	Namespace  string // "auth" or "admin"
 }
 
 // IsExpired checks if the session has expired

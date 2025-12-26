@@ -317,12 +317,15 @@ func TestHTTP_Protocol_CrossTenant_Negative(t *testing.T) {
 	sessRepo := &stubSessionRepo{sessions: make(map[string]*session.Session)}
 	sessSvc := session.NewService(sessRepo, 24*time.Hour, 1*time.Hour)
 
-	// Create Session for Tenant A
+	// 2. Create session
 	ctx := context.Background()
-	sess, _ := sessSvc.Create(ctx, strPtr("tenant-A"), "user-A-uuid-12345678", "127.0.0.1", "test-agent")
+	sess, err := sessSvc.Create(ctx, nil, "user_123", "127.0.0.1", "test-agent", "admin")
+	if err != nil {
+		t.Fatalf("failed to create session: %v", err)
+	}
 	sessRepo.sessions[sess.ID].TenantID = strPtr("tenant-A")
 
-	h := NewHandler(nil, sessSvc, nil, nil, nil, nil, audit.NewSlogLogger(), SessionConfig{CookieName: "session_id"})
+	h := NewHandler(nil, sessSvc, nil, nil, nil, nil, audit.NewSlogLogger(), SessionConfig{CookieName: "session_id"}, "admin")
 
 	// Create Router with Middleware
 	r := chi.NewRouter()

@@ -8,11 +8,6 @@ OpenTrusty operates across three distinct trust domains, each with different sec
 
 ```mermaid
 graph TB
-    subgraph "External Clients"
-        Browser["Browser (End User)"]
-        AdminBrowser["Browser (Admin)"]
-        App["Application (RP)"]
-    end
 
     subgraph "Console Domain (console.*)"
         direction TB

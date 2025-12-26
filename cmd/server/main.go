@@ -231,6 +231,7 @@ func main() {
 			CookieHTTPOnly: cfg.Session.CookieHTTPOnly,
 			CookieSameSite: sameSite,
 		},
+		mode,
 	)
 
 	// Create router

@@ -21,7 +21,11 @@ This file defines the strict contract between the AI and the OpenTrusty project.
 -   **Update on Change**: You **MUST** follow the `docs/_ai/update-matrix.md`.
     -   *Example*: If you add a column to `users` table, you **MUST** check `invariants.md` and `authority-model.md` and update them if the change affects the defined logic.
 
-## 3. The STOP Condition
+## 3. CSRF & CORS Protection
+- **CSRF**: State-changing operations (`POST`, `PUT`, `DELETE`) require `X-CSRF-Token` header.
+- **CORS**: Strict Origin matching. No `*` in production for non-discovery endpoints.
+
+## 4. The STOP Condition
 
 **YOU MUST STOP AND ASK THE USER IF:**
 
@@ -29,7 +33,7 @@ This file defines the strict contract between the AI and the OpenTrusty project.
 2.  You encounter ambiguity in the `authority-model.md`.
 3.  You find that the current code contradicts `docs/_ai/` documentation.
 
-## 4. Repository Scope
+## 5. Repository Scope
 
 This repository is the **Core Identity Provider** (headless backend).
 
@@ -50,17 +54,22 @@ This repository is the **Core Identity Provider** (headless backend).
 The **Control Panel UI** lives in a separate repository (`opentrusty-control-panel`).
 It is an **untrusted API client**. All enforcement happens server-side.
 
-## 5. System Planes
+## 6. System Planes
 
 This repository represents **TWO** logical planes ONLY:
 
-### 5.1. Authentication Plane (`auth.*`)
+### 6.1. Authentication Plane (`auth.*`)
 -   OIDC/OAuth2 protocol endpoints
 -   Server-rendered login, consent, and error pages
 -   Session cookie management
--   AI MUST treat login pages as **protocol surfaces**, NOT as UI components
 
-### 5.2. Management API Plane (`api.*`)
+### 6.2. Session & Cookie Security
+- **SERVER-SIDE SESSIONS ONLY**. No JWT for primary sessions.
+- **Attributes**: `HttpOnly=true`, `Secure=true` (default), `SameSite=Lax`.
+- **Rotation**: Old session MUST be destroyed on successful login.
+- **Namespaces**: `admin` and `auth` planes use logically isolated session namespaces. `admin` plane only accepts `admin` sessions.
+
+### 6.3. Management API Plane (`api.*`)
 -   REST APIs for tenant, user, client, and policy management
 -   Consumed by Control Panel UI, CLI tools, and automation
 -   AI MUST treat all consumers as **untrusted external clients**

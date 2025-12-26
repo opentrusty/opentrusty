@@ -125,7 +125,7 @@ func Load() (*Config, error) {
 			CookieName:     getEnv("SESSION_COOKIE_NAME", "opentrusty_session"),
 			CookieDomain:   getEnv("SESSION_COOKIE_DOMAIN", ""),
 			CookiePath:     getEnv("SESSION_COOKIE_PATH", "/"),
-			CookieSecure:   parseBool("SESSION_COOKIE_SECURE", false),
+			CookieSecure:   parseBool("SESSION_COOKIE_SECURE", true),
 			CookieHTTPOnly: parseBool("SESSION_COOKIE_HTTP_ONLY", true),
 			CookieSameSite: getEnv("SESSION_COOKIE_SAME_SITE", "Lax"),
 			Lifetime:       parseDuration("SESSION_LIFETIME", "24h"),
@@ -170,6 +170,9 @@ func Load() (*Config, error) {
 func (c *Config) Validate() error {
 	if c.Database.Password == "" {
 		return fmt.Errorf("DB_PASSWORD is required")
+	}
+	if os.Getenv("OPENID_KEY_ENCRYPTION_KEY") == "" {
+		return fmt.Errorf("OPENID_KEY_ENCRYPTION_KEY is required for OIDC support")
 	}
 	return nil
 }
