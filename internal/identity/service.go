@@ -239,12 +239,24 @@ func (s *Service) AddPassword(ctx context.Context, userID, password string) erro
 // Authenticate authenticates a user with email and password
 func (s *Service) Authenticate(ctx context.Context, tenantID, email, password string) (*User, error) {
 	// Get user by email
-	var tID *string
-	if tenantID != "" {
-		tID = &tenantID
+	var user *User
+	var err error
+
+	fmt.Printf("DEBUG: Authenticate called for email=%s tenantID='%s'\n", email, tenantID)
+
+	if tenantID == "" {
+		// Global lookup for Control Plane login
+		fmt.Println("DEBUG: Using GetByEmailGlobal")
+		user, err = s.repo.GetByEmailGlobal(email)
+	} else {
+		// Scoped lookup for specific tenant context
+		fmt.Println("DEBUG: Using GetByEmail (Scoped)")
+		tID := &tenantID
+		user, err = s.repo.GetByEmail(tID, email)
 	}
-	user, err := s.repo.GetByEmail(tID, email)
+
 	if err != nil {
+		fmt.Printf("DEBUG: Lookup failed: %v\n", err)
 		// Audit failed attempt (unknown user)
 		s.auditLogger.Log(ctx, audit.Event{
 			Type:     audit.TypeLoginFailed,

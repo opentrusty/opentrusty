@@ -71,6 +71,15 @@ func (m *MockUserRepository) GetByEmail(tenantID *string, email string) (*User, 
 	return nil, ErrUserNotFound
 }
 
+func (m *MockUserRepository) GetByEmailGlobal(email string) (*User, error) {
+	for _, u := range m.users {
+		if u.Email == email {
+			return u, nil
+		}
+	}
+	return nil, ErrUserNotFound
+}
+
 func (m *MockUserRepository) Update(user *User) error {
 	m.users[user.ID] = user
 	return nil

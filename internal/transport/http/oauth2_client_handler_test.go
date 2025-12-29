@@ -156,8 +156,8 @@ func TestRegisterClient_Integration(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if resp.ClientName != "Test App" {
-		t.Errorf("expected Test App, got %s", resp.ClientName)
+	if resp.Client.ClientName != "Test App" {
+		t.Errorf("expected Test App, got %s", resp.Client.ClientName)
 	}
 	if resp.ClientSecret == "" {
 		t.Error("expected client_secret to be returned")

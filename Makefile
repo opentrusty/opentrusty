@@ -1,7 +1,7 @@
 
 # OpenTrusty Makefile
 
-.PHONY: all build run test clean dev docs-gen
+.PHONY: all build run test e2e clean dev docs-gen
 
 APP_NAME := opentrusty
 CMD_PATH := ./cmd/server
@@ -29,6 +29,9 @@ test-unit:
 test-e2e:
 	@echo "Running Docker-based E2E tests..."
 	@./tests/e2e/docker/run-e2e.sh
+
+# Alias for consistency with other repos
+e2e: test-e2e
 
 test-integration:
 	@echo "Running integration tests..."
@@ -115,6 +118,10 @@ dev:
 dev-down:
 	@echo "Stopping development environment..."
 	@docker-compose down
+
+dev-clean:
+	@echo "Wiping development environment (DELETING DATA)..."
+	@docker-compose down -v
 
 # Tidy dependencies
 tidy:

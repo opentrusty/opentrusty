@@ -23,7 +23,7 @@ We aim for **lazy consensus** for technical decisions.
 All participants are expected to follow our [Code of Conduct](CODE_OF_CONDUCT.md). We are committed to providing a welcoming and inclusive environment for everyone.
 
 ## 5. Non-Profit Commitment
-OpenTrusty is under the MIT License. It will always remain free and open-source.
+OpenTrusty is under the Apache License version 2.0. It will always remain free and open-source.
 
 ## 6. Release Gate: API Documentation Trustworthiness
 - A release of OpenTrusty MUST NOT be published if its public API documentation is incomplete, semantically inaccurate, or out of sync with the released code.

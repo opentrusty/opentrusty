@@ -87,6 +87,7 @@ var TenantAdminPermissions = []string{
 	PermTenantManageClients,
 	PermTenantViewUsers,
 	PermTenantView,
+	PermTenantViewAudit,
 	PermUserReadProfile,
 	PermUserWriteProfile,
 	PermUserChangePassword,

@@ -65,6 +65,7 @@ func (s *Service) GetUserRoles(ctx context.Context, userID string) ([]string, er
 
 // UserRoleAssignment represents a role assigned to a user with scope
 type UserRoleAssignment struct {
+	RoleID   string  `json:"role_id"`
 	RoleName string  `json:"role_name"`
 	Scope    string  `json:"scope"`
 	Context  *string `json:"context,omitempty"`
@@ -81,9 +82,17 @@ func (s *Service) GetUserRoleAssignments(ctx context.Context, userID string) ([]
 	for _, a := range assignments {
 		role, err := s.roleRepo.GetByID(a.RoleID)
 		if err != nil {
+			// Fallback if role cannot be fetched (should not happen with referential integrity)
+			result = append(result, UserRoleAssignment{
+				RoleID:   a.RoleID,
+				RoleName: "unknown",
+				Scope:    string(a.Scope),
+				Context:  a.ScopeContextID,
+			})
 			continue
 		}
 		result = append(result, UserRoleAssignment{
+			RoleID:   a.RoleID,
 			RoleName: role.Name,
 			Scope:    string(a.Scope),
 			Context:  a.ScopeContextID,
@@ -169,6 +178,28 @@ func (s *Service) HasPermission(ctx context.Context, userID string, scope Scope,
 			continue
 		}
 
+		role, err := s.roleRepo.GetByID(a.RoleID)
+		if err != nil {
+			continue
+		}
+
+		if role.HasPermission(permission) {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+// HasPermissionAny checks if a user has a specific permission in ANY of their assigned scopes
+// Useful for self-service permissions like reading profile, changing password, etc.
+func (s *Service) HasPermissionAny(ctx context.Context, userID string, permission string) (bool, error) {
+	assignments, err := s.assignmentRepo.ListForUser(userID)
+	if err != nil {
+		return false, fmt.Errorf("failed to get user assignments: %w", err)
+	}
+
+	for _, a := range assignments {
 		role, err := s.roleRepo.GetByID(a.RoleID)
 		if err != nil {
 			continue

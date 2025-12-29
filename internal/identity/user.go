@@ -84,6 +84,10 @@ type UserRepository interface {
 	// GetByEmail retrieves a user by email within a tenant (or no tenant for Platform Admins)
 	GetByEmail(tenantID *string, email string) (*User, error)
 
+	// GetByEmailGlobal retrieves a user by email globally (ignoring tenant)
+	// Used for Control Plane Login where tenant context is not yet known
+	GetByEmailGlobal(email string) (*User, error)
+
 	// Update updates user information
 	Update(user *User) error
 

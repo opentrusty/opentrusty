@@ -36,9 +36,8 @@ type RegisterClientRequest struct {
 
 // RegisterClientResponse represents the response after registering a client
 type RegisterClientResponse struct {
-	ClientID     string `json:"client_id"`
-	ClientSecret string `json:"client_secret,omitempty"`
-	ClientName   string `json:"client_name"`
+	Client       *oauth2.Client `json:"client"`
+	ClientSecret string         `json:"client_secret,omitempty"`
 }
 
 // RegisterClient handles OAuth2 client registration
@@ -122,9 +121,8 @@ func (h *Handler) RegisterClient(w http.ResponseWriter, r *http.Request) {
 	})
 
 	respondJSON(w, http.StatusCreated, RegisterClientResponse{
-		ClientID:     client.ClientID,
+		Client:       client,
 		ClientSecret: clientSecret,
-		ClientName:   client.ClientName,
 	})
 }
 

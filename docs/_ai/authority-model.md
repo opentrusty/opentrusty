@@ -21,6 +21,7 @@ Authority is derived from the combination of **Role** and **Scope**.
     -   Create and delete Tenants.
     -   Manage system-wide configurations.
     -   Assign Platform roles to other users.
+    -   View platform-level and tenant-level audit logs.
     -   **CANNOT** access Tenant data unless explicitly granted a Tenant role (Separation of Concern).
 
 ### 2. Tenant Admin (`tenant_admin`)
@@ -30,6 +31,7 @@ Authority is derived from the combination of **Role** and **Scope**.
     -   Manage users within their Tenant.
     -   Register OAuth2 clients for their Tenant.
     -   Configure Tenant-specific settings.
+    -   View audit logs for their Tenant.
     -   **CANNOT** see or modify other Tenants.
 
 ### 3. Tenant Member (`member`)

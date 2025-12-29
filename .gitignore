@@ -46,6 +46,7 @@ logs/
 
 # Temporary files
 tmp/
+cookies.txt
 # Documentation build artifacts
 build_docs/
 build_output/
@@ -57,3 +58,6 @@ docs/api/swagger.yaml
 # Test artifacts and raw data
 artifacts/
 *-raw.json
+
+tests/local/.state/
+tests/local/reports/

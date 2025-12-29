@@ -146,6 +146,40 @@ func (r *UserRepository) GetByEmail(tenantID *string, email string) (*identity.U
 	return &user, nil
 }
 
+// GetByEmailGlobal retrieves a user by email globally (ignoring tenant)
+func (r *UserRepository) GetByEmailGlobal(email string) (*identity.User, error) {
+	ctx := context.Background()
+
+	var user identity.User
+	var deletedAt sql.NullTime
+
+	err := r.db.pool.QueryRow(ctx, `
+		SELECT id, tenant_id, email, email_verified,
+			given_name, family_name, full_name, nickname, picture, locale, timezone,
+			created_at, updated_at, deleted_at
+		FROM users
+		WHERE email = $1 AND deleted_at IS NULL
+	`, email).Scan(
+		&user.ID, &user.TenantID, &user.Email, &user.EmailVerified,
+		&user.Profile.GivenName, &user.Profile.FamilyName, &user.Profile.FullName,
+		&user.Profile.Nickname, &user.Profile.Picture, &user.Profile.Locale, &user.Profile.Timezone,
+		&user.CreatedAt, &user.UpdatedAt, &deletedAt,
+	)
+
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, identity.ErrUserNotFound
+		}
+		return nil, fmt.Errorf("failed to get user: %w", err)
+	}
+
+	if deletedAt.Valid {
+		user.DeletedAt = &deletedAt.Time
+	}
+
+	return &user, nil
+}
+
 // Update updates user information
 func (r *UserRepository) Update(user *identity.User) error {
 	ctx := context.Background()

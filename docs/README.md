@@ -1,5 +1,4 @@
-# OpenTrusty Documentation
-
+# OpenTrusty
 ## Start Here
 - architecture/architecture-rules.md
 - security/threat-model.md
