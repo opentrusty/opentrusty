@@ -362,12 +362,6 @@ func runMigrate(cfg *config.Config) error {
 	}
 	fmt.Println("Applied initial schema.")
 
-	fmt.Println("Applying audit schema...")
-	if err := db.Migrate(ctx, postgres.AuditSchema); err != nil {
-		return err
-	}
-	fmt.Println("Applied audit schema.")
-
 	fmt.Println("Migration successful.")
 	return nil
 }
