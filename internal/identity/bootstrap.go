@@ -31,6 +31,7 @@ import (
 const (
 	EnvBootstrapAdminEmail    = "OT_BOOTSTRAP_ADMIN_EMAIL"
 	EnvBootstrapAdminTenantID = "OT_BOOTSTRAP_ADMIN_TENANT_ID"
+	EnvBootstrapAdminPassword = "OT_BOOTSTRAP_ADMIN_PASSWORD"
 )
 
 // BootstrapService manages the initial initialization of the system
@@ -87,12 +88,15 @@ func (s *BootstrapService) Bootstrap(ctx context.Context) error {
 		// User not found, create it
 		fmt.Printf("Bootstrap user not found, creating new platform admin: %s\n", email)
 
-		// Generate random password
-		pwBytes := make([]byte, 16)
-		if _, randErr := rand.Read(pwBytes); randErr != nil {
-			return fmt.Errorf("failed to generate random password: %w", randErr)
+		password := os.Getenv(EnvBootstrapAdminPassword)
+		if password == "" {
+			// Generate random password
+			pwBytes := make([]byte, 16)
+			if _, randErr := rand.Read(pwBytes); randErr != nil {
+				return fmt.Errorf("failed to generate random password: %w", randErr)
+			}
+			password = base64.RawURLEncoding.EncodeToString(pwBytes) + "!" // Ensure complexity often requires special char
 		}
-		password := base64.RawURLEncoding.EncodeToString(pwBytes) + "!" // Ensure complexity often requires special char depending on rules, adding '!' just in case
 
 		// Provision Identity
 		profile := Profile{

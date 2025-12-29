@@ -1,5 +1,6 @@
 -- 001_initial_schema.down.sql
 
+DROP TABLE IF EXISTS audit_events;
 DROP TABLE IF EXISTS openid_keys;
 DROP TABLE IF EXISTS refresh_tokens;
 DROP TABLE IF EXISTS access_tokens;

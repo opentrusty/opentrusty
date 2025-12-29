@@ -15,8 +15,10 @@
 package http
 
 import (
+	"crypto/rand"
 	"encoding/json"
 	"log/slog"
+	"math/big"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -28,18 +30,20 @@ import (
 
 // CreateTenantRequest represents tenant creation data
 type CreateTenantRequest struct {
-	Name string `json:"name" binding:"required" example:"My Corporation"`
+	Name       string `json:"name" binding:"required" example:"My Corporation"`
+	AdminEmail string `json:"admin_email,omitempty" example:"admin@example.com"`
+	AdminName  string `json:"admin_name,omitempty" example:"Admin User"`
 }
 
 // CreateTenant handles tenant creation
 // @Summary Create Tenant
-// @Description Create a new platform tenant (Platform Admin Only)
+// @Description Create a new platform tenant (Platform Admin Only). Optionally provision an initial tenant admin.
 // @Tags Tenant
 // @Accept json
 // @Produce json
 // @Security CookieAuth
 // @Param request body CreateTenantRequest true "Tenant Data"
-// @Success 201 {object} tenant.Tenant
+// @Success 201 {object} map[string]any
 // @Failure 400 {object} map[string]string
 // @Failure 403 {object} map[string]string
 // @Failure 500 {object} map[string]string
@@ -49,7 +53,7 @@ func (h *Handler) CreateTenant(w http.ResponseWriter, r *http.Request) {
 	userID := GetUserID(r.Context())
 	allowed, err := h.authzService.HasPermission(r.Context(), userID, authz.ScopePlatform, nil, authz.PermPlatformManageTenants)
 	if err != nil || !allowed {
-		respondError(w, http.StatusForbidden, "platform admin administrative access required")
+		respondError(w, http.StatusForbidden, "platform administrative access required")
 		return
 	}
 
@@ -85,7 +89,61 @@ func (h *Handler) CreateTenant(w http.ResponseWriter, r *http.Request) {
 		},
 	})
 
-	respondJSON(w, http.StatusCreated, t)
+	response := map[string]any{
+		"id":         t.ID,
+		"name":       t.Name,
+		"status":     t.Status,
+		"created_at": t.CreatedAt,
+		"updated_at": t.UpdatedAt,
+	}
+
+	// 4. Optional: Provision Initial Admin
+	if req.AdminEmail != "" {
+		// reuse identityService
+		// Check if user exists
+		user, err := h.identityService.GetByEmail(r.Context(), t.ID, req.AdminEmail)
+		if err != nil && err != identity.ErrUserNotFound {
+			// Log error but returned created tenant
+			slog.ErrorContext(r.Context(), "failed to check admin user", "error", err)
+		}
+
+		if user == nil {
+			// Create user
+			profile := identity.Profile{
+				FullName: req.AdminName,
+			}
+			if profile.FullName == "" {
+				profile.FullName = "Tenant Admin"
+			}
+
+			user, err = h.identityService.ProvisionIdentity(r.Context(), t.ID, req.AdminEmail, profile)
+			if err != nil {
+				slog.ErrorContext(r.Context(), "failed to provision admin user", "error", err)
+			} else {
+				// Generate Random Password
+				password, err := generateRandomPassword(12)
+				if err != nil {
+					slog.ErrorContext(r.Context(), "failed to generate password", "error", err)
+				} else {
+					if err := h.identityService.AddPassword(r.Context(), user.ID, password); err != nil {
+						slog.ErrorContext(r.Context(), "failed to set admin password", "error", err)
+					} else {
+						// Assign Tenant Admin Role
+						if err := h.tenantService.AssignRole(r.Context(), t.ID, user.ID, tenant.RoleTenantAdmin, userID); err != nil {
+							slog.ErrorContext(r.Context(), "failed to assign admin role", "error", err)
+						} else {
+							// Return credentials in response
+							response["admin_email"] = req.AdminEmail
+							response["admin_password"] = password
+							response["password_warning"] = "This password will not be shown again. Please copy it now."
+						}
+					}
+				}
+			}
+		}
+	}
+
+	respondJSON(w, http.StatusCreated, response)
 }
 
 // ProvisionUserRequest represents user provisioning data
@@ -183,10 +241,18 @@ func (h *Handler) ProvisionTenantUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respondJSON(w, http.StatusOK, map[string]any{
+	// Return the provisioned user info including the password for one-time display
+	response := map[string]any{
 		JSONKeyUserID: user.ID,
 		JSONKeyRole:   req.Role,
-	})
+	}
+	// Only include password if we just created the user with one
+	if req.Password != "" {
+		response["password"] = req.Password
+		response["password_warning"] = "This password will not be shown again. Please copy it now."
+	}
+
+	respondJSON(w, http.StatusOK, response)
 }
 
 // AssignRoleRequest represents role assignment data
@@ -352,4 +418,17 @@ func (h *Handler) AssignTenantOwner(w http.ResponseWriter, r *http.Request) {
 	})
 
 	respondJSON(w, http.StatusOK, map[string]string{"status": "owner_assigned"})
+}
+
+func generateRandomPassword(length int) (string, error) {
+	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*"
+	b := make([]byte, length)
+	for i := range b {
+		num, err := rand.Int(rand.Reader, big.NewInt(int64(len(charset))))
+		if err != nil {
+			return "", err
+		}
+		b[i] = charset[num.Int64()]
+	}
+	return string(b), nil
 }

@@ -72,19 +72,31 @@ func (h *Handler) ListTenantAuditEvents(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// NOTE: This is a simplified implementation for Beta validation
-	// In production, audit events should be persisted to a database table
-	// and queried with proper filtering, pagination, and retention policies.
-	//
-	// For now, we return a structured empty response that satisfies the API contract
-	// and allows the UI component to render correctly.
-	events := generateSampleAuditEvents(tenantID)
+	limit := 50
+	offset := 0
 
-	// If you want to demonstrate the UI with sample data during E2E tests,
-	// you could add mock events here. For now, returning empty is acceptable.
+	// Create filter
+	filter := audit.Filter{
+		TenantID: &tenantID,
+		Limit:    limit,
+		Offset:   offset,
+	}
+
+	events, total, err := h.auditRepo.List(r.Context(), filter)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to list audit events")
+		return
+	}
+
+	// Map to response
+	respEvents := make([]AuditEventResponse, len(events))
+	for i, e := range events {
+		respEvents[i] = mapAuditEvent(e)
+	}
+
 	respondJSON(w, http.StatusOK, ListAuditEventsResponse{
-		Events: events,
-		Total:  len(events),
+		Events: respEvents,
+		Total:  total,
 	})
 }
 
@@ -108,46 +120,47 @@ func (h *Handler) ListPlatformAuditEvents(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// NOTE: Same simplified implementation as tenant audit logs
-	events := generateSampleAuditEvents("")
+	// Platform logs have empty tenant_id (nil filter implies ANY, empty string implies System?)
+	// Our repo implementation: if TenantID string is "", it checks IS NULL.
+	// So we pass pointer to empty string.
+	emptyTenant := ""
+	limit := 50
+	offset := 0
+
+	filter := audit.Filter{
+		TenantID: &emptyTenant,
+		Limit:    limit,
+		Offset:   offset,
+	}
+
+	events, total, err := h.auditRepo.List(r.Context(), filter)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to list audit events")
+		return
+	}
+
+	// Map to response
+	respEvents := make([]AuditEventResponse, len(events))
+	for i, e := range events {
+		respEvents[i] = mapAuditEvent(e)
+	}
 
 	respondJSON(w, http.StatusOK, ListAuditEventsResponse{
-		Events: events,
-		Total:  len(events),
+		Events: respEvents,
+		Total:  total,
 	})
 }
 
-// Helper function to generate sample audit events for demonstration
-// This can be used during development/testing to show the UI with data
-func generateSampleAuditEvents(tenantID string) []AuditEventResponse {
-	now := time.Now()
-	return []AuditEventResponse{
-		{
-			ID:        "audit_001",
-			Type:      audit.TypeLoginSuccess,
-			TenantID:  tenantID,
-			ActorID:   "user_001",
-			Resource:  audit.ResourceSession,
-			IPAddress: "127.0.0.1",
-			CreatedAt: now.Add(-1 * time.Hour).Format(time.RFC3339),
-		},
-		{
-			ID:        "audit_002",
-			Type:      audit.TypeClientCreated,
-			TenantID:  tenantID,
-			ActorID:   "user_001",
-			Resource:  audit.ResourceClient,
-			Metadata:  map[string]any{"client_name": "Demo Client"},
-			CreatedAt: now.Add(-30 * time.Minute).Format(time.RFC3339),
-		},
-		{
-			ID:        "audit_003",
-			Type:      audit.TypeUserCreated,
-			TenantID:  tenantID,
-			ActorID:   "user_001",
-			Resource:  audit.ResourceUser,
-			Metadata:  map[string]any{"email": "newuser@example.com"},
-			CreatedAt: now.Add(-15 * time.Minute).Format(time.RFC3339),
-		},
+func mapAuditEvent(e audit.Event) AuditEventResponse {
+	return AuditEventResponse{
+		ID:        e.ID,
+		Type:      e.Type,
+		TenantID:  e.TenantID,
+		ActorID:   e.ActorID,
+		Resource:  e.Resource,
+		IPAddress: e.IPAddress,
+		UserAgent: e.UserAgent,
+		Metadata:  e.Metadata,
+		CreatedAt: e.Timestamp.Format(time.RFC3339),
 	}
 }

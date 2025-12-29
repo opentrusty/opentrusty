@@ -37,7 +37,7 @@ func NewTenantRoleRepository(db *DB) *TenantRoleRepository {
 func MapTenantRole(role string) string {
 	switch role {
 	case tenant.RoleTenantOwner:
-		return "20000000-0000-0000-0000-000000000002" // Map owner to admin for now
+		return "20000000-0000-0000-0000-000000000004" // tenant_owner role
 	case tenant.RoleTenantAdmin:
 		return "20000000-0000-0000-0000-000000000002"
 	case tenant.RoleTenantMember:

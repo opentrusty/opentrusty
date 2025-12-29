@@ -216,6 +216,13 @@ func (m *stubSessionRepo) Delete(id string) error          { delete(m.sessions, 
 func (m *stubSessionRepo) DeleteExpired() error            { return nil }
 func (m *stubSessionRepo) DeleteByUserID(uid string) error { return nil }
 
+type stubAuditRepo struct{}
+
+func (m *stubAuditRepo) Log(ctx context.Context, event audit.Event) error { return nil }
+func (m *stubAuditRepo) List(ctx context.Context, filter audit.Filter) ([]audit.Event, int, error) {
+	return nil, 0, nil
+}
+
 // TestPurpose: Validates a full OAuth2 authorization code flow from code creation to token exchange via HTTP.
 // Scope: Unit Test
 // Security: End-to-end OAuth2 protocol correctness (RFC 6749)
@@ -325,7 +332,7 @@ func TestHTTP_Protocol_CrossTenant_Negative(t *testing.T) {
 	}
 	sessRepo.sessions[sess.ID].TenantID = strPtr("tenant-A")
 
-	h := NewHandler(nil, sessSvc, nil, nil, nil, nil, audit.NewSlogLogger(), SessionConfig{CookieName: "session_id"}, "admin")
+	h := NewHandler(nil, sessSvc, nil, nil, nil, nil, audit.NewSlogLogger(), &stubAuditRepo{}, SessionConfig{CookieName: "session_id"}, "admin")
 
 	// Create Router with Middleware
 	r := chi.NewRouter()

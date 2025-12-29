@@ -247,7 +247,28 @@ CREATE TABLE IF NOT EXISTS openid_keys (
 );
 
 -- -----------------------------------------------------------------------------
--- 5. Seeding & Utilities
+-- 5. Audit Events
+-- -----------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS audit_events (
+    id UUID PRIMARY KEY,
+    type VARCHAR(255) NOT NULL,
+    tenant_id VARCHAR(255), -- Use VARCHAR to support potentially deleted UUIDs or system identifiers
+    actor_id VARCHAR(255),  -- Use VARCHAR to support non-UUID actors or system keys
+    resource VARCHAR(255) NOT NULL,
+    ip_address VARCHAR(45),
+    user_agent TEXT,
+    metadata JSONB,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_audit_created_at ON audit_events(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_tenant_id ON audit_events(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_audit_actor_id ON audit_events(actor_id);
+
+
+-- -----------------------------------------------------------------------------
+-- 6. Seeding & Utilities
 -- -----------------------------------------------------------------------------
 
 -- Triggers for updated_at
@@ -291,7 +312,8 @@ ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, description = EXCLUDED.desc
 INSERT INTO rbac_roles (id, name, scope, description) VALUES
     ('20000000-0000-0000-0000-000000000001', 'platform_admin', 'platform', 'Platform-wide administrator'),
     ('20000000-0000-0000-0000-000000000002', 'tenant_admin', 'tenant', 'Administrator for a specific tenant'),
-    ('20000000-0000-0000-0000-000000000003', 'member', 'tenant', 'Regular member of a tenant')
+    ('20000000-0000-0000-0000-000000000003', 'member', 'tenant', 'Regular member of a tenant'),
+    ('20000000-0000-0000-0000-000000000004', 'tenant_owner', 'tenant', 'Owner of a tenant with full management privileges')
 ON CONFLICT (id) DO NOTHING;
 
 -- Map Permissions to Roles
@@ -299,12 +321,39 @@ ON CONFLICT (id) DO NOTHING;
 INSERT INTO rbac_role_permissions (role_id, permission_id)
 SELECT '20000000-0000-0000-0000-000000000001', id FROM rbac_permissions ON CONFLICT DO NOTHING;
 
--- Tenant Admin: Tenant-level management
+-- Tenant Owner: Full tenant management + User self-service permissions
+INSERT INTO rbac_role_permissions (role_id, permission_id) VALUES
+    ('20000000-0000-0000-0000-000000000004', '10000000-0000-0000-0000-000000000005'),
+    ('20000000-0000-0000-0000-000000000004', '10000000-0000-0000-0000-000000000006'),
+    ('20000000-0000-0000-0000-000000000004', '10000000-0000-0000-0000-000000000007'),
+    ('20000000-0000-0000-0000-000000000004', '10000000-0000-0000-0000-000000000008'),
+    ('20000000-0000-0000-0000-000000000004', '10000000-0000-0000-0000-000000000009'),
+    ('20000000-0000-0000-0000-000000000004', '10000000-0000-0000-0000-000000000010'),
+    ('20000000-0000-0000-0000-000000000004', '10000000-0000-0000-0000-000000000011'),
+    ('20000000-0000-0000-0000-000000000004', '10000000-0000-0000-0000-000000000012'),
+    ('20000000-0000-0000-0000-000000000004', '10000000-0000-0000-0000-000000000013'),
+    ('20000000-0000-0000-0000-000000000004', '10000000-0000-0000-0000-000000000014')
+ON CONFLICT DO NOTHING;
+
+-- Tenant Admin: Tenant-level management + User self-service permissions
 INSERT INTO rbac_role_permissions (role_id, permission_id) VALUES
     ('20000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000005'),
     ('20000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000006'),
     ('20000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000007'),
     ('20000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000008'),
     ('20000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000009'),
-    ('20000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000010')
+    ('20000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000010'),
+    -- User self-service permissions (required for /auth/me, profile, password)
+    ('20000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000011'),
+    ('20000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000012'),
+    ('20000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000013'),
+    ('20000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000014')
+ON CONFLICT DO NOTHING;
+
+-- Member role: Basic self-service permissions
+INSERT INTO rbac_role_permissions (role_id, permission_id) VALUES
+    ('20000000-0000-0000-0000-000000000003', '10000000-0000-0000-0000-000000000009'),
+    ('20000000-0000-0000-0000-000000000003', '10000000-0000-0000-0000-000000000011'),
+    ('20000000-0000-0000-0000-000000000003', '10000000-0000-0000-0000-000000000012'),
+    ('20000000-0000-0000-0000-000000000003', '10000000-0000-0000-0000-000000000013')
 ON CONFLICT DO NOTHING;

@@ -72,6 +72,7 @@ type Handler struct {
 	tenantService   *tenant.Service
 	oidcService     *oidc.Service
 	auditLogger     audit.Logger
+	auditRepo       audit.Repository
 	// Configuration
 	sessionConfig SessionConfig
 	mode          string // "auth", "admin", or "all"
@@ -89,25 +90,27 @@ type SessionConfig struct {
 
 // NewHandler creates a new HTTP handler
 func NewHandler(
-	identSvc *identity.Service,
-	sessSvc *session.Service,
-	oauthSvc *oauth2.Service,
-	authzSvc *authz.Service,
-	tenantSvc *tenant.Service,
-	oidcSvc *oidc.Service,
+	identityService *identity.Service,
+	sessionService *session.Service,
+	oauth2Service *oauth2.Service,
+	authzService *authz.Service,
+	tenantService *tenant.Service,
+	oidcService *oidc.Service,
 	auditLogger audit.Logger,
-	sessConfig SessionConfig,
+	auditRepo audit.Repository,
+	sessionConfig SessionConfig,
 	mode string,
 ) *Handler {
 	return &Handler{
-		identityService: identSvc,
-		sessionService:  sessSvc,
-		oauth2Service:   oauthSvc,
-		authzService:    authzSvc,
-		tenantService:   tenantSvc,
-		oidcService:     oidcSvc,
+		identityService: identityService,
+		sessionService:  sessionService,
+		oauth2Service:   oauth2Service,
+		authzService:    authzService,
+		tenantService:   tenantService,
+		oidcService:     oidcService,
 		auditLogger:     auditLogger,
-		sessionConfig:   sessConfig,
+		auditRepo:       auditRepo,
+		sessionConfig:   sessionConfig,
 		mode:            mode,
 	}
 }

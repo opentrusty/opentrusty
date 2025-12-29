@@ -25,6 +25,9 @@ import (
 //go:embed migrations/001_initial_schema.up.sql
 var InitialSchema string
 
+//go:embed migrations/002_audit_table.up.sql
+var AuditSchema string
+
 // DB wraps the PostgreSQL connection pool
 type DB struct {
 	pool *pgxpool.Pool

@@ -16,6 +16,10 @@ services:
       - ISSUER=http://opentrusty_test:8080
       - LOG_LEVEL=debug
       - ADDR=:8080
+      - OPENID_KEY_ENCRYPTION_KEY=01234567890123456789012345678901
+      - OT_BOOTSTRAP_ADMIN_EMAIL=admin@platform.local
+      - OT_BOOTSTRAP_ADMIN_PASSWORD=adminadmin
+      - SESSION_COOKIE_SECURE=false
     ports:
       - "8080:8080"
     depends_on:

@@ -82,6 +82,7 @@ const (
 
 // Event represents an auditable action
 type Event struct {
+	ID        string
 	Type      string
 	TenantID  string
 	ActorID   string
@@ -95,6 +96,25 @@ type Event struct {
 // Logger defines the interface for audit logging
 type Logger interface {
 	Log(ctx context.Context, event Event)
+}
+
+// Filter defines criteria for listing audit events
+type Filter struct {
+	TenantID  *string
+	ActorID   *string
+	Type      *string
+	StartDate *time.Time
+	EndDate   *time.Time
+	Limit     int
+	Offset    int
+}
+
+// Repository defines storage for audit events
+type Repository interface {
+	// Log persists an event
+	Log(ctx context.Context, event Event) error
+	// List retrieves events matching filter
+	List(ctx context.Context, filter Filter) ([]Event, int, error)
 }
 
 // SlogLogger implements Logger using slog
@@ -144,6 +164,36 @@ func (l *SlogLogger) Log(ctx context.Context, event Event) {
 	// Log at INFO level with "audit" component
 	slog.InfoContext(ctx, "AUDIT_EVENT", append(attrs, slog.String(AttrComponent, "audit"))...)
 }
+
+// RepositoryLogger implements Logger using a Repository and Slog
+type RepositoryLogger struct {
+	repo Repository
+	slog *SlogLogger
+}
+
+// NewRepositoryLogger creates a new repository-backed logger
+func NewRepositoryLogger(repo Repository) *RepositoryLogger {
+	return &RepositoryLogger{
+		repo: repo,
+		slog: NewSlogLogger(),
+	}
+}
+
+// Log records an audit event to both Slog and Repository
+func (l *RepositoryLogger) Log(ctx context.Context, event Event) {
+	// 1. Log to Slog (Stdout)
+	l.slog.Log(ctx, event)
+
+	// 2. Persist to Repository
+	// We use a detached context or error handling?
+	// For now, synchronous execution to ensure audit trial integrity.
+	if err := l.repo.Log(ctx, event); err != nil {
+		slog.ErrorContext(ctx, "failed to persist audit event", "error", err)
+	}
+}
+
+// Check if isSecret needs to be exported or not. It is used in SlogLogger, so likely private in package.
+// Nothing else changed.
 
 // isSecret checks if a key likely contains a secret.
 // It uses case-insensitive substring matching against a set of common sensitive keywords.

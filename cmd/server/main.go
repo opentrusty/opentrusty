@@ -145,9 +145,12 @@ func main() {
 	refreshRepo := postgres.NewRefreshTokenRepository(db)
 	tenantRepo := postgres.NewTenantRepository(db)
 	tenantRoleRepo := postgres.NewTenantRoleRepository(db)
+	auditRepo := postgres.NewAuditRepository(db)
 
 	// Initialize helpers
-	auditLogger := audit.NewSlogLogger()
+	// Use RepositoryLogger to ensure audit events are persisted
+	auditLogger := audit.NewRepositoryLogger(auditRepo)
+
 	passwordHasher := identity.NewPasswordHasher(
 		cfg.Security.Argon2Memory,
 		cfg.Security.Argon2Iterations,
@@ -223,6 +226,7 @@ func main() {
 		tenantService,
 		oidcService,
 		auditLogger,
+		auditRepo,
 		transportHTTP.SessionConfig{
 			CookieName:     cfg.Session.CookieName,
 			CookieDomain:   cfg.Session.CookieDomain,
@@ -306,7 +310,10 @@ func runBootstrap(cfg *config.Config) error {
 	userRepo := postgres.NewUserRepository(db)
 	roleRepo := postgres.NewRoleRepository(db)
 	assignmentRepo := postgres.NewAssignmentRepository(db)
-	auditLogger := audit.NewSlogLogger()
+	auditRepo := postgres.NewAuditRepository(db)
+	// Use RepositoryLogger for bootstrap
+	auditLogger := audit.NewRepositoryLogger(auditRepo)
+
 	passwordHasher := identity.NewPasswordHasher(
 		cfg.Security.Argon2Memory,
 		cfg.Security.Argon2Iterations,
@@ -353,6 +360,14 @@ func runMigrate(cfg *config.Config) error {
 	if err := db.Migrate(ctx, postgres.InitialSchema); err != nil {
 		return err
 	}
+	fmt.Println("Applied initial schema.")
+
+	fmt.Println("Applying audit schema...")
+	if err := db.Migrate(ctx, postgres.AuditSchema); err != nil {
+		return err
+	}
+	fmt.Println("Applied audit schema.")
+
 	fmt.Println("Migration successful.")
 	return nil
 }
