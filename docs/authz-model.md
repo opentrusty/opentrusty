@@ -47,10 +47,22 @@
 | Actor | Scope | Description |
 |-------|-------|-------------|
 | `platform_admin` | Platform | Full platform control: manage tenants, bootstrap, view all resources. |
-| `tenant_owner` | Tenant | Full control within a single tenant. Can manage users, clients, and settings. |
-| `tenant_admin` | Tenant | Administrative access within a tenant. Can manage users and some settings. |
-| `tenant_member` | Tenant | Basic membership. Can access own profile and resources granted by the tenant. |
+| `tenant_owner` | Tenant | **Sovereign owner.** Full control. Logically defines the tenant existence. |
+| `tenant_admin` | Tenant | **Delegated administrator.** Cannot manage owners or delete tenant. |
+| `tenant_member` | Tenant | Non-admin user. No access to Control Plane UI. |
 | `external_client` | Client | OAuth2 client acting on behalf of a user. Limited by granted scopes. |
+
+### 2.1 Role Hierarchy & Lifecycle Invariants
+
+1. **Owner Sovereignty**: Every Tenant MUST have exactly one `tenant_owner` at all times.
+2. **Bootstrapping**: The first user created during Tenant provisioning MUST be assigned the `tenant_owner` role.
+3. **Delegation**: `tenant_owner` can create `tenant_admin` and `tenant_member` users.
+4. **Boundary**: `tenant_admin` CANNOT:
+   - Delete the Tenant.
+   - Remove or modify the `tenant_owner`.
+   - Transfer ownership.
+5. **Separation of Concerns**: Platform Admins manage the platform but do NOT implicitly possess tenant-level sovereignty. They must explicitly provision an owner.
+
 
 ---
 

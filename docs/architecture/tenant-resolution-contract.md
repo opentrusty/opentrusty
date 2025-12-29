@@ -33,6 +33,12 @@ Strict resolution may be bypassed ONLY for:
 - Global administrative endpoints (e.g., Platform-level metrics).
 - Static assets shared across the platform.
 
+## 5. Ownership Invariant
+
+Every Tenant MUST have exactly one `tenant_owner` to be considered in a valid architectural state.
+- **Bootstrapping**: The resolution of a Tenant's root authority relies on the presence of its owner.
+- **Persistence**: Business operations MUST fail if the target tenant lacks an owner assignment.
+
 ---
 **Rule Citation**: This contract satisfies **Rule 2.1 (Isolation)** and **Rule 2.3 (No Cross-Talk)** by ensuring tenant context is a hard requirement for all tenant-scoped business logic.
 

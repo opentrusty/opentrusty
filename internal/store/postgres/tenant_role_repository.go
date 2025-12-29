@@ -93,9 +93,10 @@ func (r *TenantRoleRepository) RevokeRole(ctx context.Context, tenantID, userID,
 // GetUserRoles retrieves all roles a user has in a tenant
 func (r *TenantRoleRepository) GetUserRoles(ctx context.Context, tenantID, userID string) ([]*tenant.TenantUserRole, error) {
 	rows, err := r.db.pool.Query(ctx, `
-		SELECT a.id, a.scope_context_id, a.user_id, r.name, a.granted_at, a.granted_by
+		SELECT a.id, a.scope_context_id, a.user_id, r.name, u.email, u.full_name, a.granted_at, a.granted_by
 		FROM rbac_assignments a
 		JOIN rbac_roles r ON a.role_id = r.id
+		JOIN users u ON a.user_id = u.id
 		WHERE a.user_id = $1 AND a.scope = 'tenant' AND a.scope_context_id = $2
 	`, userID, tenantID)
 	if err != nil {
@@ -107,7 +108,7 @@ func (r *TenantRoleRepository) GetUserRoles(ctx context.Context, tenantID, userI
 	for rows.Next() {
 		var role tenant.TenantUserRole
 		var grantedBy sql.NullString
-		if err := rows.Scan(&role.ID, &role.TenantID, &role.UserID, &role.Role, &role.GrantedAt, &grantedBy); err != nil {
+		if err := rows.Scan(&role.ID, &role.TenantID, &role.UserID, &role.Role, &role.Email, &role.FullName, &role.GrantedAt, &grantedBy); err != nil {
 			return nil, fmt.Errorf("failed to scan role: %w", err)
 		}
 		if grantedBy.Valid {
@@ -122,9 +123,10 @@ func (r *TenantRoleRepository) GetUserRoles(ctx context.Context, tenantID, userI
 // GetTenantUsers retrieves all users with roles in a tenant
 func (r *TenantRoleRepository) GetTenantUsers(ctx context.Context, tenantID string) ([]*tenant.TenantUserRole, error) {
 	rows, err := r.db.pool.Query(ctx, `
-		SELECT a.id, a.scope_context_id, a.user_id, r.name, a.granted_at, a.granted_by
+		SELECT a.id, a.scope_context_id, a.user_id, r.name, u.email, u.full_name, a.granted_at, a.granted_by
 		FROM rbac_assignments a
 		JOIN rbac_roles r ON a.role_id = r.id
+		JOIN users u ON a.user_id = u.id
 		WHERE a.scope = 'tenant' AND a.scope_context_id = $1
 	`, tenantID)
 	if err != nil {
@@ -136,7 +138,7 @@ func (r *TenantRoleRepository) GetTenantUsers(ctx context.Context, tenantID stri
 	for rows.Next() {
 		var role tenant.TenantUserRole
 		var grantedBy sql.NullString
-		if err := rows.Scan(&role.ID, &role.TenantID, &role.UserID, &role.Role, &role.GrantedAt, &grantedBy); err != nil {
+		if err := rows.Scan(&role.ID, &role.TenantID, &role.UserID, &role.Role, &role.Email, &role.FullName, &role.GrantedAt, &grantedBy); err != nil {
 			return nil, fmt.Errorf("failed to scan role: %w", err)
 		}
 		if grantedBy.Valid {

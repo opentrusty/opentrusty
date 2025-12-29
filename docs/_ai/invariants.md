@@ -57,3 +57,10 @@ Login pages are **NOT** UI components. They are protocol surfaces.
 -   **MUST** belong to the Authentication Plane.
 -   **MUST NOT** be served from or delegated to the Control Panel UI.
 -   **MAY** be customized via tenant branding configuration.
+## 8. Tenant Ownership Invariants
+
+-   **MUST** ensure every Tenant has exactly one `tenant_owner`.
+-   **MUST** assign the `tenant_owner` role to the first user provisioned during tenant creation.
+-   **MUST NOT** allow a Tenant to exist without an active `tenant_owner`.
+-   **MUST NOT** allow a `tenant_admin` to delete a Tenant or remove the last `tenant_owner`.
+-   **MUST** require Platform Admin to explicitly provision an owner when creating a Tenant.

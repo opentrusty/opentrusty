@@ -331,3 +331,137 @@ func TestAuthz_Role_HasPermission(t *testing.T) {
 		})
 	}
 }
+
+// TestPurpose: Validates that Platform Admin can view audit logs across all tenants.
+// Scope: Unit Test
+// Security: Platform Admin audit visibility for compliance
+// Permissions: platform:view_audit
+// Expected: Platform Admin has permission to view audit logs from any tenant.
+// Test Case ID: AUT-07
+func TestAuthz_Audit_PlatformAdminCanViewAllTenants(t *testing.T) {
+	roleRepo := NewMockRoleRepository()
+	assignmentRepo := NewMockAssignmentRepository()
+	projectRepo := &MockProjectRepository{}
+
+	svc := authz.NewService(projectRepo, roleRepo, assignmentRepo)
+	ctx := context.Background()
+
+	tenantA := "tenant-A"
+	tenantB := "tenant-B"
+
+	// Setup: User is platform admin
+	assignmentRepo.Grant(&authz.Assignment{
+		ID:             "assign-1",
+		UserID:         "user-platform-admin",
+		RoleID:         "role-platform-admin",
+		Scope:          authz.ScopePlatform,
+		ScopeContextID: nil,
+	})
+
+	// Test: Platform admin can view platform audit logs
+	allowed, err := svc.HasPermission(ctx, "user-platform-admin", authz.ScopePlatform, nil, authz.PermPlatformViewAudit)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !allowed {
+		t.Error("platform admin should have platform:view_audit")
+	}
+
+	// Test: Platform admin can view tenant A audit logs (via wildcard)
+	allowed, err = svc.HasPermission(ctx, "user-platform-admin", authz.ScopeTenant, &tenantA, authz.PermTenantViewAudit)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !allowed {
+		t.Error("platform admin should be able to view tenant A audit logs via wildcard")
+	}
+
+	// Test: Platform admin can view tenant B audit logs (via wildcard)
+	allowed, err = svc.HasPermission(ctx, "user-platform-admin", authz.ScopeTenant, &tenantB, authz.PermTenantViewAudit)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !allowed {
+		t.Error("platform admin should be able to view tenant B audit logs via wildcard")
+	}
+}
+
+// TestPurpose: Validates that Tenant Admin cannot view audit logs from other tenants.
+// Scope: Unit Test
+// Security: Cross-tenant audit isolation
+// Permissions: tenant:view_audit
+// Expected: Tenant Admin can only view audit logs for their own tenant.
+// Test Case ID: AUT-08
+func TestAuthz_Audit_TenantAdminCannotViewCrossTenant(t *testing.T) {
+	roleRepo := NewMockRoleRepository()
+	assignmentRepo := NewMockAssignmentRepository()
+	projectRepo := &MockProjectRepository{}
+
+	svc := authz.NewService(projectRepo, roleRepo, assignmentRepo)
+	ctx := context.Background()
+
+	tenantA := "tenant-A"
+	tenantB := "tenant-B"
+
+	// Setup: User is tenant admin for Tenant A only
+	assignmentRepo.Grant(&authz.Assignment{
+		ID:             "assign-1",
+		UserID:         "user-tenant-admin-A",
+		RoleID:         "role-tenant-admin",
+		Scope:          authz.ScopeTenant,
+		ScopeContextID: &tenantA,
+	})
+
+	// Test: Tenant admin can view audit logs for Tenant A
+	allowed, err := svc.HasPermission(ctx, "user-tenant-admin-A", authz.ScopeTenant, &tenantA, authz.PermTenantViewAudit)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !allowed {
+		t.Error("tenant admin should have tenant:view_audit for their tenant")
+	}
+
+	// Test: Tenant admin CANNOT view audit logs for Tenant B
+	allowed, err = svc.HasPermission(ctx, "user-tenant-admin-A", authz.ScopeTenant, &tenantB, authz.PermTenantViewAudit)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if allowed {
+		t.Error("tenant admin should NOT have audit access to other tenants - cross-tenant access must be denied")
+	}
+}
+
+// TestPurpose: Validates that Tenant Member cannot view any audit logs.
+// Scope: Unit Test
+// Security: Audit access restriction
+// Permissions: tenant:view_audit
+// Expected: Tenant Member has no audit visibility.
+// Test Case ID: AUT-09
+func TestAuthz_Audit_TenantMemberCannotViewAudit(t *testing.T) {
+	roleRepo := NewMockRoleRepository()
+	assignmentRepo := NewMockAssignmentRepository()
+	projectRepo := &MockProjectRepository{}
+
+	svc := authz.NewService(projectRepo, roleRepo, assignmentRepo)
+	ctx := context.Background()
+
+	tenantA := "tenant-A"
+
+	// Setup: User is tenant member
+	assignmentRepo.Grant(&authz.Assignment{
+		ID:             "assign-1",
+		UserID:         "user-tenant-member",
+		RoleID:         "role-tenant-member",
+		Scope:          authz.ScopeTenant,
+		ScopeContextID: &tenantA,
+	})
+
+	// Test: Tenant member CANNOT view audit logs
+	allowed, err := svc.HasPermission(ctx, "user-tenant-member", authz.ScopeTenant, &tenantA, authz.PermTenantViewAudit)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if allowed {
+		t.Error("tenant member should NOT have tenant:view_audit - audit access must be denied")
+	}
+}

@@ -86,6 +86,7 @@ type Event struct {
 	Type      string
 	TenantID  string
 	ActorID   string
+	ActorName string
 	Resource  string
 	Metadata  map[string]any
 	Timestamp time.Time

@@ -102,9 +102,10 @@ func (h *Handler) ListTenantAuditEvents(w http.ResponseWriter, r *http.Request) 
 
 // ListPlatformAuditEvents lists platform-level audit events
 // @Summary List platform audit events
-// @Description List platform-level audit events (requires platform admin)
+// @Description List platform-level audit events (requires platform admin). Use all_tenants=true to include all tenant logs.
 // @Tags Audit
 // @Produce json
+// @Param all_tenants query bool false "Include audit logs from all tenants (read-only)"
 // @Success 200 {object} ListAuditEventsResponse
 // @Failure 403 {object} map[string]string
 // @Failure 500 {object} map[string]string
@@ -120,17 +121,38 @@ func (h *Handler) ListPlatformAuditEvents(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// Platform logs have empty tenant_id (nil filter implies ANY, empty string implies System?)
-	// Our repo implementation: if TenantID string is "", it checks IS NULL.
-	// So we pass pointer to empty string.
-	emptyTenant := ""
+	// Check for all_tenants parameter
+	allTenants := r.URL.Query().Get("all_tenants") == "true"
+
 	limit := 50
 	offset := 0
 
-	filter := audit.Filter{
-		TenantID: &emptyTenant,
-		Limit:    limit,
-		Offset:   offset,
+	var filter audit.Filter
+	if allTenants {
+		// Return all audit logs across all tenants (Platform Admin compliance access)
+		filter = audit.Filter{
+			TenantID: nil, // nil = no tenant filter, returns ALL logs
+			Limit:    limit,
+			Offset:   offset,
+		}
+		// Audit the access itself - Platform Admin viewing all tenant logs
+		h.auditLogger.Log(r.Context(), audit.Event{
+			Type:     "audit_access",
+			ActorID:  userID,
+			Resource: audit.ResourcePlatform,
+			Metadata: map[string]any{
+				"action":      "view_all_tenant_audit_logs",
+				"all_tenants": true,
+			},
+		})
+	} else {
+		// Platform-only logs (empty tenant_id)
+		emptyTenant := ""
+		filter = audit.Filter{
+			TenantID: &emptyTenant,
+			Limit:    limit,
+			Offset:   offset,
+		}
 	}
 
 	events, total, err := h.auditRepo.List(r.Context(), filter)

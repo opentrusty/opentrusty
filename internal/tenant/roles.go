@@ -29,6 +29,8 @@ type TenantUserRole struct {
 	TenantID  string    `json:"tenant_id"`
 	UserID    string    `json:"user_id"`
 	Role      string    `json:"role"`
+	Email     string    `json:"email"`
+	FullName  string    `json:"full_name"`
 	GrantedAt time.Time `json:"granted_at"`
 	GrantedBy string    `json:"granted_by"`
 }

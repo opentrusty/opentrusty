@@ -105,10 +105,12 @@ func (r *AuditRepository) List(ctx context.Context, filter audit.Filter) ([]audi
 
 	// Select Data
 	query := `
-		SELECT id::text, type, COALESCE(tenant_id::text, ''), COALESCE(actor_id::text, ''), resource, 
-               COALESCE(ip_address, ''), COALESCE(user_agent, ''), metadata, created_at
-		FROM audit_events
-	` + whereSQL + fmt.Sprintf(" ORDER BY created_at DESC LIMIT $%d OFFSET $%d", argIdx, argIdx+1)
+		SELECT e.id, e.type, COALESCE(e.tenant_id, ''), COALESCE(e.actor_id, ''), 
+               COALESCE(u.full_name, e.actor_id, ''), e.resource, 
+               COALESCE(e.ip_address, ''), COALESCE(e.user_agent, ''), e.metadata, e.created_at
+		FROM audit_events e
+		LEFT JOIN users u ON e.actor_id = u.id::text
+	` + whereSQL + fmt.Sprintf(" ORDER BY e.created_at DESC LIMIT $%d OFFSET $%d", argIdx, argIdx+1)
 
 	args = append(args, filter.Limit, filter.Offset)
 
@@ -123,7 +125,7 @@ func (r *AuditRepository) List(ctx context.Context, filter audit.Filter) ([]audi
 		var e audit.Event
 
 		if err := rows.Scan(
-			&e.ID, &e.Type, &e.TenantID, &e.ActorID, &e.Resource,
+			&e.ID, &e.Type, &e.TenantID, &e.ActorID, &e.ActorName, &e.Resource,
 			&e.IPAddress, &e.UserAgent, &e.Metadata, &e.Timestamp,
 		); err != nil {
 			return nil, 0, fmt.Errorf("failed to scan audit event: %w", err)

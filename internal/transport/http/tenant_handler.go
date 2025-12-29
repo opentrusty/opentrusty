@@ -97,50 +97,67 @@ func (h *Handler) CreateTenant(w http.ResponseWriter, r *http.Request) {
 		"updated_at": t.UpdatedAt,
 	}
 
-	// 4. Optional: Provision Initial Admin
-	if req.AdminEmail != "" {
-		// reuse identityService
-		// Check if user exists
-		user, err := h.identityService.GetByEmail(r.Context(), t.ID, req.AdminEmail)
-		if err != nil && err != identity.ErrUserNotFound {
-			// Log error but returned created tenant
-			slog.ErrorContext(r.Context(), "failed to check admin user", "error", err)
+	// 4. Provision Initial Owner (MANDATORY)
+	if req.AdminEmail == "" {
+		respondError(w, http.StatusBadRequest, "admin_email is required for tenant owner provisioning")
+		return
+	}
+
+	// Check if user exists
+	user, err := h.identityService.GetByEmail(r.Context(), t.ID, req.AdminEmail)
+	if err != nil && err != identity.ErrUserNotFound {
+		slog.ErrorContext(r.Context(), "failed to check admin user", "error", err)
+	}
+
+	if user == nil {
+		// Create user
+		profile := identity.Profile{
+			FullName: req.AdminName,
+		}
+		if profile.FullName == "" {
+			profile.FullName = "Tenant Owner"
 		}
 
-		if user == nil {
-			// Create user
-			profile := identity.Profile{
-				FullName: req.AdminName,
-			}
-			if profile.FullName == "" {
-				profile.FullName = "Tenant Admin"
-			}
-
-			user, err = h.identityService.ProvisionIdentity(r.Context(), t.ID, req.AdminEmail, profile)
-			if err != nil {
-				slog.ErrorContext(r.Context(), "failed to provision admin user", "error", err)
-			} else {
-				// Generate Random Password
-				password, err := generateRandomPassword(12)
-				if err != nil {
-					slog.ErrorContext(r.Context(), "failed to generate password", "error", err)
-				} else {
-					if err := h.identityService.AddPassword(r.Context(), user.ID, password); err != nil {
-						slog.ErrorContext(r.Context(), "failed to set admin password", "error", err)
-					} else {
-						// Assign Tenant Admin Role
-						if err := h.tenantService.AssignRole(r.Context(), t.ID, user.ID, tenant.RoleTenantAdmin, userID); err != nil {
-							slog.ErrorContext(r.Context(), "failed to assign admin role", "error", err)
-						} else {
-							// Return credentials in response
-							response["admin_email"] = req.AdminEmail
-							response["admin_password"] = password
-							response["password_warning"] = "This password will not be shown again. Please copy it now."
-						}
-					}
-				}
-			}
+		user, err = h.identityService.ProvisionIdentity(r.Context(), t.ID, req.AdminEmail, profile)
+		if err != nil {
+			respondError(w, http.StatusInternalServerError, "failed to provision owner user: "+err.Error())
+			return
 		}
+
+		// Generate Random Password
+		password, err := generateRandomPassword(12)
+		if err != nil {
+			respondError(w, http.StatusInternalServerError, "failed to generate password")
+			return
+		}
+
+		if err := h.identityService.AddPassword(r.Context(), user.ID, password); err != nil {
+			respondError(w, http.StatusInternalServerError, "failed to set owner password")
+			return
+		}
+
+		// Assign Tenant Owner Role
+		if err := h.tenantService.AssignRole(r.Context(), t.ID, user.ID, tenant.RoleTenantOwner, userID); err != nil {
+			respondError(w, http.StatusInternalServerError, "failed to assign owner role")
+			return
+		}
+
+		// Audit Log for Owner Provisioning
+		h.auditLogger.Log(r.Context(), audit.Event{
+			Type:     audit.TypeUserCreated,
+			TenantID: t.ID,
+			ActorID:  userID,
+			Resource: audit.ResourceUser,
+			Metadata: map[string]any{
+				audit.AttrEmail:  req.AdminEmail,
+				audit.AttrRoleID: tenant.RoleTenantOwner,
+			},
+		})
+
+		// Return credentials in response
+		response["admin_email"] = req.AdminEmail
+		response["admin_password"] = password
+		response["password_warning"] = "This password will not be shown again. Please copy it now."
 	}
 
 	respondJSON(w, http.StatusCreated, response)
@@ -241,7 +258,19 @@ func (h *Handler) ProvisionTenantUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Return the provisioned user info including the password for one-time display
+	// 3. Audit Log for User Provisioning
+	h.auditLogger.Log(r.Context(), audit.Event{
+		Type:     audit.TypeUserCreated,
+		TenantID: tenantID,
+		ActorID:  granterID,
+		Resource: audit.ResourceUser,
+		Metadata: map[string]any{
+			audit.AttrEmail:  req.Email,
+			audit.AttrRoleID: req.Role,
+		},
+	})
+
+	// 4. Return the provisioned user info
 	response := map[string]any{
 		JSONKeyUserID: user.ID,
 		JSONKeyRole:   req.Role,

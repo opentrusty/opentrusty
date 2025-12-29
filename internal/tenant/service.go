@@ -23,7 +23,6 @@ import (
 	"github.com/opentrusty/opentrusty/internal/audit"
 	"github.com/opentrusty/opentrusty/internal/authz"
 	"github.com/opentrusty/opentrusty/internal/id"
-	"github.com/opentrusty/opentrusty/internal/rbac"
 )
 
 // Service provides tenant management business logic
@@ -76,23 +75,6 @@ func (s *Service) CreateTenant(ctx context.Context, name string, creatorUserID s
 	// 4. Create tenant (repository should handle transaction if supported)
 	if err := s.repo.Create(ctx, tenant); err != nil {
 		return nil, fmt.Errorf("failed to create tenant: %w", err)
-	}
-
-	// 5. Auto-provision tenant_admin role for creator
-	assignment := &authz.Assignment{
-		ID:             id.NewUUIDv7(),
-		UserID:         creatorUserID,
-		RoleID:         rbac.RoleIDTenantAdmin,
-		Scope:          authz.ScopeTenant,
-		ScopeContextID: &tenantID,
-		GrantedAt:      now,
-		GrantedBy:      audit.ActorSystemBootstrap, // System-granted during creation
-	}
-
-	if err := s.authzRepo.Grant(assignment); err != nil {
-		// Note: In a true transaction, we'd rollback tenant creation here
-		// For MVP, we log and continue
-		return nil, fmt.Errorf("failed to assign tenant admin role: %w", err)
 	}
 
 	return tenant, nil
