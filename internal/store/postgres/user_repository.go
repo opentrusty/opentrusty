@@ -40,12 +40,12 @@ func (r *UserRepository) Create(user *identity.User) error {
 	now := time.Now()
 	_, err := r.db.pool.Exec(ctx, `
 		INSERT INTO users (
-			id, tenant_id, email, email_verified,
+			id, email, email_verified,
 			given_name, family_name, full_name, nickname, picture, locale, timezone,
 			created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 	`,
-		user.ID, user.TenantID, user.Email, user.EmailVerified,
+		user.ID, user.Email, user.EmailVerified,
 		user.Profile.GivenName, user.Profile.FamilyName, user.Profile.FullName,
 		user.Profile.Nickname, user.Profile.Picture, user.Profile.Locale, user.Profile.Timezone,
 		now, now,
@@ -86,13 +86,13 @@ func (r *UserRepository) GetByID(id string) (*identity.User, error) {
 	var deletedAt sql.NullTime
 
 	err := r.db.pool.QueryRow(ctx, `
-		SELECT id, tenant_id, email, email_verified,
+		SELECT id, email, email_verified,
 			given_name, family_name, full_name, nickname, picture, locale, timezone,
 			created_at, updated_at, deleted_at
 		FROM users
 		WHERE id = $1 AND deleted_at IS NULL
 	`, id).Scan(
-		&user.ID, &user.TenantID, &user.Email, &user.EmailVerified,
+		&user.ID, &user.Email, &user.EmailVerified,
 		&user.Profile.GivenName, &user.Profile.FamilyName, &user.Profile.FullName,
 		&user.Profile.Nickname, &user.Profile.Picture, &user.Profile.Locale, &user.Profile.Timezone,
 		&user.CreatedAt, &user.UpdatedAt, &deletedAt,
@@ -112,55 +112,21 @@ func (r *UserRepository) GetByID(id string) (*identity.User, error) {
 	return &user, nil
 }
 
-// GetByEmail retrieves a user by email within a tenant (or no tenant for Platform Admins)
-func (r *UserRepository) GetByEmail(tenantID *string, email string) (*identity.User, error) {
+// GetByEmail retrieves a user by email globally
+func (r *UserRepository) GetByEmail(email string) (*identity.User, error) {
 	ctx := context.Background()
 
 	var user identity.User
 	var deletedAt sql.NullTime
 
 	err := r.db.pool.QueryRow(ctx, `
-		SELECT id, tenant_id, email, email_verified,
-			given_name, family_name, full_name, nickname, picture, locale, timezone,
-			created_at, updated_at, deleted_at
-		FROM users
-		WHERE tenant_id IS NOT DISTINCT FROM $1 AND email = $2 AND deleted_at IS NULL
-	`, tenantID, email).Scan(
-		&user.ID, &user.TenantID, &user.Email, &user.EmailVerified,
-		&user.Profile.GivenName, &user.Profile.FamilyName, &user.Profile.FullName,
-		&user.Profile.Nickname, &user.Profile.Picture, &user.Profile.Locale, &user.Profile.Timezone,
-		&user.CreatedAt, &user.UpdatedAt, &deletedAt,
-	)
-
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			return nil, identity.ErrUserNotFound
-		}
-		return nil, fmt.Errorf("failed to get user: %w", err)
-	}
-
-	if deletedAt.Valid {
-		user.DeletedAt = &deletedAt.Time
-	}
-
-	return &user, nil
-}
-
-// GetByEmailGlobal retrieves a user by email globally (ignoring tenant)
-func (r *UserRepository) GetByEmailGlobal(email string) (*identity.User, error) {
-	ctx := context.Background()
-
-	var user identity.User
-	var deletedAt sql.NullTime
-
-	err := r.db.pool.QueryRow(ctx, `
-		SELECT id, tenant_id, email, email_verified,
+		SELECT id, email, email_verified,
 			given_name, family_name, full_name, nickname, picture, locale, timezone,
 			created_at, updated_at, deleted_at
 		FROM users
 		WHERE email = $1 AND deleted_at IS NULL
 	`, email).Scan(
-		&user.ID, &user.TenantID, &user.Email, &user.EmailVerified,
+		&user.ID, &user.Email, &user.EmailVerified,
 		&user.Profile.GivenName, &user.Profile.FamilyName, &user.Profile.FullName,
 		&user.Profile.Nickname, &user.Profile.Picture, &user.Profile.Locale, &user.Profile.Timezone,
 		&user.CreatedAt, &user.UpdatedAt, &deletedAt,
@@ -186,18 +152,18 @@ func (r *UserRepository) Update(user *identity.User) error {
 
 	result, err := r.db.pool.Exec(ctx, `
 		UPDATE users SET
-			email = $3,
-			email_verified = $4,
-			given_name = $5,
-			family_name = $6,
-			full_name = $7,
-			nickname = $8,
-			picture = $9,
-			locale = $10,
-			timezone = $11
-		WHERE id = $1 AND tenant_id IS NOT DISTINCT FROM $2 AND deleted_at IS NULL
+			email = $2,
+			email_verified = $3,
+			given_name = $4,
+			family_name = $5,
+			full_name = $6,
+			nickname = $7,
+			picture = $8,
+			locale = $9,
+			timezone = $10
+		WHERE id = $1 AND deleted_at IS NULL
 	`,
-		user.ID, user.TenantID, user.Email, user.EmailVerified,
+		user.ID, user.Email, user.EmailVerified,
 		user.Profile.GivenName, user.Profile.FamilyName, user.Profile.FullName,
 		user.Profile.Nickname, user.Profile.Picture, user.Profile.Locale, user.Profile.Timezone,
 	)

@@ -53,25 +53,7 @@ func (m *MockUserRepository) GetByID(id string) (*User, error) {
 	return u, nil
 }
 
-func (m *MockUserRepository) GetByEmail(tenantID *string, email string) (*User, error) {
-	for _, u := range m.users {
-		uTenant := ""
-		if u.TenantID != nil {
-			uTenant = *u.TenantID
-		}
-		tID := ""
-		if tenantID != nil {
-			tID = *tenantID
-		}
-
-		if uTenant == tID && u.Email == email {
-			return u, nil
-		}
-	}
-	return nil, ErrUserNotFound
-}
-
-func (m *MockUserRepository) GetByEmailGlobal(email string) (*User, error) {
+func (m *MockUserRepository) GetByEmail(email string) (*User, error) {
 	for _, u := range m.users {
 		if u.Email == email {
 			return u, nil
@@ -130,12 +112,11 @@ func TestIdentity_Service_Authenticate(t *testing.T) {
 	s := NewService(repo, hasher, auditLogger, 3, 5*time.Minute)
 
 	ctx := context.Background()
-	tenantID := "tenant-1"
 	email := "test@example.com"
 	password := "SecurePassword123"
 
 	// 1. Provision user
-	user, err := s.ProvisionIdentity(ctx, tenantID, email, Profile{FullName: "Test User"})
+	user, err := s.ProvisionIdentity(ctx, email, Profile{FullName: "Test User"})
 	if err != nil {
 		t.Fatalf("failed to provision: %v", err)
 	}
@@ -147,7 +128,7 @@ func TestIdentity_Service_Authenticate(t *testing.T) {
 	}
 
 	// 3. Success authentication
-	authSet, err := s.Authenticate(ctx, tenantID, email, password)
+	authSet, err := s.Authenticate(ctx, email, password)
 	if err != nil {
 		t.Fatalf("expected success, got err: %v", err)
 	}
@@ -156,20 +137,20 @@ func TestIdentity_Service_Authenticate(t *testing.T) {
 	}
 
 	// 4. Failed authentication (wrong password)
-	_, err = s.Authenticate(ctx, tenantID, email, "WrongPassword")
+	_, err = s.Authenticate(ctx, email, "WrongPassword")
 	if err != ErrInvalidCredentials {
 		t.Errorf("expected ErrInvalidCredentials, got %v", err)
 	}
 
 	// 5. Account lockout
-	s.Authenticate(ctx, tenantID, email, "WrongPassword")          // Total failed: 2
-	_, err = s.Authenticate(ctx, tenantID, email, "WrongPassword") // Total failed: 3 (Threshold met)
+	s.Authenticate(ctx, email, "WrongPassword")          // Total failed: 2
+	_, err = s.Authenticate(ctx, email, "WrongPassword") // Total failed: 3 (Threshold met)
 	if err != ErrInvalidCredentials {
 		t.Errorf("expected ErrInvalidCredentials for 3rd failed attempt, got %v", err)
 	}
 
 	// 4th attempt should be locked out
-	_, err = s.Authenticate(ctx, tenantID, email, password)
+	_, err = s.Authenticate(ctx, email, password)
 	if err != ErrAccountLocked {
 		t.Errorf("expected ErrAccountLocked, got %v", err)
 	}
@@ -187,11 +168,10 @@ func TestIdentity_Service_ProvisionIdentity_Conflict(t *testing.T) {
 	s := NewService(repo, hasher, audit.NewSlogLogger(), 3, 5*time.Minute)
 
 	ctx := context.Background()
-	tenantID := "tenant-1"
 	email := "conflict@example.com"
 
-	s.ProvisionIdentity(ctx, tenantID, email, Profile{})
-	_, err := s.ProvisionIdentity(ctx, tenantID, email, Profile{})
+	s.ProvisionIdentity(ctx, email, Profile{})
+	_, err := s.ProvisionIdentity(ctx, email, Profile{})
 	if err != ErrUserAlreadyExists {
 		t.Errorf("expected ErrUserAlreadyExists, got %v", err)
 	}

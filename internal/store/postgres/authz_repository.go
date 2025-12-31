@@ -589,3 +589,19 @@ func (r *AssignmentRepository) CheckExists(roleID string, scope authz.Scope, sco
 
 	return exists, nil
 }
+
+// DeleteByContextID removes all assignments for a specific scope and context
+func (r *AssignmentRepository) DeleteByContextID(scope authz.Scope, contextID string) error {
+	ctx := context.Background()
+
+	_, err := r.db.pool.Exec(ctx, `
+		DELETE FROM rbac_assignments
+		WHERE scope = $1 AND scope_context_id = $2
+	`, string(scope), contextID)
+
+	if err != nil {
+		return fmt.Errorf("failed to delete assignments by context: %w", err)
+	}
+
+	return nil
+}

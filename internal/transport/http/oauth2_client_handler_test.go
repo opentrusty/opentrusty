@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -16,10 +15,8 @@ import (
 )
 
 // TestListClients_Integration tests the client listing with proper tenant scoping
-func TestListClients_Integration(t *testing.T) {
-	// Set required encryption key for OAuth2 service
-	os.Setenv("OPENID_KEY_ENCRYPTION_KEY", "01234567890123456789012345678901")
-	defer os.Unsetenv("OPENID_KEY_ENCRYPTION_KEY")
+func TestListClients(t *testing.T) {
+	t.Setenv("OPENID_KEY_ENCRYPTION_KEY", "01234567890123456789012345678901")
 
 	// Setup repositories
 	mockClientRepo := &stubClientRepo{
@@ -102,10 +99,8 @@ func TestListClients_Integration(t *testing.T) {
 }
 
 // TestRegisterClient_Integration tests the client registration flow
-func TestRegisterClient_Integration(t *testing.T) {
-	// Set required encryption key for OAuth2 service
-	os.Setenv("OPENID_KEY_ENCRYPTION_KEY", "01234567890123456789012345678901")
-	defer os.Unsetenv("OPENID_KEY_ENCRYPTION_KEY")
+func TestRegisterClient(t *testing.T) {
+	t.Setenv("OPENID_KEY_ENCRYPTION_KEY", "01234567890123456789012345678901")
 
 	mockClientRepo := &stubClientRepo{clients: make(map[string]*oauth2.Client)}
 
@@ -165,10 +160,8 @@ func TestRegisterClient_Integration(t *testing.T) {
 }
 
 // TestDeleteClient_Integration tests the client deletion flow
-func TestDeleteClient_Integration(t *testing.T) {
-	// Set required encryption key for OAuth2 service
-	os.Setenv("OPENID_KEY_ENCRYPTION_KEY", "01234567890123456789012345678901")
-	defer os.Unsetenv("OPENID_KEY_ENCRYPTION_KEY")
+func TestDeleteClient(t *testing.T) {
+	t.Setenv("OPENID_KEY_ENCRYPTION_KEY", "01234567890123456789012345678901")
 
 	client := &oauth2.Client{ID: "c1", ClientID: "cid1", TenantID: "t1", ClientName: "Test Client"}
 	mockClientRepo := &stubClientRepo{
@@ -206,12 +199,12 @@ func TestDeleteClient_Integration(t *testing.T) {
 		auditLogger:   audit.NewSlogLogger(),
 	}
 
-	req := httptest.NewRequest("DELETE", "/tenants/t1/clients/c1", nil)
+	req := httptest.NewRequest("DELETE", "/tenants/t1/clients/cid1", nil)
 	ctx := context.WithValue(req.Context(), tenantIDKey, "t1")
 	ctx = context.WithValue(ctx, userIDKey, "u1")
 
 	rctx := chi.NewRouteContext()
-	rctx.URLParams.Add("clientID", "c1")
+	rctx.URLParams.Add("clientID", "cid1")
 	ctx = context.WithValue(ctx, chi.RouteCtxKey, rctx)
 
 	req = req.WithContext(ctx)
@@ -255,6 +248,8 @@ func (r *stubAssignmentRepo) ListByRole(roleID string, scope authz.Scope, scopeC
 func (r *stubAssignmentRepo) CheckExists(roleID string, scope authz.Scope, scopeContextID *string) (bool, error) {
 	return false, nil
 }
+
+func (r *stubAssignmentRepo) DeleteByContextID(scope authz.Scope, contextID string) error { return nil }
 
 type stubRoleRepo struct {
 	roles map[string]*authz.Role

@@ -10,6 +10,7 @@ DROP TABLE IF EXISTS projects;
 DROP TABLE IF EXISTS rbac_assignments;
 DROP TABLE IF EXISTS sessions;
 DROP TABLE IF EXISTS credentials;
+DROP TABLE IF EXISTS tenant_members;
 DROP TABLE IF EXISTS users;
 DROP TABLE IF EXISTS tenants;
 DROP TABLE IF EXISTS rbac_role_permissions;

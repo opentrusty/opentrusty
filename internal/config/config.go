@@ -91,13 +91,14 @@ type ObservabilityConfig struct {
 
 // SecurityConfig holds security-related configuration
 type SecurityConfig struct {
-	Argon2Memory       uint32
-	Argon2Iterations   uint32
-	Argon2Parallelism  uint8
-	Argon2SaltLength   uint32
-	Argon2KeyLength    uint32
-	LockoutMaxAttempts int
-	LockoutDuration    time.Duration
+	Argon2Memory         uint32
+	Argon2Iterations     uint32
+	Argon2Parallelism    uint8
+	Argon2SaltLength     uint32
+	Argon2KeyLength      uint32
+	LockoutMaxAttempts   int
+	LockoutDuration      time.Duration
+	AuditQuerySigningKey string
 }
 
 // Load loads configuration from environment variables
@@ -139,13 +140,14 @@ func Load() (*Config, error) {
 			ServiceVersion: getEnv("OTEL_SERVICE_VERSION", "0.1.0"),
 		},
 		Security: SecurityConfig{
-			Argon2Memory:       uint32(parseInt("ARGON2_MEMORY", 65536)),
-			Argon2Iterations:   uint32(parseInt("ARGON2_ITERATIONS", 3)),
-			Argon2Parallelism:  uint8(parseInt("ARGON2_PARALLELISM", 4)),
-			Argon2SaltLength:   uint32(parseInt("ARGON2_SALT_LENGTH", 16)),
-			Argon2KeyLength:    uint32(parseInt("ARGON2_KEY_LENGTH", 32)),
-			LockoutMaxAttempts: parseInt("SECURITY_LOCKOUT_MAX_ATTEMPTS", 5),
-			LockoutDuration:    parseDuration("SECURITY_LOCKOUT_DURATION", "15m"),
+			Argon2Memory:         uint32(parseInt("ARGON2_MEMORY", 65536)),
+			Argon2Iterations:     uint32(parseInt("ARGON2_ITERATIONS", 3)),
+			Argon2Parallelism:    uint8(parseInt("ARGON2_PARALLELISM", 4)),
+			Argon2SaltLength:     uint32(parseInt("ARGON2_SALT_LENGTH", 16)),
+			Argon2KeyLength:      uint32(parseInt("ARGON2_KEY_LENGTH", 32)),
+			LockoutMaxAttempts:   parseInt("SECURITY_LOCKOUT_MAX_ATTEMPTS", 5),
+			LockoutDuration:      parseDuration("SECURITY_LOCKOUT_DURATION", "15m"),
+			AuditQuerySigningKey: getEnv("AUDIT_QUERY_SIGNING_KEY", ""),
 		},
 		RateLimit: RateLimitConfig{
 			RequestsPerSecond: float64(parseInt("RATELIMIT_RPS", 10)),
@@ -173,6 +175,9 @@ func (c *Config) Validate() error {
 	}
 	if os.Getenv("OPENID_KEY_ENCRYPTION_KEY") == "" {
 		return fmt.Errorf("OPENID_KEY_ENCRYPTION_KEY is required for OIDC support")
+	}
+	if c.Security.AuditQuerySigningKey == "" {
+		return fmt.Errorf("AUDIT_QUERY_SIGNING_KEY MUST be set to a secure secret in production")
 	}
 	return nil
 }

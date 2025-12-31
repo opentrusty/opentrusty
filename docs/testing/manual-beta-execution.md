@@ -15,6 +15,7 @@ export DB_USER=opentrusty
 export DB_PASSWORD=opentrusty_dev_password
 export DB_NAME=opentrusty
 export OPENID_KEY_ENCRYPTION_KEY=12345678901234567890123456789012
+export AUDIT_QUERY_SIGNING_KEY=opentrusty_dev_audit_key_secret_12345
 export OT_BOOTSTRAP_ADMIN_EMAIL=admin@platform.local
 ```
 

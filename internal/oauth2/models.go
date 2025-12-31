@@ -170,23 +170,26 @@ type ClientRepository interface {
 	// Create creates a new OAuth2 client
 	Create(client *Client) error
 
-	// GetByClientID retrieves a client by client_id
-	GetByClientID(clientID string) (*Client, error)
+	// GetByClientID retrieves a client by client_id and tenant_id
+	GetByClientID(clientID string, tenantID string) (*Client, error)
 
-	// GetByID retrieves a client by internal ID
-	GetByID(id string) (*Client, error)
+	// GetByID retrieves a client by internal ID and tenant_id
+	GetByID(id string, tenantID string) (*Client, error)
 
 	// Update updates client information
 	Update(client *Client) error
 
-	// Delete soft-deletes a client
-	Delete(id string) error
+	// Delete soft-deletes a client by internal ID and tenant_id
+	Delete(id string, tenantID string) error
 
 	// ListByOwner retrieves all clients for an owner
 	ListByOwner(ownerID string) ([]*Client, error)
 
 	// ListByTenant retrieves all clients for a tenant
 	ListByTenant(tenantID string) ([]*Client, error)
+
+	// DeleteByTenantID soft-deletes all clients belonging to a tenant
+	DeleteByTenantID(tenantID string) error
 }
 
 // AuthorizationCodeRepository defines the interface for authorization code persistence

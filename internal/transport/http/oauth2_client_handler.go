@@ -16,10 +16,10 @@ package http
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/opentrusty/opentrusty/internal/audit"
 	"github.com/opentrusty/opentrusty/internal/authz"
 	"github.com/opentrusty/opentrusty/internal/oauth2"
 )
@@ -103,22 +103,10 @@ func (h *Handler) RegisterClient(w http.ResponseWriter, r *http.Request) {
 		client.ResponseTypes = []string{"code"}
 	}
 
-	if err := h.oauth2Service.CreateClient(r.Context(), client); err != nil {
+	if _, err := h.oauth2Service.RegisterClient(r.Context(), tenantID, userID, client); err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to register client: "+err.Error())
 		return
 	}
-
-	// 3. Security Event: Minimal audit log for client registration
-	h.auditLogger.Log(r.Context(), audit.Event{
-		Type:     audit.TypeClientCreated,
-		TenantID: tenantID,
-		ActorID:  userID,
-		Resource: audit.ResourceClient,
-		Metadata: map[string]any{
-			"client_id":   client.ClientID,
-			"client_name": client.ClientName,
-		},
-	})
 
 	respondJSON(w, http.StatusCreated, RegisterClientResponse{
 		Client:       client,
@@ -157,7 +145,8 @@ func (h *Handler) GetClient(w http.ResponseWriter, r *http.Request) {
 	tenantID := GetTenantID(r.Context())
 	clientID := chi.URLParam(r, "clientID")
 
-	client, err := h.oauth2Service.GetClient(r.Context(), clientID)
+	// clientID from URL is the external client_id (UUID), not internal id
+	client, err := h.oauth2Service.GetClientByClientID(r.Context(), tenantID, clientID)
 	if err != nil {
 		respondError(w, http.StatusNotFound, "client not found")
 		return
@@ -184,7 +173,8 @@ func (h *Handler) DeleteClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	client, err := h.oauth2Service.GetClient(r.Context(), clientID)
+	// Use GetClientByClientID because URL param is client_id (external)
+	client, err := h.oauth2Service.GetClientByClientID(r.Context(), tenantID, clientID)
 	if err != nil {
 		respondError(w, http.StatusNotFound, "client not found")
 		return
@@ -195,19 +185,11 @@ func (h *Handler) DeleteClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.oauth2Service.DeleteClient(r.Context(), clientID); err != nil {
+	// Pass internal client.ID to DeleteClient service
+	if err := h.oauth2Service.DeleteClient(r.Context(), tenantID, client.ID, userID); err != nil {
+		slog.ErrorContext(r.Context(), "DeleteClient failed", "error", err)
 		respondError(w, http.StatusInternalServerError, "failed to delete client")
 		return
-	}
-
-	if h.auditLogger != nil {
-		h.auditLogger.Log(r.Context(), audit.Event{
-			Type:     audit.TypeRoleRevoked, // Using generic revoked for now
-			TenantID: tenantID,
-			ActorID:  userID,
-			Resource: audit.ResourceClient,
-			Metadata: map[string]any{"client_id": clientID},
-		})
 	}
 
 	w.WriteHeader(http.StatusNoContent)
@@ -218,7 +200,8 @@ func (h *Handler) RegenerateClientSecret(w http.ResponseWriter, r *http.Request)
 	tenantID := GetTenantID(r.Context())
 	clientID := chi.URLParam(r, "clientID")
 
-	client, err := h.oauth2Service.GetClient(r.Context(), clientID)
+	// Use GetClientByClientID because URL param is client_id (external)
+	client, err := h.oauth2Service.GetClientByClientID(r.Context(), tenantID, clientID)
 	if err != nil {
 		respondError(w, http.StatusNotFound, "client not found")
 		return
@@ -237,18 +220,10 @@ func (h *Handler) RegenerateClientSecret(w http.ResponseWriter, r *http.Request)
 	newSecret := oauth2.GenerateClientSecret()
 	client.ClientSecretHash = oauth2.HashClientSecret(newSecret)
 
-	if err := h.oauth2Service.UpdateClient(r.Context(), client); err != nil {
+	if err := h.oauth2Service.UpdateClient(r.Context(), client, GetUserID(r.Context())); err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to update client secret")
 		return
 	}
-
-	h.auditLogger.Log(r.Context(), audit.Event{
-		Type:     audit.TypeSecretRotated,
-		TenantID: tenantID,
-		ActorID:  GetUserID(r.Context()),
-		Resource: audit.ResourceClient,
-		Metadata: map[string]any{"client_id": clientID},
-	})
 
 	respondJSON(w, http.StatusOK, map[string]string{
 		"client_secret": newSecret,

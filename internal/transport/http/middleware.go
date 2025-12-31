@@ -103,8 +103,11 @@ func (h *Handler) AuthMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
+		slog.DebugContext(r.Context(), "auth middleware check", "session_id", sessionID, "path", r.URL.Path)
+
 		sess, err := h.sessionService.Get(r.Context(), sessionID)
 		if err != nil {
+			slog.WarnContext(r.Context(), "auth middleware failed", "session_id", sessionID, "error", err)
 			h.clearSessionCookie(w)
 			respondError(w, http.StatusUnauthorized, "invalid or expired session")
 			return

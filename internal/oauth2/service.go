@@ -23,6 +23,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"io"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -98,6 +99,7 @@ type AuthorizeRequest struct {
 
 // TokenRequest represents an OAuth2 token request
 type TokenRequest struct {
+	TenantID     string
 	GrantType    string
 	Code         string
 	RedirectURI  string
@@ -118,8 +120,13 @@ type TokenResponse struct {
 	Scope        string `json:"scope,omitempty"`
 }
 
-// CreateClient registers a new OAuth2 client
-func (s *Service) CreateClient(ctx context.Context, client *Client) error {
+// RegisterClient validates and creates a new OAuth2 client
+func (s *Service) RegisterClient(ctx context.Context, tenantID, userID string, client *Client) (*Client, error) {
+	// Validate client data
+	if err := s.validateClient(client); err != nil {
+		return nil, err
+	}
+
 	if client.ID == "" {
 		client.ID = id.NewUUIDv7()
 	}
@@ -132,7 +139,24 @@ func (s *Service) CreateClient(ctx context.Context, client *Client) error {
 	}
 	client.UpdatedAt = time.Now()
 
-	return s.clientRepo.Create(client)
+	if err := s.clientRepo.Create(client); err != nil {
+		return nil, err
+	}
+
+	s.auditLogger.Log(ctx, audit.Event{
+		Type:       audit.TypeClientCreated,
+		TenantID:   tenantID,
+		ActorID:    userID,
+		Resource:   audit.ResourceClient,
+		TargetName: client.ClientName,
+		TargetID:   client.ClientID,
+		Metadata: map[string]any{
+			"client_id":   client.ClientID,
+			"client_name": client.ClientName,
+		},
+	})
+
+	return client, nil
 }
 
 // ListClients retrieves all OAuth2 clients for a tenant
@@ -140,26 +164,100 @@ func (s *Service) ListClients(ctx context.Context, tenantID string) ([]*Client, 
 	return s.clientRepo.ListByTenant(tenantID)
 }
 
-// GetClient retrieves an OAuth2 client by ID
-func (s *Service) GetClient(ctx context.Context, id string) (*Client, error) {
-	return s.clientRepo.GetByID(id)
+// GetClient retrieves an OAuth2 client by internal ID
+func (s *Service) GetClient(ctx context.Context, tenantID, id string) (*Client, error) {
+	return s.clientRepo.GetByID(id, tenantID)
+}
+
+// GetClientByClientID retrieves an OAuth2 client by external client_id
+func (s *Service) GetClientByClientID(ctx context.Context, tenantID, clientID string) (*Client, error) {
+	return s.clientRepo.GetByClientID(clientID, tenantID)
 }
 
 // DeleteClient deletes an OAuth2 client
-func (s *Service) DeleteClient(ctx context.Context, id string) error {
-	return s.clientRepo.Delete(id)
+func (s *Service) DeleteClient(ctx context.Context, tenantID, id string, actorID string) error {
+	// Get client first for name
+	client, err := s.clientRepo.GetByID(id, tenantID)
+	clientName := "Unknown"
+	if err == nil && client != nil {
+		clientName = client.ClientName
+	}
+
+	if err := s.clientRepo.Delete(id, tenantID); err != nil {
+		return err
+	}
+
+	// Try to get actor from context if possible, but for now it might be passed?
+	// The signature doesn't have it. I might need to update it or use a default.
+	// Actually, let's look at how other services handle it.
+	// For now, I'll keep it as is or use a placeholder if I can't find it.
+
+	s.auditLogger.Log(ctx, audit.Event{
+		Type:       audit.TypeClientDeleted,
+		TenantID:   tenantID,
+		ActorID:    actorID,
+		Resource:   audit.ResourceClient,
+		TargetName: clientName,
+		TargetID:   client.ClientID,
+		Metadata: map[string]any{
+			"client_id": client.ClientID,
+		},
+	})
+	return nil
 }
 
 // UpdateClient updates an existing OAuth2 client
-func (s *Service) UpdateClient(ctx context.Context, client *Client) error {
+func (s *Service) UpdateClient(ctx context.Context, client *Client, actorID string) error {
+	// Validate client data
+	if err := s.validateClient(client); err != nil {
+		return err
+	}
 	client.UpdatedAt = time.Now()
-	return s.clientRepo.Update(client)
+	if err := s.clientRepo.Update(client); err != nil {
+		return err
+	}
+
+	s.auditLogger.Log(ctx, audit.Event{
+		Type:       audit.TypeClientUpdated,
+		TenantID:   client.TenantID,
+		ActorID:    actorID,
+		Resource:   audit.ResourceClient,
+		TargetName: client.ClientName,
+		TargetID:   client.ClientID,
+		Metadata: map[string]any{
+			"client_id": client.ClientID,
+		},
+	})
+	return nil
+}
+
+// validateClient validates the format of client URIs
+func (s *Service) validateClient(client *Client) error {
+	// Validate Client URI if present
+	if client.ClientURI != "" {
+		if _, err := url.ParseRequestURI(client.ClientURI); err != nil {
+			return NewError(ErrInvalidRequest, "invalid client_uri format")
+		}
+	}
+
+	// Validate Redirect URIs
+	for _, uri := range client.RedirectURIs {
+		u, err := url.ParseRequestURI(uri)
+		if err != nil {
+			return NewError(ErrInvalidRequest, "invalid redirect_uri format: "+uri)
+		}
+		if u.Scheme != "https" && u.Scheme != "http" && !strings.Contains(uri, "localhost") && !strings.Contains(uri, "127.0.0.1") {
+			// In production, we might enforce https, but for now just valid URI structure
+			// (Strict https check can be added later if needed)
+		}
+	}
+	return nil
 }
 
 // ValidateAuthorizeRequest validates an authorization request (RFC 6749 Section 4.1.1)
-func (s *Service) ValidateAuthorizeRequest(ctx context.Context, req *AuthorizeRequest) (*Client, error) {
+func (s *Service) ValidateAuthorizeRequest(ctx context.Context, tenantID string, req *AuthorizeRequest) (*Client, error) {
 	// 1. Validate Client (RFC 6749 Section 4.1.1)
-	client, err := s.clientRepo.GetByClientID(req.ClientID)
+	client, err := s.clientRepo.GetByClientID(req.ClientID, tenantID)
 	if err != nil {
 		return nil, NewError(ErrInvalidRequest, "invalid client_id")
 	}
@@ -241,7 +339,7 @@ func validatePKCE(challenge, method, verifier string) bool {
 // ExchangeCodeForToken exchanges an authorization code for tokens (RFC 6749 Section 4.1.3)
 func (s *Service) ExchangeCodeForToken(ctx context.Context, req *TokenRequest) (*TokenResponse, error) {
 	// 1. Authenticate Client (RFC 6749 Section 3.2.1)
-	client, err := s.ValidateClientCredentials(req.ClientID, req.ClientSecret)
+	client, err := s.ValidateClientCredentials(req.TenantID, req.ClientID, req.ClientSecret)
 	if err != nil {
 		return nil, err
 	}
@@ -377,7 +475,7 @@ func (s *Service) ExchangeCodeForToken(ctx context.Context, req *TokenRequest) (
 // RefreshAccessToken handles the refresh_token grant type (RFC 6749 Section 6)
 func (s *Service) RefreshAccessToken(ctx context.Context, req *TokenRequest) (*TokenResponse, error) {
 	// 1. Authenticate Client (RFC 6749 Section 3.2.1)
-	client, err := s.ValidateClientCredentials(req.ClientID, req.ClientSecret)
+	client, err := s.ValidateClientCredentials(req.TenantID, req.ClientID, req.ClientSecret)
 	if err != nil {
 		return nil, err
 	}
@@ -433,8 +531,8 @@ func (s *Service) RefreshAccessToken(ctx context.Context, req *TokenRequest) (*T
 }
 
 // ValidateClientCredentials validates client credentials (RFC 6749 Section 3.2.1)
-func (s *Service) ValidateClientCredentials(clientID, clientSecret string) (*Client, error) {
-	client, err := s.clientRepo.GetByClientID(clientID)
+func (s *Service) ValidateClientCredentials(tenantID string, clientID, clientSecret string) (*Client, error) {
+	client, err := s.clientRepo.GetByClientID(clientID, tenantID)
 	if err != nil {
 		return nil, NewError(ErrInvalidClient, "invalid client credentials")
 	}

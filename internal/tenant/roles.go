@@ -31,6 +31,8 @@ type TenantUserRole struct {
 	Role      string    `json:"role"`
 	Email     string    `json:"email"`
 	FullName  string    `json:"full_name"`
+	Nickname  *string   `json:"nickname"`
+	Picture   *string   `json:"picture"`
 	GrantedAt time.Time `json:"granted_at"`
 	GrantedBy string    `json:"granted_by"`
 }

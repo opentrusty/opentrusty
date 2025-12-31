@@ -93,7 +93,7 @@ func (r *TenantRoleRepository) RevokeRole(ctx context.Context, tenantID, userID,
 // GetUserRoles retrieves all roles a user has in a tenant
 func (r *TenantRoleRepository) GetUserRoles(ctx context.Context, tenantID, userID string) ([]*tenant.TenantUserRole, error) {
 	rows, err := r.db.pool.Query(ctx, `
-		SELECT a.id, a.scope_context_id, a.user_id, r.name, u.email, u.full_name, a.granted_at, a.granted_by
+		SELECT a.id, a.scope_context_id, a.user_id, r.name, u.email, u.full_name, u.nickname, u.picture, a.granted_at, a.granted_by
 		FROM rbac_assignments a
 		JOIN rbac_roles r ON a.role_id = r.id
 		JOIN users u ON a.user_id = u.id
@@ -108,7 +108,7 @@ func (r *TenantRoleRepository) GetUserRoles(ctx context.Context, tenantID, userI
 	for rows.Next() {
 		var role tenant.TenantUserRole
 		var grantedBy sql.NullString
-		if err := rows.Scan(&role.ID, &role.TenantID, &role.UserID, &role.Role, &role.Email, &role.FullName, &role.GrantedAt, &grantedBy); err != nil {
+		if err := rows.Scan(&role.ID, &role.TenantID, &role.UserID, &role.Role, &role.Email, &role.FullName, &role.Nickname, &role.Picture, &role.GrantedAt, &grantedBy); err != nil {
 			return nil, fmt.Errorf("failed to scan role: %w", err)
 		}
 		if grantedBy.Valid {
@@ -123,7 +123,7 @@ func (r *TenantRoleRepository) GetUserRoles(ctx context.Context, tenantID, userI
 // GetTenantUsers retrieves all users with roles in a tenant
 func (r *TenantRoleRepository) GetTenantUsers(ctx context.Context, tenantID string) ([]*tenant.TenantUserRole, error) {
 	rows, err := r.db.pool.Query(ctx, `
-		SELECT a.id, a.scope_context_id, a.user_id, r.name, u.email, u.full_name, a.granted_at, a.granted_by
+		SELECT a.id, a.scope_context_id, a.user_id, r.name, u.email, u.full_name, u.nickname, u.picture, a.granted_at, a.granted_by
 		FROM rbac_assignments a
 		JOIN rbac_roles r ON a.role_id = r.id
 		JOIN users u ON a.user_id = u.id
@@ -138,7 +138,7 @@ func (r *TenantRoleRepository) GetTenantUsers(ctx context.Context, tenantID stri
 	for rows.Next() {
 		var role tenant.TenantUserRole
 		var grantedBy sql.NullString
-		if err := rows.Scan(&role.ID, &role.TenantID, &role.UserID, &role.Role, &role.Email, &role.FullName, &role.GrantedAt, &grantedBy); err != nil {
+		if err := rows.Scan(&role.ID, &role.TenantID, &role.UserID, &role.Role, &role.Email, &role.FullName, &role.Nickname, &role.Picture, &role.GrantedAt, &grantedBy); err != nil {
 			return nil, fmt.Errorf("failed to scan role: %w", err)
 		}
 		if grantedBy.Valid {
@@ -148,4 +148,18 @@ func (r *TenantRoleRepository) GetTenantUsers(ctx context.Context, tenantID stri
 	}
 
 	return roles, nil
+}
+
+// DeleteByTenantID removes all role assignments for a specific tenant
+func (r *TenantRoleRepository) DeleteByTenantID(ctx context.Context, tenantID string) error {
+	_, err := r.db.pool.Exec(ctx, `
+		DELETE FROM rbac_assignments
+		WHERE scope = 'tenant' AND scope_context_id = $1
+	`, tenantID)
+
+	if err != nil {
+		return fmt.Errorf("failed to delete tenant roles: %w", err)
+	}
+
+	return nil
 }

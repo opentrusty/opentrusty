@@ -41,4 +41,14 @@ type RoleRepository interface {
 	RevokeRole(ctx context.Context, tenantID, userID, role string) error
 	GetUserRoles(ctx context.Context, tenantID, userID string) ([]*TenantUserRole, error)
 	GetTenantUsers(ctx context.Context, tenantID string) ([]*TenantUserRole, error)
+	DeleteByTenantID(ctx context.Context, tenantID string) error
+}
+
+// MembershipRepository defines the interface for tenant membership storage
+type MembershipRepository interface {
+	Create(ctx context.Context, m *Membership) error
+	Delete(ctx context.Context, tenantID, userID string) error
+	ListByUser(ctx context.Context, userID string) ([]*Membership, error)
+	ListByTenant(ctx context.Context, tenantID string) ([]*Membership, error)
+	DeleteByTenantID(ctx context.Context, tenantID string) error
 }

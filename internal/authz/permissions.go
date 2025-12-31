@@ -30,6 +30,9 @@ const (
 
 	// PermPlatformBootstrap allows executing bootstrap operations.
 	PermPlatformBootstrap = "platform:bootstrap"
+
+	// PermControlPlaneLogin allows logging into the Control Panel UI.
+	PermControlPlaneLogin = "control_plane:login"
 )
 
 // -----------------------------------------------------------------------------
@@ -97,6 +100,7 @@ var AllPermissions = []string{
 	PermPlatformManageAdmins,
 	PermPlatformViewAudit,
 	PermPlatformBootstrap,
+	PermControlPlaneLogin,
 	// Tenant
 	PermTenantManageUsers,
 	PermTenantManageClients,

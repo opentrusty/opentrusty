@@ -9,14 +9,19 @@ Any code change that violates these invariants is **forbidden**.
     -   Every query targeting tenant data **MUST** include a `tenant_id` WHERE clause.
 -   **MUST NOT** use "magic" tenant IDs (e.g., "default", "system", "0000") to represent the platform.
 -   **MUST NOT** allow a tenant-scoped session to access platform-scoped resources.
--   **MUST** ensure that `tenant_id` is immutable once assigned to a resource.
+### I-102: Explicit Tenant Membership
+- Every link between a user and a tenant MUST be recorded in the `tenant_members` table.
+- Implicit membership via user-level flags is forbidden.
+- The `identity.User` struct MUST NOT contain a `tenant_id` field.
+-   **MUST** require an explicit `tenant_memberships` record for any user-tenant relationship.
 
 ## 2. Authorization Invariants
 
 -   **MUST** express Platform authorization ONLY via scoped roles (Scope: `platform`).
 -   **MUST** express Tenant authorization ONLY via scoped roles (Scope: `tenant`).
--   **MUST NOT** derive privileges from the presence or absence of a `tenant_id` in the users table alone; privileges come from `rbac_assignments`.
+-   **MUST NOT** derive privileges from the presence or absence of a user record alone; privileges come from `rbac_assignments` and require explicit `tenant_memberships` for tenant-scoped actions.
 -   **MUST** validate that a token's scope matches the requested resource's scope.
+-   **MUST** strictly block Control Panel (Management Plane) login for users with only the `tenant_member` role.
 
 ## 3. Session & Token Invariants
 
@@ -64,3 +69,11 @@ Login pages are **NOT** UI components. They are protocol surfaces.
 -   **MUST NOT** allow a Tenant to exist without an active `tenant_owner`.
 -   **MUST NOT** allow a `tenant_admin` to delete a Tenant or remove the last `tenant_owner`.
 -   **MUST** require Platform Admin to explicitly provision an owner when creating a Tenant.
+## Audit Log Immutability
+
+Audit logs are the authoritative record of security events. To ensure non-repudiation and system integrity:
+
+1. **Append-Only**: Audit logs MUST be immutable once written.
+2. **No Suppression**: No operations (API or CLI) shall exist to delete, modify, or suppress audit entries.
+3. **Universality**: Every security-sensitive action MUST be recorded.
+4. **Audit-of-Audit**: Every platform administrative access to tenant-scoped audit data MUST generate a primary audit record containing the actor, target, reason, and scope of access.

@@ -134,21 +134,33 @@ type stubClientRepo struct {
 	clients map[string]*oauth2.Client
 }
 
-func (m *stubClientRepo) GetByClientID(id string) (*oauth2.Client, error) {
-	if c, ok := m.clients[id]; ok {
-		return c, nil
+func (m *stubClientRepo) GetByClientID(id string, tenantID string) (*oauth2.Client, error) {
+	for _, c := range m.clients {
+		if c.ClientID == id && c.TenantID == tenantID {
+			return c, nil
+		}
 	}
 	return nil, oauth2.ErrClientNotFound
 }
-func (m *stubClientRepo) GetByID(id string) (*oauth2.Client, error) {
+func (m *stubClientRepo) GetByID(id string, tenantID string) (*oauth2.Client, error) {
 	if c, ok := m.clients[id]; ok {
-		return c, nil
+		if c.TenantID == tenantID {
+			return c, nil
+		}
 	}
 	return nil, oauth2.ErrClientNotFound
 }
-func (m *stubClientRepo) Create(c *oauth2.Client) error                   { return nil }
-func (m *stubClientRepo) Update(c *oauth2.Client) error                   { return nil }
-func (m *stubClientRepo) Delete(id string) error                          { return nil }
+func (m *stubClientRepo) Create(c *oauth2.Client) error { return nil }
+func (m *stubClientRepo) Update(c *oauth2.Client) error { return nil }
+func (m *stubClientRepo) Delete(id string, tenantID string) error {
+	if c, ok := m.clients[id]; ok {
+		if c.TenantID == tenantID {
+			delete(m.clients, id)
+			return nil
+		}
+	}
+	return nil
+}
 func (m *stubClientRepo) ListByOwner(id string) ([]*oauth2.Client, error) { return nil, nil }
 func (m *stubClientRepo) ListByTenant(id string) ([]*oauth2.Client, error) {
 	var res []*oauth2.Client
@@ -158,6 +170,14 @@ func (m *stubClientRepo) ListByTenant(id string) ([]*oauth2.Client, error) {
 		}
 	}
 	return res, nil
+}
+func (m *stubClientRepo) DeleteByTenantID(tenantID string) error {
+	for id, c := range m.clients {
+		if c.TenantID == tenantID {
+			delete(m.clients, id)
+		}
+	}
+	return nil
 }
 
 type stubCodeRepo struct {
@@ -293,6 +313,8 @@ func TestHTTP_Protocol_HappyPath_Flow(t *testing.T) {
 
 	req := httptest.NewRequest("POST", "/oauth2/token", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	ctx = context.WithValue(req.Context(), tenantIDKey, "tenant-1")
+	req = req.WithContext(ctx)
 	w := httptest.NewRecorder()
 
 	h.Token(w, req)
@@ -332,7 +354,7 @@ func TestHTTP_Protocol_CrossTenant_Negative(t *testing.T) {
 	}
 	sessRepo.sessions[sess.ID].TenantID = strPtr("tenant-A")
 
-	h := NewHandler(nil, sessSvc, nil, nil, nil, nil, audit.NewSlogLogger(), &stubAuditRepo{}, SessionConfig{CookieName: "session_id"}, "admin")
+	h := NewHandler(nil, sessSvc, nil, nil, nil, nil, audit.NewSlogLogger(), &stubAuditRepo{}, SessionConfig{CookieName: "session_id"}, []byte("test-signing-key"), "admin")
 
 	// Create Router with Middleware
 	r := chi.NewRouter()

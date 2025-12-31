@@ -15,6 +15,18 @@ Authority is derived from the combination of **Role** and **Scope**.
 
 ---
 
+### 1. Identity vs. Membership (Strict Separation)
+
+OpenTrusty maintains a hard boundary between **Identity** (who you are) and **Membership** (where you belong).
+
+*   **Identities** (`identity.User`) are global. They contain credentials, profile data, and security status (lockout, etc.). They **do not** contain a `tenant_id`.
+*   **Memberships** (`tenant.Membership`) link an Identity to a Tenant. A user can be a member of zero or more tenants.
+*   **Authority** is derived from **Roles** assigned to an Identity within a specific **Scope** (Platform or Tenant).
+
+**Invariant**: A user has authority in a tenant ONLY if they have both a `Membership` record AND a relevant `Role` assignment in that tenant.
+
+---
+
 ## Defined Roles
 
 ### 1. Platform Admin (`platform_admin`)
@@ -82,19 +94,27 @@ Authority is derived from the combination of **Role** and **Scope**.
 
 ## Audit Log Visibility Model
 
-| Viewer | Audit Access | Notes |
+| Viewer | Audit Access | Discovery Pattern |
 | :--- | :--- | :--- |
-| Platform Admin | ✅ All tenants (read-only) | `tenant_id` always visible; access is audited |
-| Tenant Owner | ✅ Own tenant only | Full tenant audit visibility |
-| Tenant Admin | ✅ Own tenant only | Operational audit visibility |
-| Tenant Member | ❌ None | No audit access |
+| **Platform Admin** | ✅ Scoped (Read-only) | **Explicit Declaration Required** (Tenant, Window, Reason) |
+| **Tenant Owner** | ✅ Own tenant only | Default access to own tenant |
+| **Tenant Admin** | ✅ Own tenant only | Default access to own tenant |
+| **Tenant Member** | ❌ None | No access |
 
-**Security Invariants:**
--   Platform Admin audit access is **intentional** for compliance/operations
--   Platform Admin audit access is **read-only** (no mutation)
--   Platform Admin audit access **does NOT break** tenant isolation at data mutation layer
--   All Platform Admin audit access MUST itself generate an audit entry
--   Sensitive fields (secrets, credentials) MUST be redacted uniformly
+---
+
+## Control Panel Access Control
+
+The Control Panel (Management Plane) is restricted to administrative identities.
+
+| Role | Access | Authentication Flow |
+| :--- | :--- | :--- |
+| `platform_admin` | ✅ FULL | Direct Login (Session) |
+| `tenant_owner` | ✅ TENANT ONLY | Direct Login (Session) |
+| `tenant_admin` | ✅ TENANT ONLY | Direct Login (Session) |
+| `tenant_member` | ❌ BLOCKED | OAuth2 / OIDC Flow ONLY |
+
+**Security Guard**: `AuthMiddleware` and `Login` handler strictly reject `tenant_member` principal logins to the Control Panel with a `403 Forbidden`. End-users must authenticate via applications using protocol flows.
 
 ---
 

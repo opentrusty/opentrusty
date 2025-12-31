@@ -44,6 +44,7 @@ func BenchmarkService_ExchangeCodeForToken(b *testing.B) {
 				ClientSecretHash:    hashClientSecret("bench-secret"),
 				RedirectURIs:        []string{"https://app.com/cb"},
 				AccessTokenLifetime: 3600,
+				TenantID:            "tenant-1",
 				IsActive:            true,
 			},
 		},
@@ -70,6 +71,7 @@ func BenchmarkService_ExchangeCodeForToken(b *testing.B) {
 	}
 
 	req := &TokenRequest{
+		TenantID:     "tenant-1",
 		GrantType:    "authorization_code",
 		ClientID:     "bench-client",
 		ClientSecret: "bench-secret",

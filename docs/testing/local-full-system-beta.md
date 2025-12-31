@@ -26,6 +26,7 @@ DB_USER=opentrusty
 DB_PASSWORD=opentrusty_dev_password
 DB_NAME=opentrusty
 OPENID_KEY_ENCRYPTION_KEY=12345678901234567890123456789012 # 32 bytes
+AUDIT_QUERY_SIGNING_KEY=opentrusty_dev_audit_key_secret_12345
 ```
 
 ### 2.2. Demo Client (`opentrusty-demo-app` repo)

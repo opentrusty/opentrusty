@@ -100,3 +100,10 @@ This repository represents **TWO** logical planes ONLY:
 
 > **Status**: ACTIVE
 > **Last Updated**: 2025-12-26
+
+## 8. Security & Audit Invariants
+
+- **Audit Log Immutability**: Audit logs MUST be **IMMUTABLE** and **APPEND-ONLY**.
+- **No Deletion**: AI Agents MUST NOT implement or suggest endpoints or operations to delete, modify, or suppress audit entries.
+- **Scoped Access**: Platform Admin access to tenant audit logs MUST be **explicit, scoped, and audited**. No "list all" or default visibility is permitted.
+- **Secondary Auditing**: Every platform administrative access to tenant audit logs MUST be internally audited with actor, target tenant, reason, and time scope.

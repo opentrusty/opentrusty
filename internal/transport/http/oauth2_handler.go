@@ -54,7 +54,7 @@ func (h *Handler) Authorize(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate request parameters first
-	_, err := h.oauth2Service.ValidateAuthorizeRequest(r.Context(), req)
+	_, err := h.oauth2Service.ValidateAuthorizeRequest(r.Context(), GetTenantID(r.Context()), req)
 	if err != nil {
 		slog.ErrorContext(r.Context(), "invalid authorize request",
 			"error", err,
@@ -156,6 +156,7 @@ func (h *Handler) Token(w http.ResponseWriter, r *http.Request) {
 	}
 
 	req := &oauth2.TokenRequest{
+		TenantID:     GetTenantID(r.Context()),
 		GrantType:    r.Form.Get("grant_type"),
 		Code:         r.Form.Get("code"),
 		RedirectURI:  r.Form.Get("redirect_uri"),
@@ -231,7 +232,7 @@ func (h *Handler) Revoke(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate client first
-	_, err := h.oauth2Service.ValidateClientCredentials(clientID, clientSecret)
+	_, err := h.oauth2Service.ValidateClientCredentials(GetTenantID(r.Context()), clientID, clientSecret)
 	if err != nil {
 		h.respondOAuthError(w, err)
 		return

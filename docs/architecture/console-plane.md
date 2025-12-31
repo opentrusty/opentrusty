@@ -23,3 +23,4 @@ The Console calls the Admin Plane for data.
 ## Constraints
 -   **No Private Knowledge**: The Console MUST NOT have direct DB access.
 -   **Untrusted Client**: The Backend treats the Console as untrusted; all inputs are validated.
+-   **Explicit Audit Access**: The Console MUST NOT show tenant audit logs to Platform Admins by default. It MUST implement a two-phase declaration flow (Form -> Scoped View) as defined in `docs/security/audit-logging.md`.

@@ -78,12 +78,8 @@ func (s *BootstrapService) Bootstrap(ctx context.Context) error {
 		return nil
 	}
 
-	// 2. Look up the user by email and tenant
-	var tID *string
-	if tenantID != "" {
-		tID = &tenantID
-	}
-	user, err := s.identityService.repo.GetByEmail(tID, email)
+	// 2. Look up the user by email
+	user, err := s.identityService.repo.GetByEmail(email)
 	if err != nil {
 		// User not found, create it
 		fmt.Printf("Bootstrap user not found, creating new platform admin: %s\n", email)
@@ -104,9 +100,7 @@ func (s *BootstrapService) Bootstrap(ctx context.Context) error {
 			FamilyName: "Admin",
 			FullName:   "Platform Admin",
 		}
-		// We call ProvisionIdentity on Service? ProvisionIdentity expects Profile struct which is in identity package.
-		// bootstrap.go is in identity package, so Profile is available.
-		user, err = s.identityService.ProvisionIdentity(ctx, tenantID, email, profile)
+		user, err = s.identityService.ProvisionIdentity(ctx, email, profile)
 		if err != nil {
 			return fmt.Errorf("failed to provision bootstrap user: %w", err)
 		}

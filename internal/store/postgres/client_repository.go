@@ -85,8 +85,8 @@ func (r *ClientRepository) Create(client *oauth2.Client) error {
 	return nil
 }
 
-// GetByClientID retrieves a client by client_id
-func (r *ClientRepository) GetByClientID(clientID string) (*oauth2.Client, error) {
+// GetByClientID retrieves a client by client_id and tenant_id
+func (r *ClientRepository) GetByClientID(clientID string, tenantID string) (*oauth2.Client, error) {
 	ctx := context.Background()
 
 	var client oauth2.Client
@@ -101,8 +101,8 @@ func (r *ClientRepository) GetByClientID(clientID string) (*oauth2.Client, error
 			token_endpoint_auth_method, access_token_lifetime, refresh_token_lifetime, id_token_lifetime,
 			owner_id, is_trusted, is_active, created_at, updated_at, deleted_at
 		FROM oauth2_clients
-		WHERE client_id = $1 AND deleted_at IS NULL
-	`, clientID).Scan(
+		WHERE client_id = $1 AND tenant_id = $2 AND deleted_at IS NULL
+	`, clientID, tenantID).Scan(
 		&client.ID, &client.ClientID, &client.TenantID, &client.ClientSecretHash, &client.ClientName, &clientURI, &logoURI,
 		&redirectURIsJSON, &allowedScopesJSON, &grantTypesJSON, &responseTypesJSON,
 		&client.TokenEndpointAuthMethod, &client.AccessTokenLifetime, &client.RefreshTokenLifetime, &client.IDTokenLifetime,
@@ -146,8 +146,8 @@ func (r *ClientRepository) GetByClientID(clientID string) (*oauth2.Client, error
 	return &client, nil
 }
 
-// GetByID retrieves a client by internal ID
-func (r *ClientRepository) GetByID(id string) (*oauth2.Client, error) {
+// GetByID retrieves a client by internal ID and tenant_id
+func (r *ClientRepository) GetByID(id string, tenantID string) (*oauth2.Client, error) {
 	ctx := context.Background()
 
 	var client oauth2.Client
@@ -162,8 +162,8 @@ func (r *ClientRepository) GetByID(id string) (*oauth2.Client, error) {
 			token_endpoint_auth_method, access_token_lifetime, refresh_token_lifetime, id_token_lifetime,
 			owner_id, is_trusted, is_active, created_at, updated_at, deleted_at
 		FROM oauth2_clients
-		WHERE id = $1 AND deleted_at IS NULL
-	`, id).Scan(
+		WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
+	`, id, tenantID).Scan(
 		&client.ID, &client.ClientID, &client.TenantID, &client.ClientSecretHash, &client.ClientName, &client.ClientURI, &client.LogoURI,
 		&redirectURIsJSON, &allowedScopesJSON, &grantTypesJSON, &responseTypesJSON,
 		&client.TokenEndpointAuthMethod, &client.AccessTokenLifetime, &client.RefreshTokenLifetime, &client.IDTokenLifetime,
@@ -240,12 +240,12 @@ func (r *ClientRepository) Update(client *oauth2.Client) error {
 			id_token_lifetime = $12,
 			is_trusted = $13,
 			is_active = $14
-		WHERE id = $1 AND deleted_at IS NULL
+		WHERE id = $1 AND tenant_id = $15 AND deleted_at IS NULL
 	`,
 		client.ID, client.ClientName, client.ClientURI, client.LogoURI,
 		redirectURIs, allowedScopes, grantTypes, responseTypes,
 		client.TokenEndpointAuthMethod, client.AccessTokenLifetime, client.RefreshTokenLifetime, client.IDTokenLifetime,
-		client.IsTrusted, client.IsActive,
+		client.IsTrusted, client.IsActive, client.TenantID,
 	)
 
 	if err != nil {
@@ -259,14 +259,14 @@ func (r *ClientRepository) Update(client *oauth2.Client) error {
 	return nil
 }
 
-// Delete soft-deletes a client
-func (r *ClientRepository) Delete(id string) error {
+// Delete soft-deletes a client by internal ID and tenant_id
+func (r *ClientRepository) Delete(id string, tenantID string) error {
 	ctx := context.Background()
 
 	result, err := r.db.pool.Exec(ctx, `
-		UPDATE oauth2_clients SET deleted_at = $2
-		WHERE id = $1 AND deleted_at IS NULL
-	`, id, time.Now())
+		UPDATE oauth2_clients SET deleted_at = $3
+		WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
+	`, id, tenantID, time.Now())
 
 	if err != nil {
 		return fmt.Errorf("failed to delete client: %w", err)
@@ -274,6 +274,22 @@ func (r *ClientRepository) Delete(id string) error {
 
 	if result.RowsAffected() == 0 {
 		return oauth2.ErrClientNotFound
+	}
+
+	return nil
+}
+
+// DeleteByTenantID soft-deletes all clients belonging to a tenant
+func (r *ClientRepository) DeleteByTenantID(tenantID string) error {
+	ctx := context.Background()
+
+	_, err := r.db.pool.Exec(ctx, `
+		UPDATE oauth2_clients SET deleted_at = $2
+		WHERE tenant_id = $1 AND deleted_at IS NULL
+	`, tenantID, time.Now())
+
+	if err != nil {
+		return fmt.Errorf("failed to delete clients by tenant: %w", err)
 	}
 
 	return nil

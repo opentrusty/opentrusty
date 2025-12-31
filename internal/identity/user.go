@@ -41,7 +41,6 @@ var (
 // User represents a user identity in the system
 type User struct {
 	ID                  string
-	TenantID            *string // Option for Platform Admins. Tenant Users MUST have a tenant_id.
 	Email               string
 	EmailVerified       bool
 	Profile             Profile
@@ -81,12 +80,8 @@ type UserRepository interface {
 	// GetByID retrieves a user by ID
 	GetByID(id string) (*User, error)
 
-	// GetByEmail retrieves a user by email within a tenant (or no tenant for Platform Admins)
-	GetByEmail(tenantID *string, email string) (*User, error)
-
-	// GetByEmailGlobal retrieves a user by email globally (ignoring tenant)
-	// Used for Control Plane Login where tenant context is not yet known
-	GetByEmailGlobal(email string) (*User, error)
+	// GetByEmail retrieves a user by email globally
+	GetByEmail(email string) (*User, error)
 
 	// Update updates user information
 	Update(user *User) error

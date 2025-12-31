@@ -103,11 +103,17 @@ func (m *MockAssignmentRepository) ListForUser(userID string) ([]*authz.Assignme
 	}
 	return result, nil
 }
+
 func (m *MockAssignmentRepository) ListByRole(roleID string, scope authz.Scope, scopeContextID *string) ([]string, error) {
 	return nil, nil
 }
+
 func (m *MockAssignmentRepository) CheckExists(roleID string, scope authz.Scope, scopeContextID *string) (bool, error) {
 	return false, nil
+}
+
+func (m *MockAssignmentRepository) DeleteByContextID(scope authz.Scope, contextID string) error {
+	return nil
 }
 
 // MockProjectRepository implements authz.ProjectRepository for testing

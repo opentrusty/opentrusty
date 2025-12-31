@@ -20,6 +20,7 @@ import (
 	"log/slog"
 	"math/big"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/opentrusty/opentrusty/internal/audit"
@@ -63,7 +64,12 @@ func (h *Handler) CreateTenant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	t, err := h.tenantService.CreateTenant(r.Context(), req.Name, userID)
+	// 2. Generate Bootstrap Password if not provided
+	adminPassword := "" // If provided in request? Add to CreateTenantRequest
+	// For now, we'll generate one if not provided to ensure Requirement 3
+	adminPassword, _ = generateRandomPassword(16)
+
+	t, err := h.tenantService.CreateTenant(r.Context(), req.Name, req.AdminEmail, adminPassword, userID)
 	if err != nil {
 		// Map domain errors to HTTP status codes
 		if err == tenant.ErrInvalidTenantName {
@@ -74,90 +80,19 @@ func (h *Handler) CreateTenant(w http.ResponseWriter, r *http.Request) {
 			respondError(w, http.StatusConflict, "tenant with this name already exists")
 			return
 		}
-		respondError(w, http.StatusInternalServerError, "failed to create tenant")
+		respondError(w, http.StatusInternalServerError, "failed to create tenant: "+err.Error())
 		return
 	}
-
-	// 3. Security Event: Minimal audit log for tenant creation
-	h.auditLogger.Log(r.Context(), audit.Event{
-		Type:     audit.TypeTenantCreated,
-		ActorID:  userID,
-		Resource: audit.ResourceTenant,
-		Metadata: map[string]any{
-			audit.AttrTenantID:   t.ID,
-			audit.AttrTenantName: t.Name,
-		},
-	})
 
 	response := map[string]any{
-		"id":         t.ID,
-		"name":       t.Name,
-		"status":     t.Status,
-		"created_at": t.CreatedAt,
-		"updated_at": t.UpdatedAt,
-	}
-
-	// 4. Provision Initial Owner (MANDATORY)
-	if req.AdminEmail == "" {
-		respondError(w, http.StatusBadRequest, "admin_email is required for tenant owner provisioning")
-		return
-	}
-
-	// Check if user exists
-	user, err := h.identityService.GetByEmail(r.Context(), t.ID, req.AdminEmail)
-	if err != nil && err != identity.ErrUserNotFound {
-		slog.ErrorContext(r.Context(), "failed to check admin user", "error", err)
-	}
-
-	if user == nil {
-		// Create user
-		profile := identity.Profile{
-			FullName: req.AdminName,
-		}
-		if profile.FullName == "" {
-			profile.FullName = "Tenant Owner"
-		}
-
-		user, err = h.identityService.ProvisionIdentity(r.Context(), t.ID, req.AdminEmail, profile)
-		if err != nil {
-			respondError(w, http.StatusInternalServerError, "failed to provision owner user: "+err.Error())
-			return
-		}
-
-		// Generate Random Password
-		password, err := generateRandomPassword(12)
-		if err != nil {
-			respondError(w, http.StatusInternalServerError, "failed to generate password")
-			return
-		}
-
-		if err := h.identityService.AddPassword(r.Context(), user.ID, password); err != nil {
-			respondError(w, http.StatusInternalServerError, "failed to set owner password")
-			return
-		}
-
-		// Assign Tenant Owner Role
-		if err := h.tenantService.AssignRole(r.Context(), t.ID, user.ID, tenant.RoleTenantOwner, userID); err != nil {
-			respondError(w, http.StatusInternalServerError, "failed to assign owner role")
-			return
-		}
-
-		// Audit Log for Owner Provisioning
-		h.auditLogger.Log(r.Context(), audit.Event{
-			Type:     audit.TypeUserCreated,
-			TenantID: t.ID,
-			ActorID:  userID,
-			Resource: audit.ResourceUser,
-			Metadata: map[string]any{
-				audit.AttrEmail:  req.AdminEmail,
-				audit.AttrRoleID: tenant.RoleTenantOwner,
-			},
-		})
-
-		// Return credentials in response
-		response["admin_email"] = req.AdminEmail
-		response["admin_password"] = password
-		response["password_warning"] = "This password will not be shown again. Please copy it now."
+		"id":               t.ID,
+		"name":             t.Name,
+		"status":           t.Status,
+		"created_at":       t.CreatedAt,
+		"updated_at":       t.UpdatedAt,
+		"admin_email":      req.AdminEmail,
+		"admin_password":   adminPassword,
+		"password_warning": "This password will not be shown again. Please copy it now.",
 	}
 
 	respondJSON(w, http.StatusCreated, response)
@@ -198,7 +133,7 @@ func (h *Handler) ProvisionTenantUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 1. Authorization Check: Tenant Admin or Platform Admin required
+	// 1. Authorization Check: Tenant Admin ONLY (Platform Admin excluded)
 	userID := GetUserID(r.Context())
 	allowed, err := h.authzService.HasPermission(r.Context(), userID, authz.ScopeTenant, &tenantID, authz.PermTenantManageUsers)
 	if err != nil || !allowed {
@@ -210,8 +145,8 @@ func (h *Handler) ProvisionTenantUser(w http.ResponseWriter, r *http.Request) {
 		req.Role = tenant.RoleTenantMember
 	}
 
-	// 1. Check if user exists
-	user, err := h.identityService.GetByEmail(r.Context(), tenantID, req.Email)
+	// 1. Check if user exists globally
+	user, err := h.identityService.GetByEmail(r.Context(), req.Email)
 	if err == nil && user != nil {
 		// User exists, just assign role
 	} else if err == identity.ErrUserNotFound {
@@ -225,7 +160,7 @@ func (h *Handler) ProvisionTenantUser(w http.ResponseWriter, r *http.Request) {
 			FamilyName: req.FamilyName,
 			FullName:   req.GivenName + " " + req.FamilyName,
 		}
-		user, err = h.identityService.ProvisionIdentity(r.Context(), tenantID, req.Email, profile)
+		user, err = h.identityService.ProvisionIdentity(r.Context(), req.Email, profile)
 		if err != nil {
 			respondError(w, http.StatusInternalServerError, "failed to provision user: "+err.Error())
 			return
@@ -260,10 +195,12 @@ func (h *Handler) ProvisionTenantUser(w http.ResponseWriter, r *http.Request) {
 
 	// 3. Audit Log for User Provisioning
 	h.auditLogger.Log(r.Context(), audit.Event{
-		Type:     audit.TypeUserCreated,
-		TenantID: tenantID,
-		ActorID:  granterID,
-		Resource: audit.ResourceUser,
+		Type:       audit.TypeUserCreated,
+		TenantID:   tenantID,
+		ActorID:    granterID,
+		Resource:   audit.ResourceUser,
+		TargetID:   user.ID,
+		TargetName: req.Email,
 		Metadata: map[string]any{
 			audit.AttrEmail:  req.Email,
 			audit.AttrRoleID: req.Role,
@@ -313,7 +250,7 @@ func (h *Handler) AssignTenantRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Authorization Check: Tenant Admin or Platform Admin required
+	// Authorization Check: Tenant Admin ONLY (Platform Admin excluded)
 	granterID := GetUserID(r.Context())
 	allowed, err := h.authzService.HasPermission(r.Context(), granterID, authz.ScopeTenant, &tenantID, authz.PermTenantManageUsers)
 	if err != nil || !allowed {
@@ -347,7 +284,7 @@ func (h *Handler) RevokeTenantRole(w http.ResponseWriter, r *http.Request) {
 	userID := chi.URLParam(r, "userID")
 	role := chi.URLParam(r, "role")
 
-	// 1. Authorization Check: Tenant Admin or Platform Admin required
+	// 1. Authorization Check: Tenant Admin ONLY (Platform Admin excluded)
 	actorID := GetUserID(r.Context())
 	allowed, err := h.authzService.HasPermission(r.Context(), actorID, authz.ScopeTenant, &tenantID, authz.PermTenantManageUsers)
 	if err != nil || !allowed {
@@ -355,7 +292,7 @@ func (h *Handler) RevokeTenantRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = h.tenantService.RevokeRole(r.Context(), tenantID, userID, role)
+	err = h.tenantService.RevokeRole(r.Context(), tenantID, userID, role, actorID)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -377,7 +314,7 @@ func (h *Handler) RevokeTenantRole(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) ListTenantUsers(w http.ResponseWriter, r *http.Request) {
 	tenantID := chi.URLParam(r, "tenantID")
 
-	// 1. Authorization Check: Tenant View permission required
+	// 1. Authorization Check: Tenant View permission required (Must be a member of the tenant)
 	userID := GetUserID(r.Context())
 	allowed, err := h.authzService.HasPermission(r.Context(), userID, authz.ScopeTenant, &tenantID, authz.PermTenantView)
 	if err != nil || !allowed {
@@ -392,6 +329,48 @@ func (h *Handler) ListTenantUsers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respondJSON(w, http.StatusOK, roles)
+}
+
+// UpdateTenantUserRequest represents user update data
+type UpdateTenantUserRequest struct {
+	Nickname string `json:"nickname"`
+}
+
+// UpdateTenantUser handles updating a user's profile in a tenant
+func (h *Handler) UpdateTenantUser(w http.ResponseWriter, r *http.Request) {
+	tenantID := chi.URLParam(r, "tenantID")
+	userID := chi.URLParam(r, "userID")
+
+	// 1. Authorization: Tenant Admin ONLY
+	actorID := GetUserID(r.Context())
+	allowed, err := h.authzService.HasPermission(r.Context(), actorID, authz.ScopeTenant, &tenantID, authz.PermTenantManageUsers)
+	if err != nil || !allowed {
+		respondError(w, http.StatusForbidden, "tenant administrative access required")
+		return
+	}
+
+	var req UpdateTenantUserRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	// Fetch current profile to avoid overwriting other fields (like Picture)
+	user, err := h.identityService.GetUser(r.Context(), userID)
+	if err != nil {
+		respondError(w, http.StatusNotFound, "user not found")
+		return
+	}
+
+	profile := user.Profile
+	profile.Nickname = req.Nickname
+
+	if err := h.tenantService.UpdateUser(r.Context(), tenantID, userID, profile, actorID); err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to update user: "+err.Error())
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]string{"status": "updated"})
 }
 
 // AssignOwnerRequest represents tenant owner assignment data
@@ -460,4 +439,162 @@ func generateRandomPassword(length int) (string, error) {
 		b[i] = charset[num.Int64()]
 	}
 	return string(b), nil
+}
+
+// GetTenantMetrics returns summary statistics for a tenant
+func (h *Handler) GetTenantMetrics(w http.ResponseWriter, r *http.Request) {
+	tenantID := chi.URLParam(r, "tenantID")
+	if tenantID == "" {
+		respondError(w, http.StatusBadRequest, "tenant_id is required")
+		return
+	}
+
+	// 1. Authorization: Tenant View permission (Tenant Owner/Admin/Member)
+	userID := GetUserID(r.Context())
+	allowed, err := h.authzService.HasPermission(r.Context(), userID, authz.ScopeTenant, &tenantID, authz.PermTenantView)
+	if err != nil || !allowed {
+		respondError(w, http.StatusForbidden, "tenant view access required")
+		return
+	}
+
+	// 2. Fetch Users Count - Includes owners, admins, and members
+	users, err := h.tenantService.GetTenantUsers(r.Context(), tenantID)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to fetch users")
+		return
+	}
+
+	// 3. Fetch Clients Count
+	clients, err := h.oauth2Service.ListClients(r.Context(), tenantID)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to fetch clients")
+		return
+	}
+
+	// 4. Fetch Audit Count (24h)
+	yesterday := time.Now().Add(-24 * time.Hour)
+	_, auditCount, err := h.auditRepo.List(r.Context(), audit.Filter{
+		TenantID:  &tenantID,
+		StartDate: &yesterday,
+	})
+	if err != nil {
+		slog.ErrorContext(r.Context(), "failed to fetch audit count", "error", err, "tenantID", tenantID)
+		// We don't fail the whole request for audit count
+	}
+
+	respondJSON(w, http.StatusOK, tenant.TenantMetrics{
+		TotalUsers:    len(users),
+		TotalClients:  len(clients),
+		AuditCount24h: auditCount,
+	})
+}
+
+// GetTenant returns details of a specific tenant
+// @Summary Get tenant details
+// @Description Get details of a specific tenant (requires tenant view permission)
+// @Tags Tenant
+// @Produce json
+// @Param tenantID path string true "Tenant ID"
+// @Success 200 {object} map[string]any
+// @Failure 403 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Router /tenants/{tenantID} [get]
+// @Security SessionCookie
+func (h *Handler) GetTenant(w http.ResponseWriter, r *http.Request) {
+	tenantID := chi.URLParam(r, "tenantID")
+	if tenantID == "" {
+		respondError(w, http.StatusBadRequest, "tenant_id is required")
+		return
+	}
+
+	userID := GetUserID(r.Context())
+	allowed, err := h.authzService.HasPermission(r.Context(), userID, authz.ScopeTenant, &tenantID, authz.PermTenantView)
+	if err != nil || !allowed {
+		respondError(w, http.StatusForbidden, "tenant view access required")
+		return
+	}
+
+	t, err := h.tenantService.GetTenant(r.Context(), tenantID)
+	if err != nil {
+		slog.ErrorContext(r.Context(), "GetTenant failed", "error", err, "tenantID", tenantID)
+		respondError(w, http.StatusNotFound, "tenant not found")
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]any{
+		"id":         t.ID,
+		"name":       t.Name,
+		"status":     t.Status,
+		"created_at": t.CreatedAt,
+		"updated_at": t.UpdatedAt,
+	})
+}
+
+// UpdateTenantRequest represents tenant update data
+type UpdateTenantRequest struct {
+	Name string `json:"name"`
+}
+
+// UpdateTenant handles tenant updates
+func (h *Handler) UpdateTenant(w http.ResponseWriter, r *http.Request) {
+	tenantID := chi.URLParam(r, "tenantID")
+	if tenantID == "" {
+		respondError(w, http.StatusBadRequest, "tenant_id is required")
+		return
+	}
+
+	// Authorization: Platform Admin Only
+	userID := GetUserID(r.Context())
+	allowed, err := h.authzService.HasPermission(r.Context(), userID, authz.ScopePlatform, nil, authz.PermPlatformManageTenants)
+	if err != nil || !allowed {
+		respondError(w, http.StatusForbidden, "platform administrative access required")
+		return
+	}
+
+	var req UpdateTenantRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	updatedTenant, err := h.tenantService.UpdateTenant(r.Context(), tenantID, req.Name, userID)
+	if err != nil {
+		if err == tenant.ErrTenantNotFound {
+			respondError(w, http.StatusNotFound, "tenant not found")
+			return
+		}
+		respondError(w, http.StatusInternalServerError, "failed to update tenant")
+		return
+	}
+
+	respondJSON(w, http.StatusOK, updatedTenant)
+}
+
+// DeleteTenant handles tenant deletion
+func (h *Handler) DeleteTenant(w http.ResponseWriter, r *http.Request) {
+	tenantID := chi.URLParam(r, "tenantID")
+	if tenantID == "" {
+		respondError(w, http.StatusBadRequest, "tenant_id is required")
+		return
+	}
+
+	// Authorization: Platform Admin Only
+	userID := GetUserID(r.Context())
+	allowed, err := h.authzService.HasPermission(r.Context(), userID, authz.ScopePlatform, nil, authz.PermPlatformManageTenants)
+	if err != nil || !allowed {
+		respondError(w, http.StatusForbidden, "platform administrative access required")
+		return
+	}
+
+	err = h.tenantService.DeleteTenant(r.Context(), tenantID, userID)
+	if err != nil {
+		if err == tenant.ErrTenantNotFound {
+			respondError(w, http.StatusNotFound, "tenant not found")
+			return
+		}
+		respondError(w, http.StatusInternalServerError, "failed to delete tenant")
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
 }

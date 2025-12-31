@@ -145,6 +145,7 @@ func main() {
 	refreshRepo := postgres.NewRefreshTokenRepository(db)
 	tenantRepo := postgres.NewTenantRepository(db)
 	tenantRoleRepo := postgres.NewTenantRoleRepository(db)
+	membershipRepo := postgres.NewMembershipRepository(db)
 	auditRepo := postgres.NewAuditRepository(db)
 
 	// Initialize helpers
@@ -188,7 +189,7 @@ func main() {
 		cfg.OAuth2.RefreshTokenLifetime,
 	)
 	authzService := authz.NewService(projectRepo, roleRepo, assignmentRepo)
-	tenantService := tenant.NewService(tenantRepo, tenantRoleRepo, assignmentRepo, auditLogger)
+	tenantService := tenant.NewService(tenantRepo, tenantRoleRepo, assignmentRepo, identityService, clientRepo, membershipRepo, auditLogger)
 
 	// Initialize Bootstrap Service
 	bootstrapService := identity.NewBootstrapService(
@@ -235,6 +236,7 @@ func main() {
 			CookieHTTPOnly: cfg.Session.CookieHTTPOnly,
 			CookieSameSite: sameSite,
 		},
+		[]byte(cfg.Security.AuditQuerySigningKey),
 		mode,
 	)
 

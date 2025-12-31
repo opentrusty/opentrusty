@@ -32,6 +32,11 @@ const (
 	// Scope: tenant (scope_context_id = tenant UUID)
 	// Permissions: Currently none (to be extended)
 	RoleIDMember = "20000000-0000-0000-0000-000000000003"
+
+	// RoleIDTenantOwner grants full owner privileges within a specific tenant.
+	// Scope: tenant (scope_context_id = tenant UUID)
+	// Permissions: tenant:manage_users, tenant:manage_clients, tenant:manage_settings, tenant:view_audit, etc.
+	RoleIDTenantOwner = "20000000-0000-0000-0000-000000000004"
 )
 
 // System-defined Permission IDs from initial schema migration (001_initial_schema.up.sql).

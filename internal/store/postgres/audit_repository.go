@@ -31,15 +31,17 @@ func (r *AuditRepository) Log(ctx context.Context, event audit.Event) error {
 
 	_, err := r.db.pool.Exec(ctx, `
 		INSERT INTO audit_events (
-			id, type, tenant_id, actor_id, resource, ip_address, user_agent, metadata, created_at
+			id, type, tenant_id, actor_id, resource, target_name, target_id, ip_address, user_agent, metadata, created_at
 		) VALUES (
-			gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8
+			gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
 		)
 	`,
 		event.Type,
 		tenantID,
 		actorID,
 		event.Resource,
+		event.TargetName,
+		event.TargetID,
 		event.IPAddress,
 		event.UserAgent,
 		event.Metadata,
@@ -62,30 +64,30 @@ func (r *AuditRepository) List(ctx context.Context, filter audit.Filter) ([]audi
 	if filter.TenantID != nil {
 		if *filter.TenantID == "" {
 			// System level?
-			whereClauses = append(whereClauses, "tenant_id IS NULL")
+			whereClauses = append(whereClauses, "e.tenant_id IS NULL")
 		} else {
-			whereClauses = append(whereClauses, fmt.Sprintf("tenant_id = $%d", argIdx))
+			whereClauses = append(whereClauses, fmt.Sprintf("e.tenant_id = $%d", argIdx))
 			args = append(args, *filter.TenantID)
 			argIdx++
 		}
 	}
 	if filter.ActorID != nil {
-		whereClauses = append(whereClauses, fmt.Sprintf("actor_id = $%d", argIdx))
+		whereClauses = append(whereClauses, fmt.Sprintf("e.actor_id = $%d", argIdx))
 		args = append(args, *filter.ActorID)
 		argIdx++
 	}
 	if filter.Type != nil {
-		whereClauses = append(whereClauses, fmt.Sprintf("type = $%d", argIdx))
+		whereClauses = append(whereClauses, fmt.Sprintf("e.type = $%d", argIdx))
 		args = append(args, *filter.Type)
 		argIdx++
 	}
 	if filter.StartDate != nil {
-		whereClauses = append(whereClauses, fmt.Sprintf("created_at >= $%d", argIdx))
+		whereClauses = append(whereClauses, fmt.Sprintf("e.created_at >= $%d", argIdx))
 		args = append(args, *filter.StartDate)
 		argIdx++
 	}
 	if filter.EndDate != nil {
-		whereClauses = append(whereClauses, fmt.Sprintf("created_at <= $%d", argIdx))
+		whereClauses = append(whereClauses, fmt.Sprintf("e.created_at <= $%d", argIdx))
 		args = append(args, *filter.EndDate)
 		argIdx++
 	}
@@ -96,7 +98,7 @@ func (r *AuditRepository) List(ctx context.Context, filter audit.Filter) ([]audi
 	}
 
 	// Count Data
-	countQuery := "SELECT COUNT(*) FROM audit_events " + whereSQL
+	countQuery := "SELECT COUNT(*) FROM audit_events e " + whereSQL
 	var total int
 	err := r.db.pool.QueryRow(ctx, countQuery, args...).Scan(&total)
 	if err != nil {
@@ -106,8 +108,8 @@ func (r *AuditRepository) List(ctx context.Context, filter audit.Filter) ([]audi
 	// Select Data
 	query := `
 		SELECT e.id, e.type, COALESCE(e.tenant_id, ''), COALESCE(e.actor_id, ''), 
-               COALESCE(u.full_name, e.actor_id, ''), e.resource, 
-               COALESCE(e.ip_address, ''), COALESCE(e.user_agent, ''), e.metadata, e.created_at
+               COALESCE(NULLIF(u.full_name, ''), NULLIF(u.email, ''), e.actor_id, ''), e.resource, 
+               COALESCE(e.target_name, ''), COALESCE(e.target_id, ''), COALESCE(e.ip_address, ''), COALESCE(e.user_agent, ''), e.metadata, e.created_at
 		FROM audit_events e
 		LEFT JOIN users u ON e.actor_id = u.id::text
 	` + whereSQL + fmt.Sprintf(" ORDER BY e.created_at DESC LIMIT $%d OFFSET $%d", argIdx, argIdx+1)
@@ -126,7 +128,7 @@ func (r *AuditRepository) List(ctx context.Context, filter audit.Filter) ([]audi
 
 		if err := rows.Scan(
 			&e.ID, &e.Type, &e.TenantID, &e.ActorID, &e.ActorName, &e.Resource,
-			&e.IPAddress, &e.UserAgent, &e.Metadata, &e.Timestamp,
+			&e.TargetName, &e.TargetID, &e.IPAddress, &e.UserAgent, &e.Metadata, &e.Timestamp,
 		); err != nil {
 			return nil, 0, fmt.Errorf("failed to scan audit event: %w", err)
 		}

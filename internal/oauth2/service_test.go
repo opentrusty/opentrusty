@@ -29,24 +29,32 @@ type MockClientRepo struct {
 	clients map[string]*Client
 }
 
-func (m *MockClientRepo) GetByClientID(clientID string) (*Client, error) {
+func (m *MockClientRepo) GetByClientID(clientID string, tenantID string) (*Client, error) {
 	c, ok := m.clients[clientID]
-	if !ok {
+	if !ok || c.TenantID != tenantID {
 		return nil, ErrClientNotFound
 	}
 	return c, nil
 }
-func (m *MockClientRepo) GetByID(id string) (*Client, error) {
+func (m *MockClientRepo) GetByID(id string, tenantID string) (*Client, error) {
 	for _, c := range m.clients {
-		if c.ID == id {
+		if c.ID == id && c.TenantID == tenantID {
 			return c, nil
 		}
 	}
 	return nil, ErrClientNotFound
 }
-func (m *MockClientRepo) Create(client *Client) error                   { return nil }
-func (m *MockClientRepo) Update(client *Client) error                   { return nil }
-func (m *MockClientRepo) Delete(id string) error                        { return nil }
+func (m *MockClientRepo) Create(client *Client) error { return nil }
+func (m *MockClientRepo) Update(client *Client) error { return nil }
+func (m *MockClientRepo) Delete(id string, tenantID string) error {
+	for k, c := range m.clients {
+		if c.ID == id && c.TenantID == tenantID {
+			delete(m.clients, k)
+			return nil
+		}
+	}
+	return nil
+}
 func (m *MockClientRepo) ListByOwner(ownerID string) ([]*Client, error) { return nil, nil }
 func (m *MockClientRepo) ListByTenant(tenantID string) ([]*Client, error) {
 	var res []*Client
@@ -56,6 +64,14 @@ func (m *MockClientRepo) ListByTenant(tenantID string) ([]*Client, error) {
 		}
 	}
 	return res, nil
+}
+func (m *MockClientRepo) DeleteByTenantID(tenantID string) error {
+	for k, c := range m.clients {
+		if c.TenantID == tenantID {
+			delete(m.clients, k)
+		}
+	}
+	return nil
 }
 
 type MockCodeRepo struct {
@@ -162,6 +178,7 @@ func TestOAuth2_Service_ExchangeCodeForToken_Success(t *testing.T) {
 
 	// 2. Exchange code
 	tokenReq := &TokenRequest{
+		TenantID:     "tenant-1",
 		GrantType:    "authorization_code",
 		ClientID:     "client-1",
 		ClientSecret: "secret-1",
@@ -231,6 +248,7 @@ func TestOAuth2_Service_ExchangeCodeForToken_PKCEFailure(t *testing.T) {
 
 	// Exchange with WRONG verifier
 	tokenReq := &TokenRequest{
+		TenantID:     "tenant-1",
 		GrantType:    "authorization_code",
 		ClientID:     "client-1",
 		ClientSecret: "secret-1",
@@ -259,6 +277,7 @@ func TestOAuth2_Service_ExchangeCodeForToken_Replay(t *testing.T) {
 					ClientID:         "client-1",
 					ClientSecretHash: hashClientSecret("secret-1"),
 					RedirectURIs:     []string{"https://app.example.com/callback"},
+					TenantID:         "tenant-1",
 					IsActive:         true,
 				},
 			},
@@ -280,6 +299,7 @@ func TestOAuth2_Service_ExchangeCodeForToken_Replay(t *testing.T) {
 	code, _ := s.CreateAuthorizationCode(ctx, authReq, "user-1")
 
 	tokenReq := &TokenRequest{
+		TenantID:     "tenant-1",
 		GrantType:    "authorization_code",
 		ClientID:     "client-1",
 		ClientSecret: "secret-1",
@@ -325,6 +345,7 @@ func TestOAuth2_Service_ExchangeCodeForToken_Expired(t *testing.T) {
 					ClientID:         "client-1",
 					ClientSecretHash: hashClientSecret("secret-1"),
 					RedirectURIs:     []string{"https://app.example.com/callback"},
+					TenantID:         "tenant-1",
 					IsActive:         true,
 				},
 			},
@@ -345,6 +366,7 @@ func TestOAuth2_Service_ExchangeCodeForToken_Expired(t *testing.T) {
 	code.ExpiresAt = time.Now().Add(-1 * time.Hour)
 
 	tokenReq := &TokenRequest{
+		TenantID:     "tenant-1",
 		GrantType:    "authorization_code",
 		ClientID:     "client-1",
 		ClientSecret: "secret-1",

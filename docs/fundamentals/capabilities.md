@@ -65,8 +65,10 @@ Multi-tenancy is a **core domain invariant**.
 
 ### Audit
 - **Method**: Structured Logging (`slog`).
-- **Events**: Login Success/Failure, Token Issuance, Password Change.
-- **Privacy**: No PII or secrets in logs.
+- **Events**: Login Success/Failure, Token Issuance, Password Change, Scoped Audit Access.
+- **Privacy**: Standardized redaction for secrets and PII.
+- **Immutability**: Audit logs are append-only. Deletion or modification is prohibited by design.
+- **Access Control**: Platform Admin access to tenant logs is explicit, scoped, and audited via an Access Declaration flow.
 
 ## Non-Goals
 These features are intentionally **Out of Scope** for OpenTrusty:

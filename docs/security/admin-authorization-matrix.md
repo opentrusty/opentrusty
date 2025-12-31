@@ -20,6 +20,9 @@ This document defines the access boundaries for different administrative roles w
 | `tenant:manage_clients` | **Yes** | **Yes** | **Yes** |
 | `tenant:view` | **Yes** | **Yes** | **Yes** |
 | `tenant:delete` | **Yes** | **Yes** | No |
+| `audit:read` | **Scoped*** | **Yes** | No |
+
+*\*Platform Admin access to `audit:read` is strictly **Scoped, Explicit, and Audited**. See `docs/_ai/authority-model.md` for the declaration lifecycle.*
 
 ## Invariants
 1. **Cross-Tenant Isolation**: A Tenant Admin assigned to Tenant A can NEVER access or modify resources in Tenant B. This is enforced via `AuthMiddleware` derive tenant context and `HasPermission` scope context validation.

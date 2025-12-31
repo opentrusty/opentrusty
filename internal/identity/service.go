@@ -19,6 +19,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/opentrusty/opentrusty/internal/audit"
@@ -179,26 +180,32 @@ func NewService(
 }
 
 // ProvisionIdentity creates a new user identity without credentials
-func (s *Service) ProvisionIdentity(ctx context.Context, tenantID, email string, profile Profile) (*User, error) {
+func (s *Service) ProvisionIdentity(ctx context.Context, email string, profile Profile) (*User, error) {
 	// Validate email
 	if !isValidEmail(email) {
 		return nil, ErrInvalidEmail
 	}
 
 	// Check if user already exists
-	var tID *string
-	if tenantID != "" {
-		tID = &tenantID
-	}
-	existing, err := s.repo.GetByEmail(tID, email)
+	existing, err := s.repo.GetByEmail(email)
 	if err == nil && existing != nil {
 		return nil, ErrUserAlreadyExists
 	}
 
 	// Create user
+	if profile.Picture == "" {
+		profile.Picture = GenerateRandomAvatar(email)
+	}
+	if profile.Nickname == "" {
+		// Use email prefix as nickname if not provided
+		parts := strings.Split(email, "@")
+		if len(parts) > 0 {
+			profile.Nickname = parts[0]
+		}
+	}
+
 	user := &User{
 		ID:            id.NewUUIDv7(),
-		TenantID:      tID,
 		Email:         email,
 		EmailVerified: false,
 		Profile:       profile,
@@ -236,31 +243,50 @@ func (s *Service) AddPassword(ctx context.Context, userID, password string) erro
 	return nil
 }
 
-// Authenticate authenticates a user with email and password
-func (s *Service) Authenticate(ctx context.Context, tenantID, email, password string) (*User, error) {
-	// Get user by email
-	var user *User
-	var err error
-
-	fmt.Printf("DEBUG: Authenticate called for email=%s tenantID='%s'\n", email, tenantID)
-
-	if tenantID == "" {
-		// Global lookup for Control Plane login
-		fmt.Println("DEBUG: Using GetByEmailGlobal")
-		user, err = s.repo.GetByEmailGlobal(email)
-	} else {
-		// Scoped lookup for specific tenant context
-		fmt.Println("DEBUG: Using GetByEmail (Scoped)")
-		tID := &tenantID
-		user, err = s.repo.GetByEmail(tID, email)
+// SetPassword sets or updates a user's password without requiring the old password (administrative action)
+func (s *Service) SetPassword(ctx context.Context, userID, password string) error {
+	// Validate password strength
+	if !isStrongPassword(password) {
+		return ErrWeakPassword
 	}
 
+	// Hash password
+	passwordHash, err := s.hasher.Hash(password)
 	if err != nil {
-		fmt.Printf("DEBUG: Lookup failed: %v\n", err)
+		return fmt.Errorf("failed to hash password: %w", err)
+	}
+
+	// Check if credentials exist
+	_, err = s.repo.GetCredentials(userID)
+	if err != nil {
+		if err == ErrUserNotFound {
+			// Add new credentials
+			credentials := &Credentials{
+				UserID:       userID,
+				PasswordHash: passwordHash,
+			}
+			return s.repo.AddCredentials(credentials)
+		}
+		return fmt.Errorf("failed to check existing credentials: %w", err)
+	}
+
+	// Update existing credentials
+	if err := s.repo.UpdatePassword(userID, passwordHash); err != nil {
+		return fmt.Errorf("failed to update credentials: %w", err)
+	}
+
+	return nil
+}
+
+// Authenticate authenticates a user with email and password
+func (s *Service) Authenticate(ctx context.Context, email, password string) (*User, error) {
+	// Get user by email globally
+	user, err := s.repo.GetByEmail(email)
+
+	if err != nil {
 		// Audit failed attempt (unknown user)
 		s.auditLogger.Log(ctx, audit.Event{
 			Type:     audit.TypeLoginFailed,
-			TenantID: tenantID,
 			Resource: email,
 			Metadata: map[string]any{audit.AttrReason: "user_not_found"},
 		})
@@ -271,7 +297,6 @@ func (s *Service) Authenticate(ctx context.Context, tenantID, email, password st
 	if user.LockedUntil != nil && user.LockedUntil.After(time.Now()) {
 		s.auditLogger.Log(ctx, audit.Event{
 			Type:     audit.TypeLoginFailed,
-			TenantID: tenantID,
 			ActorID:  user.ID,
 			Resource: "login",
 			Metadata: map[string]any{audit.AttrReason: "locked_out"},
@@ -298,7 +323,6 @@ func (s *Service) Authenticate(ctx context.Context, tenantID, email, password st
 			// Audit lockout
 			s.auditLogger.Log(ctx, audit.Event{
 				Type:     audit.TypeUserLocked,
-				TenantID: tenantID,
 				ActorID:  user.ID,
 				Resource: "login",
 				Metadata: map[string]any{audit.AttrAttempts: newAttempts},
@@ -311,7 +335,6 @@ func (s *Service) Authenticate(ctx context.Context, tenantID, email, password st
 		// Audit failed attempt
 		s.auditLogger.Log(ctx, audit.Event{
 			Type:     audit.TypeLoginFailed,
-			TenantID: tenantID,
 			ActorID:  user.ID,
 			Resource: "login",
 			Metadata: map[string]any{
@@ -330,30 +353,19 @@ func (s *Service) Authenticate(ctx context.Context, tenantID, email, password st
 
 	// Audit success
 	s.auditLogger.Log(ctx, audit.Event{
-		Type:     audit.TypeLoginSuccess,
-		TenantID: tenantID,
-		ActorID:  user.ID,
-		Resource: "login",
+		Type:       audit.TypeLoginSuccess,
+		ActorID:    user.ID,
+		Resource:   "login",
+		TargetID:   user.ID,
+		TargetName: user.Email,
 	})
 
 	return user, nil
 }
 
-// GetByEmail retrieves a user by email
-func (s *Service) GetByEmail(ctx context.Context, tenantID, email string) (*User, error) {
-	var tID *string
-	if tenantID != "" {
-		tID = &tenantID
-	}
-	user, err := s.repo.GetByEmail(tID, email)
-	if err != nil {
-		// Can't distinguish between not found and error comfortably without error wrapping check
-		// But GetByEmail usually returns error if not found?
-		// Repo implementation might vary, but usually ErrUserNotFound is acceptable bubbling up?
-		// Postgres implementation seemed to return error on NoRows.
-		return nil, err
-	}
-	return user, nil
+// GetByEmail retrieves a user by email globally
+func (s *Service) GetByEmail(ctx context.Context, email string) (*User, error) {
+	return s.repo.GetByEmail(email)
 }
 
 // GetUser retrieves a user by ID

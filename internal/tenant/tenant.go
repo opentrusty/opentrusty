@@ -42,3 +42,18 @@ const (
 	StatusActive   = "active"
 	StatusInactive = "inactive"
 )
+
+// TenantMetrics represents summary statistics for a tenant
+type TenantMetrics struct {
+	TotalUsers    int `json:"total_users"`
+	TotalClients  int `json:"total_clients"`
+	AuditCount24h int `json:"audit_count_24h"`
+}
+
+// Membership represents a user's membership in a tenant
+type Membership struct {
+	ID        string    `json:"id"`
+	TenantID  string    `json:"tenant_id"`
+	UserID    string    `json:"user_id"`
+	CreatedAt time.Time `json:"created_at"`
+}

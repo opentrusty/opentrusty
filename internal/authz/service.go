@@ -157,16 +157,22 @@ func (s *Service) HasPermission(ctx context.Context, userID string, scope Scope,
 		return false, fmt.Errorf("failed to get user assignments: %w", err)
 	}
 
+	// DEBUG LOGGING
+	fmt.Printf("DEBUG HasPermission: User=%s Scope=%s Permission=%s AssignmentsCount=%d\n", userID, scope, permission, len(assignments))
+
 	for _, a := range assignments {
-		// Scope check: assignment scope must be same as requested, OR assignment is platform scope
-		// (Platform admin has all permissions at all scopes? Or explicit?
-		// Requirement: "Use scoped authorization (platform scope)".
-		// Let's stick to explicit match or platform-to-any if that's the model.
-		// For now: exact match or platform scope.
+		// DEBUG
+		ctxID := "nil"
+		if a.ScopeContextID != nil {
+			ctxID = *a.ScopeContextID
+		}
+		fmt.Printf("  -> Checking Assignment: GrantedRole=%s Scope=%s Context=%s\n", a.RoleID, a.Scope, ctxID)
+
+		// Scope check: assignment scope must match requested scope exactly.
+		// Platform scope does NOT automatically grant tenant permissions.
+		// Platform admins must use explicit cross-tenant access flows.
 		match := false
-		if a.Scope == ScopePlatform {
-			match = true
-		} else if a.Scope == scope {
+		if a.Scope == scope {
 			if a.ScopeContextID != nil && scopeContextID != nil && *a.ScopeContextID == *scopeContextID {
 				match = true
 			} else if a.ScopeContextID == nil && scopeContextID == nil {
@@ -175,19 +181,29 @@ func (s *Service) HasPermission(ctx context.Context, userID string, scope Scope,
 		}
 
 		if !match {
+			// DEBUG
+			fmt.Println("     -> No scope match")
 			continue
 		}
 
 		role, err := s.roleRepo.GetByID(a.RoleID)
 		if err != nil {
+			fmt.Printf("     -> Failed to get role %s: %v\n", a.RoleID, err)
 			continue
 		}
 
+		// DEBUG
+		fmt.Printf("     -> Role found: %s (Permissions: %v)\n", role.Name, role.Permissions)
+
 		if role.HasPermission(permission) {
+			fmt.Printf("     -> Permission GRANTED via role %s\n", role.Name)
 			return true, nil
+		} else {
+			fmt.Printf("     -> Role %s does NOT have permission %s\n", role.Name, permission)
 		}
 	}
 
+	fmt.Println("DEBUG HasPermission: DENIED")
 	return false, nil
 }
 

@@ -100,6 +100,9 @@ type AssignmentRepository interface {
 
 	// CheckExists checks if a specific assignment exists
 	CheckExists(roleID string, scope Scope, scopeContextID *string) (bool, error)
+
+	// DeleteByContextID removes all assignments for a specific scope and context
+	DeleteByContextID(scope Scope, contextID string) error
 }
 
 // ProjectRepository defines the interface for project persistence

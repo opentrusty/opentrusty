@@ -84,6 +84,8 @@ OpenTrusty is configured exclusively via environment variables. There are no def
 | `DB_URL` | Postgres connection string | `postgres://opentrusty:password@localhost:5432/opentrusty` |
 | `PORT` | Listening port (default: 8080) | `8080` |
 | `ISSUER` | OIDC Issuer URL | `https://auth.example.com` |
+| `OPENID_KEY_ENCRYPTION_KEY` | Key for OIDC client secrets | `32-char-random-string` |
+| `AUDIT_QUERY_SIGNING_KEY` | Key for audit query tokens | `secure-random-string` |
 
 ---
 

@@ -74,8 +74,9 @@ type Handler struct {
 	auditLogger     audit.Logger
 	auditRepo       audit.Repository
 	// Configuration
-	sessionConfig SessionConfig
-	mode          string // "auth", "admin", or "all"
+	sessionConfig        SessionConfig
+	auditQuerySigningKey []byte
+	mode                 string // "auth", "admin", or "all"
 }
 
 // SessionConfig holds session cookie configuration
@@ -99,19 +100,21 @@ func NewHandler(
 	auditLogger audit.Logger,
 	auditRepo audit.Repository,
 	sessionConfig SessionConfig,
+	auditQuerySigningKey []byte,
 	mode string,
 ) *Handler {
 	return &Handler{
-		identityService: identityService,
-		sessionService:  sessionService,
-		oauth2Service:   oauth2Service,
-		authzService:    authzService,
-		tenantService:   tenantService,
-		oidcService:     oidcService,
-		auditLogger:     auditLogger,
-		auditRepo:       auditRepo,
-		sessionConfig:   sessionConfig,
-		mode:            mode,
+		identityService:      identityService,
+		sessionService:       sessionService,
+		oauth2Service:        oauth2Service,
+		authzService:         authzService,
+		tenantService:        tenantService,
+		oidcService:          oidcService,
+		auditLogger:          auditLogger,
+		auditRepo:            auditRepo,
+		sessionConfig:        sessionConfig,
+		auditQuerySigningKey: auditQuerySigningKey,
+		mode:                 mode,
 	}
 }
 
@@ -184,6 +187,10 @@ func NewRouter(h *Handler, rateLimiter *RateLimiter, mode string) *chi.Mux {
 
 				// Audit Logs (Platform-level)
 				r.Get("/audit", h.ListPlatformAuditEvents)
+				r.Route("/audit-queries", func(r chi.Router) {
+					r.Post("/", h.CreateAuditQuery)
+					r.Get("/{queryID}/results", h.GetAuditQueryResult)
+				})
 				r.Get("/metrics", h.GetPlatformMetrics)
 
 				// Tenant management (Platform & Tenant assignments)
@@ -201,12 +208,19 @@ func NewRouter(h *Handler, rateLimiter *RateLimiter, mode string) *chi.Mux {
 								next.ServeHTTP(w, r.WithContext(ctx))
 							})
 						})
+						r.Get("/", h.GetTenant)
+						r.Patch("/", h.UpdateTenant)
+						r.Delete("/", h.DeleteTenant)
+						r.Get("/metrics", h.GetTenantMetrics)
 						r.Route("/users", func(r chi.Router) {
 							r.Get("/", h.ListTenantUsers)
 							r.Post("/", h.ProvisionTenantUser)
-							r.Route("/{userID}/roles", func(r chi.Router) {
-								r.Post("/", h.AssignTenantRole)
-								r.Delete("/{role}", h.RevokeTenantRole)
+							r.Route("/{userID}", func(r chi.Router) {
+								r.Patch("/", h.UpdateTenantUser)
+								r.Route("/roles", func(r chi.Router) {
+									r.Post("/", h.AssignTenantRole)
+									r.Delete("/{role}", h.RevokeTenantRole)
+								})
 							})
 						})
 						// OAuth2 Client Management
@@ -284,6 +298,7 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		"user_agent", r.UserAgent(),
 	)
 
+	setNoCache(w)
 	respondError(w, http.StatusForbidden, "anonymous registration is disabled; admin accounts must be provisioned by platform administrators")
 }
 
@@ -313,10 +328,12 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 			"ip_address", getIPAddress(r),
 			"user_agent", r.UserAgent(),
 		)
+		setNoCache(w)
 		respondError(w, http.StatusBadRequest, "tenant context must not be provided; derived from user record post-authentication")
 		return
 	}
 
+	setNoCache(w)
 	var req LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, http.StatusBadRequest, "invalid request")
@@ -328,8 +345,8 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	// - Derive tenant_id from authenticated user record
 	// - Only allow admin-capable roles
 
-	// Use Authenticate with empty string tenant for global lookup
-	user, err := h.identityService.Authenticate(r.Context(), "", req.Email, req.Password)
+	// Use Authenticate globally
+	user, err := h.identityService.Authenticate(r.Context(), req.Email, req.Password)
 	if err != nil {
 		h.auditLogger.Log(r.Context(), audit.Event{
 			Type:     audit.TypeLoginFailed,
@@ -340,40 +357,26 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Extract tenant for audit and permission checks
-	userTenantID := ""
-	if user.TenantID != nil {
-		userTenantID = *user.TenantID
-	}
-
-	// Control Plane Authorization: Only admin-capable users can login to UI
-	// Members authenticate via OAuth2 flows to external applications
-	hasAdminRole := false
-
-	// Check platform-level admin permissions
-	isPlatformAdmin, err := h.authzService.HasPermission(r.Context(), user.ID, authz.ScopePlatform, nil, authz.PermPlatformManageTenants)
-	if err == nil && isPlatformAdmin {
-		hasAdminRole = true
-	}
-
-	// Check tenant-level admin permissions
-	if !hasAdminRole && userTenantID != "" {
-		isTenantAdmin, err := h.authzService.HasPermission(r.Context(), user.ID, authz.ScopeTenant, &userTenantID, authz.PermTenantManageUsers)
-		if err == nil && isTenantAdmin {
-			hasAdminRole = true
-		}
-	}
-
-	if !hasAdminRole {
+	// Control Plane Authorization: Only users with control_plane:login permission can login to UI
+	allowed, err := h.authzService.HasPermissionAny(r.Context(), user.ID, authz.PermControlPlaneLogin)
+	if err != nil || !allowed {
 		h.auditLogger.Log(r.Context(), audit.Event{
-			Type:     audit.TypeLoginFailed,
-			TenantID: userTenantID,
 			ActorID:  user.ID,
 			Resource: req.Email,
 			Metadata: map[string]any{audit.AttrReason: "insufficient_privileges"},
 		})
-		respondError(w, http.StatusForbidden, "access denied: admin role required for UI login")
+		respondError(w, http.StatusForbidden, "access denied: administrative login permission required")
 		return
+	}
+
+	// Capture tenant context if user has a tenant-scoped role
+	var userTenantID *string
+	assignments, _ := h.authzService.GetUserRoleAssignments(r.Context(), user.ID)
+	for _, a := range assignments {
+		if a.Scope == string(authz.ScopeTenant) && a.Context != nil {
+			userTenantID = a.Context
+			break // Use first tenant context found for session tagging
+		}
 	}
 
 	// Session Rotation (Hardening Step): Destroy old session if it exists
@@ -388,10 +391,10 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		namespace = "auth"
 	}
 
-	// Create session with immutable tenant_id from user record
+	// Create session with derived tenant_id (if any)
 	sess, err := h.sessionService.Create(
 		r.Context(),
-		user.TenantID,
+		userTenantID,
 		user.ID,
 		getIPAddress(r),
 		r.UserAgent(),
@@ -405,11 +408,20 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 
 	h.setSessionCookie(w, sess.ID)
 
+	slog.InfoContext(r.Context(), "session created", "session_id", sess.ID, "user_id", user.ID)
+
+	auditTenant := ""
+	if userTenantID != nil {
+		auditTenant = *userTenantID
+	}
+
 	h.auditLogger.Log(r.Context(), audit.Event{
-		Type:      audit.TypeLoginSuccess,
-		TenantID:  userTenantID,
-		ActorID:   user.ID,
-		Resource:  audit.ResourceSession,
+		Type:       audit.TypeLoginSuccess,
+		TenantID:   auditTenant,
+		ActorID:    user.ID,
+		Resource:   audit.ResourceSession,
+		TargetID:   user.ID,
+		TargetName: user.Email,
 		IPAddress: getIPAddress(r),
 		UserAgent: r.UserAgent(),
 		Metadata:  map[string]any{audit.AttrSessionID: sess.ID},
@@ -432,6 +444,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 // @Failure 401 {object} map[string]string
 // @Router /auth/logout [post]
 func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
+	setNoCache(w)
 	sessionID := h.getSessionFromCookie(r)
 	if sessionID == "" {
 		respondError(w, http.StatusUnauthorized, "not authenticated")
@@ -446,10 +459,15 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 		}
 
 		h.auditLogger.Log(r.Context(), audit.Event{
-			Type:      audit.TypeLogout,
-			TenantID:  sessionTenant,
-			ActorID:   sess.UserID,
-			Resource:  audit.ResourceSession,
+			Type:       audit.TypeLogout,
+			TenantID:   sessionTenant,
+			ActorID:    sess.UserID,
+			Resource:   audit.ResourceSession,
+			TargetID:   sess.UserID,
+			TargetName: (func() string { 
+				 if u, err := h.identityService.GetUser(r.Context(), sess.UserID); err == nil { return u.Email }
+				 return sess.UserID
+			})(),
 			IPAddress: getIPAddress(r),
 			UserAgent: r.UserAgent(),
 			Metadata:  map[string]any{"session_id": sess.ID},
@@ -595,6 +613,15 @@ func (h *Handler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.auditLogger.Log(r.Context(), audit.Event{
+		Type:      audit.TypeUserUpdated,
+		TenantID:  GetTenantID(r.Context()),
+		ActorID:   userID,
+		Resource:  audit.ResourceUser,
+		IPAddress: getIPAddress(r),
+		UserAgent: r.UserAgent(),
+	})
+
 	respondJSON(w, http.StatusOK, map[string]string{
 		"message": "profile updated successfully",
 	})
@@ -708,16 +735,18 @@ func (h *Handler) setSessionCookie(w http.ResponseWriter, sessionID string) {
 		HttpOnly: h.sessionConfig.CookieHTTPOnly,
 		SameSite: h.sessionConfig.CookieSameSite,
 		MaxAge:   86400, // 24 hours
+		Expires:  time.Now().Add(24 * time.Hour),
 	})
 }
 
 func (h *Handler) clearSessionCookie(w http.ResponseWriter) {
 	http.SetCookie(w, &http.Cookie{
-		Name:   h.sessionConfig.CookieName,
-		Value:  "",
-		Path:   h.sessionConfig.CookiePath,
-		Domain: h.sessionConfig.CookieDomain,
-		MaxAge: -1,
+		Name:    h.sessionConfig.CookieName,
+		Value:   "",
+		Path:    h.sessionConfig.CookiePath,
+		Domain:  h.sessionConfig.CookieDomain,
+		MaxAge:  -1,
+		Expires: time.Unix(0, 0), // Ensure backward compatibility with older browsers
 	})
 }
 
@@ -739,6 +768,12 @@ func respondError(w http.ResponseWriter, status int, message string) {
 	respondJSON(w, status, map[string]string{
 		"error": message,
 	})
+}
+
+func setNoCache(w http.ResponseWriter) {
+	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+	w.Header().Set("Pragma", "no-cache")
+	w.Header().Set("Expires", "0")
 }
 
 func getIPAddress(r *http.Request) string {

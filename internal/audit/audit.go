@@ -38,19 +38,31 @@ const (
 	TypeLogout                 = "logout"
 	TypePlatformAdminBootstrap = "platform_admin_bootstrap"
 	TypeTenantCreated          = "tenant_created"
+	TypeTenantUpdated          = "tenant_updated"
+	TypeTenantDeleted          = "tenant_deleted"
+	TypeClientDeleted          = "client_deleted"
+	TypeClientUpdated          = "client_updated"
+	TypeUserUpdated            = "user_updated"
+	// TypeAuditRead is emitted when a platform admin accesses tenant audit logs
+	TypeAuditRead = "audit.read"
+	// TypeAuditReadCrossTenant is emitted when a platform admin declares intent for cross-tenant audit access
+	TypeAuditReadCrossTenant = "audit.read.cross_tenant"
 )
 
 // Standard audit attribute keys
 const (
-	AttrAuditType = "audit_type"
-	AttrTenantID  = "tenant_id"
-	AttrActorID   = "actor_id"
-	AttrResource  = "resource"
-	AttrTimestamp = "timestamp"
-	AttrIPAddress = "ip_address"
-	AttrUserAgent = "user_agent"
-	AttrComponent = "component"
-	AttrMetadata  = "metadata"
+	AttrAuditType  = "audit_type"
+	AttrTenantID   = "tenant_id"
+	AttrActorID    = "actor_id"
+	AttrActorName  = "actor_name"
+	AttrResource   = "resource"
+	AttrTargetName = "target_name"
+	AttrTargetID   = "target_id"
+	AttrTimestamp  = "timestamp"
+	AttrIPAddress  = "ip_address"
+	AttrUserAgent  = "user_agent"
+	AttrComponent  = "component"
+	AttrMetadata   = "metadata"
 )
 
 // Common Resource Types
@@ -82,16 +94,18 @@ const (
 
 // Event represents an auditable action
 type Event struct {
-	ID        string
-	Type      string
-	TenantID  string
-	ActorID   string
-	ActorName string
-	Resource  string
-	Metadata  map[string]any
-	Timestamp time.Time
-	IPAddress string
-	UserAgent string
+	ID         string         `json:"id"`
+	Type       string         `json:"type"`
+	TenantID   string         `json:"tenant_id"`
+	ActorID    string         `json:"actor_id"`
+	ActorName  string         `json:"actor_name"`
+	Resource   string         `json:"resource"`
+	TargetName string         `json:"target_name"`
+	TargetID   string         `json:"target_id"`
+	Metadata   map[string]any `json:"metadata"`
+	Timestamp  time.Time      `json:"created_at"` // Match frontend expectation
+	IPAddress  string         `json:"ip_address"`
+	UserAgent  string         `json:"user_agent"`
 }
 
 // Logger defines the interface for audit logging
@@ -138,7 +152,10 @@ func (l *SlogLogger) Log(ctx context.Context, event Event) {
 		slog.String(AttrAuditType, event.Type),
 		slog.String(AttrTenantID, event.TenantID),
 		slog.String(AttrActorID, event.ActorID),
+		slog.String(AttrActorName, event.ActorName),
 		slog.String(AttrResource, event.Resource),
+		slog.String(AttrTargetName, event.TargetName),
+		slog.String(AttrTargetID, event.TargetID),
 		slog.Time(AttrTimestamp, event.Timestamp),
 	}
 
@@ -182,6 +199,11 @@ func NewRepositoryLogger(repo Repository) *RepositoryLogger {
 
 // Log records an audit event to both Slog and Repository
 func (l *RepositoryLogger) Log(ctx context.Context, event Event) {
+	// Ensure timestamp is set before processing
+	if event.Timestamp.IsZero() {
+		event.Timestamp = time.Now()
+	}
+
 	// 1. Log to Slog (Stdout)
 	l.slog.Log(ctx, event)
 

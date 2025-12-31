@@ -268,5 +268,6 @@ func createMinimalHandler(t *testing.T) *Handler {
 			CookieHTTPOnly: true,
 			CookieSameSite: http.SameSiteLaxMode,
 		},
+		auditQuerySigningKey: []byte("test-signing-key"),
 	}
 }

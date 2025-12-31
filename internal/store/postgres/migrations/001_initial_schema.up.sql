@@ -67,14 +67,11 @@ CREATE TABLE IF NOT EXISTS tenants (
     deleted_at TIMESTAMP
 );
 
--- Users Table (Identities)
--- NOTE: tenant_id is NULLABLE for Platform Admins. 
--- Tenant Users MUST have a tenant_id.
--- Platform Admin privileges are derived from rbac_assignments, NOT from tenant_id.
+-- Users Table (Global Identity)
+-- Privileges are derived from rbac_assignments.
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY,
-    tenant_id UUID REFERENCES tenants(id) ON DELETE RESTRICT,
-    email VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL UNIQUE,
     email_verified BOOLEAN NOT NULL DEFAULT FALSE,
     
     -- Profile information
@@ -94,11 +91,22 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP,
     
-    -- Ensure email is unique per tenant
-    UNIQUE(tenant_id, email)
+    -- Identity is global
+    UNIQUE(email)
 );
 
-CREATE INDEX IF NOT EXISTS idx_users_tenant_id ON users(tenant_id);
+-- Tenant Membership (Relationship)
+CREATE TABLE IF NOT EXISTS tenant_members (
+    id UUID PRIMARY KEY,
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(tenant_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_tenant_members_user_id ON tenant_members(user_id);
+CREATE INDEX IF NOT EXISTS idx_tenant_members_tenant_id ON tenant_members(tenant_id);
+
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_users_deleted_at ON users(deleted_at);
 
@@ -256,6 +264,8 @@ CREATE TABLE IF NOT EXISTS audit_events (
     tenant_id VARCHAR(255), -- Use VARCHAR to support potentially deleted UUIDs or system identifiers
     actor_id VARCHAR(255),  -- Use VARCHAR to support non-UUID actors or system keys
     resource VARCHAR(255) NOT NULL,
+    target_name VARCHAR(255),
+    target_id VARCHAR(255),
     ip_address VARCHAR(45),
     user_agent TEXT,
     metadata JSONB,
@@ -305,7 +315,8 @@ INSERT INTO rbac_permissions (id, name, description) VALUES
     ('10000000-0000-0000-0000-000000000013', 'user:change_password', 'Change own password'),
     ('10000000-0000-0000-0000-000000000014', 'user:manage_sessions', 'Manage own sessions'),
     ('10000000-0000-0000-0000-000000000015', 'client:token_introspect', 'Introspect tokens'),
-    ('10000000-0000-0000-0000-000000000016', 'client:token_revoke', 'Revoke tokens')
+    ('10000000-0000-0000-0000-000000000016', 'client:token_revoke', 'Revoke tokens'),
+    ('10000000-0000-0000-0000-000000000017', 'control_plane:login', 'Allows logging into the Control Panel UI')
 ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, description = EXCLUDED.description;
 
 -- Seed Scoped Roles
@@ -332,7 +343,8 @@ INSERT INTO rbac_role_permissions (role_id, permission_id) VALUES
     ('20000000-0000-0000-0000-000000000004', '10000000-0000-0000-0000-000000000011'),
     ('20000000-0000-0000-0000-000000000004', '10000000-0000-0000-0000-000000000012'),
     ('20000000-0000-0000-0000-000000000004', '10000000-0000-0000-0000-000000000013'),
-    ('20000000-0000-0000-0000-000000000004', '10000000-0000-0000-0000-000000000014')
+    ('20000000-0000-0000-0000-000000000004', '10000000-0000-0000-0000-000000000014'),
+    ('20000000-0000-0000-0000-000000000004', '10000000-0000-0000-0000-000000000017')
 ON CONFLICT DO NOTHING;
 
 -- Tenant Admin: Tenant-level management + User self-service permissions
@@ -347,7 +359,8 @@ INSERT INTO rbac_role_permissions (role_id, permission_id) VALUES
     ('20000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000011'),
     ('20000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000012'),
     ('20000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000013'),
-    ('20000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000014')
+    ('20000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000014'),
+    ('20000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000017')
 ON CONFLICT DO NOTHING;
 
 -- Member role: Basic self-service permissions
